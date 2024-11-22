@@ -184,6 +184,7 @@ class FakeClock(timer.Clock):
         for i in range(ticks):
             self._time += delta
             time.sleep(0)
+        time.sleep(0.001)
 
     def time(self) -> float:
         return self._time
@@ -214,4 +215,3 @@ def td(s: str | datetime.timedelta) -> datetime.timedelta:
 
 if __name__ == '__main__':
     unittest.main()
-
