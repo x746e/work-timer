@@ -1,6 +1,5 @@
 [project]
 name = "work_timer"
-version = "0.1.0"
 description = "Default template for PDM package"
 authors = [
     {name = "Kirill Spitsyn", email = "k@spitsyn.me"},
@@ -9,10 +8,7 @@ dependencies = ["pytest>=8.3.3", "mypy>=1.13.0", "pyright>=1.1.389", "ruff>=0.7.
 requires-python = ">=3.13"
 readme = "README.md"
 license = {text = "MIT"}
-
-
-[tool.pdm]
-distribution = false
+dynamic = ["version"]
 
 
 [tool.pylint.main]

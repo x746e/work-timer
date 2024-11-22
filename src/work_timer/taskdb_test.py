@@ -1,6 +1,6 @@
 import unittest
 
-import taskdb
+from work_timer import taskdb
 
 
 class TaskDBTest(unittest.TestCase):
