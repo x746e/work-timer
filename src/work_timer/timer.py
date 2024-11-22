@@ -111,42 +111,6 @@ class Timer:
         self._on_period_end_callback = callback
 
 
-import sys
-import trace
-
-class Trace:
-
-    def __enter__(self):
-        self.tracer = trace.Trace(count=1, trace=True)
-        sys.settrace(self.tracer.globaltrace)
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        sys.settrace(None)
-        self.tracer.results().write_results(show_missing=True, summary=True)
-
-
-import cProfile
-import pstats
-import io
-
-class ProfileContextManager:
-    def __init__(self, sort_by='tottime'):
-        self.profiler = cProfile.Profile()
-        self.sort_by = sort_by
-
-    def __enter__(self):
-        self.profiler.enable()
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.profiler.disable()
-        s = io.StringIO()
-        ps = pstats.Stats(self.profiler, stream=s).sort_stats(self.sort_by)
-        ps.print_stats()
-        print(s.getvalue())
-
-
 class Clock(Protocol):
     def time(self) -> float:
         ...
