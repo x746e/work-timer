@@ -8,6 +8,8 @@ import weakref
 from collections.abc import Callable
 from typing import Protocol
 
+from utils.profiling import TimeFunctionCalls
+
 
 class Timer:
 
@@ -38,12 +40,10 @@ class Timer:
                 action=weakref.WeakMethod(self._on_period_end)())
         self._thread = threading.Thread(target=self._scheduler.run)
         self._thread.start()
-        # print('_sched_period_end:', f'{self._evt_id=}; {len(self._scheduler._queue)=}')
 
     def _cancel_period_end(self):
         assert self._evt_id is not None
         self._scheduler.cancel(self._evt_id)
-        # print('_cancel_period_end:', f'{self._evt_id=}; {len(self._scheduler._queue)=}')
         self._evt_id = None
 
     def _on_period_end(self):
@@ -61,9 +61,14 @@ class Timer:
         assert self._started_at is not None
         assert self._period_left is not None
         elapsed_seconds = self._clock.time() - self._started_at
-        self._elapsed_seconds += elapsed_seconds
-        self._period_left -= elapsed_seconds
-        assert self._period_left >= 0, f'Invalid {self._period_left=}'
+        if elapsed_seconds > self._period_left:
+            # If the _on_period_end got executed a bit later than the scheduled
+            # end time...
+            self._elapsed_seconds += self._period_left
+            self._period_left = 0
+        else:
+            self._elapsed_seconds += elapsed_seconds
+            self._period_left -= elapsed_seconds
 
     def _stop(self):
         if self._status == Status.STOPPED:
@@ -119,6 +124,27 @@ class Trace:
     def __exit__(self, exc_type, exc_value, traceback):
         sys.settrace(None)
         self.tracer.results().write_results(show_missing=True, summary=True)
+
+
+import cProfile
+import pstats
+import io
+
+class ProfileContextManager:
+    def __init__(self, sort_by='tottime'):
+        self.profiler = cProfile.Profile()
+        self.sort_by = sort_by
+
+    def __enter__(self):
+        self.profiler.enable()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.profiler.disable()
+        s = io.StringIO()
+        ps = pstats.Stats(self.profiler, stream=s).sort_stats(self.sort_by)
+        ps.print_stats()
+        print(s.getvalue())
 
 
 class Clock(Protocol):
@@ -318,11 +344,10 @@ class FakeClock(Clock):
         self._time = 0.
         self._stopped = False
 
-    def advance(self, delta: datetime.timedelta | str):
-        delta = td(delta).seconds
-        print(delta)
-        for i in range(int(delta)):
-            self._time += 1
+    def advance(self, delta: datetime.timedelta | str, ticks=30):
+        delta = td(delta).seconds / ticks
+        for i in range(ticks):
+            self._time += delta
             time.sleep(0)
 
     def time(self) -> float:
@@ -336,10 +361,7 @@ class FakeClock(Clock):
     def stop(self):
         # Move forward for a bit, to allow callbacks to fire.
         self._stopped = True
-        for i in range(1000):
-            self._time += 1
-            time.sleep(0)
-        time.sleep(.00001)
+        self.advance('1h')
         self._time = 2**32
 
 

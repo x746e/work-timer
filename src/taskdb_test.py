@@ -67,3 +67,7 @@ class TaskDBTest(unittest.TestCase):
 
         self.assertCountEqual([id_a, id_b], tasks.keys())
         self.assertCountEqual([task_a.title, task_b.title], [t.title for t in tasks.values()])
+
+
+if __name__ == '__main__':
+    unittest.main()
