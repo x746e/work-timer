@@ -1,3 +1,4 @@
+"""Tests for work_timer.timer."""
 import datetime
 import time
 import unittest
@@ -161,7 +162,7 @@ class CallbackTest(unittest.TestCase):
     def test_callback_gets_called(self):
         t = timer.Timer(clock=self._clock)
         callback_called = False
-        def callback(s: timer.TimerState):
+        def callback(unused_s: timer.TimerState):
             nonlocal callback_called
             callback_called = True
         t.set_on_period_end_callback(callback)
@@ -174,6 +175,11 @@ class CallbackTest(unittest.TestCase):
 
 
 class FakeClock(timer.Clock):
+    """A fake implementation of timer.Clock iface.
+
+    Allows to test the code that calls `time.sleep` and `time.time`, without
+    actually waiting for time to pass.
+    """
 
     def __init__(self):
         self._time = 0.
@@ -181,7 +187,7 @@ class FakeClock(timer.Clock):
 
     def advance(self, delta: datetime.timedelta | str, ticks=30):
         inc = td(delta).seconds / ticks
-        for i in range(ticks):
+        for _ in range(ticks):
             self._time += inc
             time.sleep(0)
         time.sleep(0.001)
@@ -189,7 +195,7 @@ class FakeClock(timer.Clock):
     def time(self) -> float:
         return self._time
 
-    def sleep(self, seconds: float):
+    def sleep(self, seconds: float, /):
         until = self._time + seconds
         while self._time < until and not self._stopped:
             pass

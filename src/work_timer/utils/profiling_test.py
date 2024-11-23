@@ -1,3 +1,4 @@
+"""Tests for work_timer.utils.profiling."""
 import ast
 import inspect
 import time
