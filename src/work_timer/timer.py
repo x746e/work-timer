@@ -1,3 +1,4 @@
+"""This module contains Timer, the class responsible for timing the work periods."""
 import datetime
 import dataclasses
 import enum
@@ -10,6 +11,8 @@ from typing import Protocol
 
 
 class Timer:
+    """The timer.
+    """
 
     def __init__(self, clock: 'Clock' = time):
         self._clock = clock

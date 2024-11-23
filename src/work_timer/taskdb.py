@@ -2,10 +2,8 @@ import copy
 from dataclasses import dataclass
 import threading
 
-from typing import TypeAlias
 
-
-TaskID: TypeAlias = int
+type TaskID = int  # pylint: disable=invalid-name
 
 
 _UNSET_TASK_ID = -1

@@ -8,7 +8,11 @@ import unittest
 from work_timer.utils import profiling
 
 
-class approx:
+class approx:  # pylint: disable=invalid-name
+    """Equals appoximately to its `n` argument.
+
+    Useful for rough comparisons inside unittests.
+    """
 
     def __init__(self, n, eps=0.1):
         self.n = n
@@ -22,6 +26,7 @@ class approx:
 
 
 class TestTimeFunctionCalls(unittest.TestCase):
+    # pylint: disable=disallowed-name
 
     def test_the_simplest_call(self):
         def bar():
@@ -75,9 +80,10 @@ class TestTimeFunctionCalls(unittest.TestCase):
 
 
 class TestResovleCallArg(unittest.TestCase):
-    
+
     @typing.no_type_check
     def test_resolving_constant(self):
+        # pylint: disable=protected-access
         f = inspect.currentframe()
         num = ast.parse('42').body[0].value
         self.assertEqual(profiling._resolve_call_arg(num, f), 42)

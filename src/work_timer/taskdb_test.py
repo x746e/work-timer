@@ -1,3 +1,4 @@
+"""Tests for work_timer.taskdb."""
 import unittest
 
 from work_timer import taskdb
