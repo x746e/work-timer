@@ -8,8 +8,6 @@ import weakref
 from collections.abc import Callable
 from typing import Protocol
 
-from work_timer.utils.profiling import TimeFunctionCalls
-
 
 class Timer:
 
@@ -35,9 +33,11 @@ class Timer:
 
     def _sched_period_end(self, delay: float):
         assert self._evt_id is None
+        on_period_end = weakref.WeakMethod(self._on_period_end)()
+        assert on_period_end is not None  # to make pyright happy.
         self._evt_id = self._scheduler.enter(
                 delay=delay, priority=1,
-                action=weakref.WeakMethod(self._on_period_end)())
+                action=on_period_end)
         self._thread = threading.Thread(target=self._scheduler.run)
         self._thread.start()
 
@@ -94,6 +94,7 @@ class Timer:
         assert self._status == Status.PAUSED
         self._status = Status.RUNNING
         self._started_at = self._clock.time()
+        assert self._period_left is not None
         self._sched_period_end(self._period_left)
 
     def get_state(self) -> 'TimerState':

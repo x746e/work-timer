@@ -1,7 +1,7 @@
 import ast
 import inspect
-import numbers
 import time
+import typing
 import unittest
 
 from work_timer.utils import profiling
@@ -9,11 +9,11 @@ from work_timer.utils import profiling
 
 class approx:
 
-    def __init__(self, n: numbers.Real, eps=0.1):
+    def __init__(self, n, eps=0.1):
         self.n = n
         self.eps = eps
 
-    def __eq__(self, other: numbers.Real) -> bool:
+    def __eq__(self, other) -> bool:
         return abs(self.n - other) < self.eps
 
     def __repr__(self):
@@ -75,6 +75,7 @@ class TestTimeFunctionCalls(unittest.TestCase):
 
 class TestResovleCallArg(unittest.TestCase):
     
+    @typing.no_type_check
     def test_resolving_constant(self):
         f = inspect.currentframe()
         num = ast.parse('42').body[0].value

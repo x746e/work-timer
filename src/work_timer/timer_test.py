@@ -180,9 +180,9 @@ class FakeClock(timer.Clock):
         self._stopped = False
 
     def advance(self, delta: datetime.timedelta | str, ticks=30):
-        delta = td(delta).seconds / ticks
+        inc = td(delta).seconds / ticks
         for i in range(ticks):
-            self._time += delta
+            self._time += inc
             time.sleep(0)
         time.sleep(0.001)
 
