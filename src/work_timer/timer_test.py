@@ -5,6 +5,9 @@ from work_timer import timer
 from work_timer.utils.testing import FakeClock, td
 
 
+State = timer.Timer.State
+
+
 class TestStateChanges(unittest.TestCase):
 
     def setUp(self):
@@ -13,38 +16,38 @@ class TestStateChanges(unittest.TestCase):
 
     def test_not_started_timer_state(self):
         t = timer.Timer(clock=self._clock)
-        self.assertEqual(t.get_info().state, timer.State.STOPPED)
+        self.assertEqual(t.get_info().state, State.STOPPED)
 
     def test_started_timer_state(self):
         t = timer.Timer(clock=self._clock)
         t.start(task_id=42, period_length=td('5m'))
-        self.assertEqual(t.get_info().state, timer.State.RUNNING)
+        self.assertEqual(t.get_info().state, State.RUNNING)
 
     def test_stopped_timer_state(self):
         t = timer.Timer(clock=self._clock)
         t.start(task_id=42, period_length=td('5m'))
         t.stop()
-        self.assertEqual(t.get_info().state, timer.State.STOPPED)
+        self.assertEqual(t.get_info().state, State.STOPPED)
 
     def test_paused_state(self):
         t = timer.Timer(clock=self._clock)
         t.start(task_id=42, period_length=td('5m'))
         t.pause()
-        self.assertEqual(t.get_info().state, timer.State.PAUSED)
+        self.assertEqual(t.get_info().state, State.PAUSED)
 
     def test_state_after_resume(self):
         t = timer.Timer(clock=self._clock)
         t.start(task_id=42, period_length=td('5m'))
         t.pause()
         t.resume()
-        self.assertEqual(t.get_info().state, timer.State.RUNNING)
+        self.assertEqual(t.get_info().state, State.RUNNING)
 
     def test_stop_after_pause(self):
         t = timer.Timer(clock=self._clock)
         t.start(task_id=42, period_length=td('5m'))
         t.pause()
         t.stop()
-        self.assertEqual(t.get_info().state, timer.State.STOPPED)
+        self.assertEqual(t.get_info().state, State.STOPPED)
 
 
 class TestTimePassage(unittest.TestCase):
@@ -119,7 +122,7 @@ class TestScheduledEnding(unittest.TestCase):
         t.start(task_id=42, period_length=td('5m'))
         self._clock.advance('5m')
 
-        self.assertEqual(t.get_info().state, timer.State.STOPPED)
+        self.assertEqual(t.get_info().state, State.STOPPED)
 
     def test_elapsed_time_is_right(self):
         t = timer.Timer(clock=self._clock)
@@ -137,7 +140,7 @@ class TestScheduledEnding(unittest.TestCase):
         t.resume()
         self._clock.advance('5m')
 
-        self.assertEqual(t.get_info().state, timer.State.STOPPED)
+        self.assertEqual(t.get_info().state, State.STOPPED)
 
     def test_elapsed_time_after_pause_resume_is_right(self):
         t = timer.Timer(clock=self._clock)

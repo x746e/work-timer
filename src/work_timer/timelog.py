@@ -7,7 +7,8 @@ from work_timer import taskdb
 
 
 class TimeLog:
-    
+    """Stores the periods, provides reporting."""
+
     def __init__(self):
         self._periods = []
 

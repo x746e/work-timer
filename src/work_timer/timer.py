@@ -10,24 +10,21 @@ from collections.abc import Callable
 
 from work_timer import timelog
 from work_timer.utils import state_machine
-
-
-class State(enum.Enum):
-    STOPPED = enum.auto()
-    RUNNING = enum.auto()
-    PAUSED = enum.auto()
+from work_timer.utils.clock import Clock
 
 
 class Timer(state_machine.StateMachine):
-    """The timer.
-    """
+    """The timer."""
 
-    State = State
+    # pylint: disable=too-many-instance-attributes
 
-    def __init__(self, clock: 'Clock' = time, time_log: timelog.TimeLog = None):
+    class State(enum.Enum):
+        STOPPED = enum.auto()
+        RUNNING = enum.auto()
+        PAUSED = enum.auto()
+
+    def __init__(self, clock: Clock = time, time_log: timelog.TimeLog = timelog.TimeLog()):
         super().__init__()
-        if time_log is None:
-            time_log = timelog.TimeLog()
         self._clock = clock
         self._time_log = time_log
 
@@ -48,20 +45,20 @@ class Timer(state_machine.StateMachine):
 
     # Public API of the class.
     def start(self, task_id: int, period_length: datetime.timedelta):
-        self.transition_to(State.RUNNING, task_id=task_id, period_length=period_length)
+        self.transition_to(self.State.RUNNING, task_id=task_id, period_length=period_length)
 
     def stop(self):
-        self.transition_to(State.STOPPED)
+        self.transition_to(self.State.STOPPED)
 
     def pause(self):
-        self.transition_to(State.PAUSED)
+        self.transition_to(self.State.PAUSED)
 
     def resume(self):
-        self.transition_to(State.RUNNING)
+        self.transition_to(self.State.RUNNING)
 
     def get_info(self) -> 'TimerInfo':
         elapsed_seconds = self._elapsed_seconds
-        if self.get_state() == State.RUNNING:
+        if self.get_state() == self.State.RUNNING:
             assert self._started_at is not None
             elapsed_seconds += self._clock.time() - self._started_at
 
@@ -70,7 +67,7 @@ class Timer(state_machine.StateMachine):
             elapsed_time=datetime.timedelta(seconds=elapsed_seconds),
         )
 
-    def set_on_period_end_callback(self, callback: Callable[['TimerState'], None]):
+    def set_on_period_end_callback(self, callback: Callable[['TimerInfo'], None]):
         self._on_period_end_callback = callback
 
     # State transition handlers.
@@ -83,7 +80,7 @@ class Timer(state_machine.StateMachine):
 
     @state_machine.handler(State.STOPPED, State.RUNNING)
     @state_machine.handler(State.PAUSED, State.RUNNING)
-    def _when_timer_starts_ticking(self, *args, **kwargs):
+    def _when_timer_starts_ticking(self, *unused_args, **unused_kwargs):
         self._started_at = self._clock.time()
         self._schedule_period_end()
 
@@ -106,6 +103,7 @@ class Timer(state_machine.StateMachine):
             self._elapsed_seconds += elapsed_seconds
             self._period_left -= elapsed_seconds
 
+        assert self._task_id is not None
         self._time_log.add_period(
                 task_id=self._task_id,
                 start=datetime.datetime.fromtimestamp(self._started_at),
@@ -120,7 +118,7 @@ class Timer(state_machine.StateMachine):
 
     # End-of-period callback handling.
 
-    def _schedule_period_end(self, *args, **kwargs):
+    def _schedule_period_end(self):
         assert self._evt_id is None
         assert self._period_left is not None
         on_period_end = weakref.WeakMethod(self._on_period_end)()
@@ -133,7 +131,7 @@ class Timer(state_machine.StateMachine):
 
     def _on_period_end(self):
         self._evt_id = None
-        self.transition_to(State.STOPPED)
+        self.transition_to(self.State.STOPPED)
         if self._on_period_end_callback:
             self._on_period_end_callback(self.get_info())
 
@@ -145,5 +143,5 @@ class Timer(state_machine.StateMachine):
 
 @dataclasses.dataclass
 class TimerInfo:
-    state: 'State'
+    state: Timer.State
     elapsed_time: datetime.timedelta = datetime.timedelta(0)

@@ -1,3 +1,5 @@
+"""Time related helpers."""
+
 from typing import Protocol
 
 

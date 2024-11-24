@@ -1,3 +1,4 @@
+"""A place to store the task to be timed by the timer."""
 import copy
 from dataclasses import dataclass
 import threading
@@ -16,6 +17,8 @@ class Task:
 
 
 class TaskDB:
+
+    """A class with tasks."""
 
     def __init__(self):
         self._tasks = {}

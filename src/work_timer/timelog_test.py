@@ -1,3 +1,4 @@
+"""Tests for work_timer.timelog."""
 import datetime
 import unittest
 
@@ -16,7 +17,7 @@ class TimeLogTest(unittest.TestCase):
         log = timelog.TimeLog()
         start_dt = datetime.datetime.fromtimestamp(self._clock.time())
         t = timer.Timer(clock=self._clock, time_log=log)
-        
+
         t.start(task_id=42, period_length=td('5m'))
         self._clock.advance('5m')
 
@@ -27,4 +28,3 @@ class TimeLogTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
