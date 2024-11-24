@@ -9,15 +9,26 @@ import weakref
 from collections.abc import Callable
 from typing import Protocol
 
+from work_timer.utils import state_machine
 
-class Timer:
+
+class State(enum.Enum):
+    STOPPED = enum.auto()
+    RUNNING = enum.auto()
+    PAUSED = enum.auto()
+
+
+class Timer(state_machine.StateMachine):
     """The timer.
     """
 
+    State = State
+
     def __init__(self, clock: 'Clock' = time):
+        super().__init__()
         self._clock = clock
 
-        self._status = Status.STOPPED
+        self._state = State.STOPPED
         self._started_at = None
         # `self._elapsed_seconds` and `self._period_left` are updated when the
         # Timer isn't ticking (when changing into STOPPED or PAUSED from RUNNING).
@@ -31,36 +42,51 @@ class Timer:
         self._evt_id = None
         self._on_period_end_callback = None
 
-        # TODO: Maybe refactor it into a state machine?
-        # TODO: Consider adding invariants about started_at / elapsed_seconds / period_left.
-
-    def _sched_period_end(self, delay: float):
-        assert self._evt_id is None
-        on_period_end = weakref.WeakMethod(self._on_period_end)()
-        assert on_period_end is not None  # to make pyright happy.
-        self._evt_id = self._scheduler.enter(
-                delay=delay, priority=1,
-                action=on_period_end)
-        self._thread = threading.Thread(target=self._scheduler.run)
-        self._thread.start()
-
-    def _cancel_period_end(self):
-        assert self._evt_id is not None
-        self._scheduler.cancel(self._evt_id)
-        self._evt_id = None
-
-    def _on_period_end(self):
-        self._stop()
-        if self._on_period_end_callback:
-            self._on_period_end_callback(self.get_state())
-
+    # Public API of the class.
     def start(self, task_id: int, period_length: datetime.timedelta):
-        self._status = Status.RUNNING
-        self._started_at = self._clock.time()
-        self._period_left = period_length.seconds
-        self._sched_period_end(period_length.seconds)
+        self.transition_to(State.RUNNING, task_id=task_id, period_length=period_length)
 
-    def _stop_pause_timekeeping(self):
+    def stop(self):
+        self.transition_to(State.STOPPED)
+
+    def pause(self):
+        self.transition_to(State.PAUSED)
+
+    def resume(self):
+        self.transition_to(State.RUNNING)
+
+    def get_info(self) -> 'TimerInfo':
+        elapsed_seconds = self._elapsed_seconds
+        if self.get_state() == State.RUNNING:
+            assert self._started_at is not None
+            elapsed_seconds += self._clock.time() - self._started_at
+
+        return TimerInfo(
+            state=self.get_state(),
+            elapsed_time=datetime.timedelta(seconds=elapsed_seconds),
+        )
+
+    def set_on_period_end_callback(self, callback: Callable[['TimerState'], None]):
+        self._on_period_end_callback = callback
+
+    # State transition handlers.
+    @state_machine.handler(State.STOPPED, State.RUNNING)
+    def _when_starting_a_new_period(self, task_id: int, period_length: datetime.timedelta):
+        self._period_left = period_length.seconds
+
+    @state_machine.handler(State.STOPPED, State.RUNNING)
+    @state_machine.handler(State.PAUSED, State.RUNNING)
+    def _when_timer_starts_ticking(self, *args, **kwargs):
+        self._started_at = self._clock.time()
+        self._schedule_period_end()
+
+    @state_machine.handler(State.RUNNING, State.STOPPED)
+    @state_machine.handler(State.RUNNING, State.PAUSED)
+    def _when_timer_stops_ticking(self):
+        self._update_elapsed_seconds_and_period_left()
+        self._cancel_period_end()
+
+    def _update_elapsed_seconds_and_period_left(self):
         assert self._started_at is not None
         assert self._period_left is not None
         elapsed_seconds = self._clock.time() - self._started_at
@@ -73,46 +99,33 @@ class Timer:
             self._elapsed_seconds += elapsed_seconds
             self._period_left -= elapsed_seconds
 
-    def _stop(self):
-        if self._status == Status.STOPPED:
-            return
-        if self._status == Status.RUNNING:
-            self._stop_pause_timekeeping()
-        self._status = Status.STOPPED
+    @state_machine.handler(State.PAUSED, State.STOPPED)
+    def _when_stopping_a_paused_timer(self):
+        """...there's nothing to do really.  But this allows the state transition"""
 
-    def stop(self):
-        assert self._status in (Status.RUNNING, Status.PAUSED)
-        self._stop()
-        if self._status == Status.RUNNING:
-            self._cancel_period_end()
+    # End-of-period callback handling.
 
-    def pause(self):
-        assert self._status == Status.RUNNING
-        assert self._started_at is not None
-        self._status = Status.PAUSED
-        self._stop_pause_timekeeping()
-        self._cancel_period_end()
-
-    def resume(self):
-        assert self._status == Status.PAUSED
-        self._status = Status.RUNNING
-        self._started_at = self._clock.time()
+    def _schedule_period_end(self, *args, **kwargs):
+        assert self._evt_id is None
         assert self._period_left is not None
-        self._sched_period_end(self._period_left)
+        on_period_end = weakref.WeakMethod(self._on_period_end)()
+        assert on_period_end is not None  # to make pyright happy.
+        self._evt_id = self._scheduler.enter(
+                delay=self._period_left, priority=1,
+                action=on_period_end)
+        self._thread = threading.Thread(target=self._scheduler.run)
+        self._thread.start()
 
-    def get_state(self) -> 'TimerState':
-        elapsed_seconds = self._elapsed_seconds
-        if self._status == Status.RUNNING:
-            assert self._started_at is not None
-            elapsed_seconds += self._clock.time() - self._started_at
+    def _on_period_end(self):
+        self._evt_id = None
+        self.transition_to(State.STOPPED)
+        if self._on_period_end_callback:
+            self._on_period_end_callback(self.get_info())
 
-        return TimerState(
-            status=self._status,
-            elapsed_time=datetime.timedelta(seconds=elapsed_seconds),
-        )
-
-    def set_on_period_end_callback(self, callback: Callable[['TimerState'], None]):
-        self._on_period_end_callback = callback
+    def _cancel_period_end(self):
+        if self._evt_id:
+            self._scheduler.cancel(self._evt_id)
+            self._evt_id = None
 
 
 class Clock(Protocol):
@@ -124,12 +137,6 @@ class Clock(Protocol):
 
 
 @dataclasses.dataclass
-class TimerState:
-    status: 'Status'
+class TimerInfo:
+    state: 'State'
     elapsed_time: datetime.timedelta = datetime.timedelta(0)
-
-
-class Status(enum.Enum):
-    STOPPED = enum.auto()
-    RUNNING = enum.auto()
-    PAUSED = enum.auto()
