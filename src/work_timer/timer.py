@@ -7,8 +7,8 @@ import time
 import threading
 import weakref
 from collections.abc import Callable
-from typing import Protocol
 
+from work_timer import timelog
 from work_timer.utils import state_machine
 
 
@@ -24,11 +24,13 @@ class Timer(state_machine.StateMachine):
 
     State = State
 
-    def __init__(self, clock: 'Clock' = time):
+    def __init__(self, clock: 'Clock' = time, time_log: timelog.TimeLog = None):
         super().__init__()
+        if time_log is None:
+            time_log = timelog.TimeLog()
         self._clock = clock
+        self._time_log = time_log
 
-        self._state = State.STOPPED
         self._started_at = None
         # `self._elapsed_seconds` and `self._period_left` are updated when the
         # Timer isn't ticking (when changing into STOPPED or PAUSED from RUNNING).
@@ -36,6 +38,8 @@ class Timer(state_machine.StateMachine):
         self._elapsed_seconds = 0
         # How much time from the current period is still left, in seconds.
         self._period_left = None
+
+        self._task_id = None
 
         self._scheduler = sched.scheduler(self._clock.time, self._clock.sleep)
         self._thread = None
@@ -72,6 +76,9 @@ class Timer(state_machine.StateMachine):
     # State transition handlers.
     @state_machine.handler(State.STOPPED, State.RUNNING)
     def _when_starting_a_new_period(self, task_id: int, period_length: datetime.timedelta):
+        assert self._task_id is None
+        assert self._period_left is None
+        self._task_id = task_id
         self._period_left = period_length.seconds
 
     @state_machine.handler(State.STOPPED, State.RUNNING)
@@ -99,9 +106,17 @@ class Timer(state_machine.StateMachine):
             self._elapsed_seconds += elapsed_seconds
             self._period_left -= elapsed_seconds
 
+        self._time_log.add_period(
+                task_id=self._task_id,
+                start=datetime.datetime.fromtimestamp(self._started_at),
+                duration=datetime.timedelta(seconds=elapsed_seconds))
+        self._started_at = None
+
+    @state_machine.handler(State.RUNNING, State.STOPPED)
     @state_machine.handler(State.PAUSED, State.STOPPED)
-    def _when_stopping_a_paused_timer(self):
-        """...there's nothing to do really.  But this allows the state transition"""
+    def _when_stopping_a_timer(self):
+        self._task_id = None
+        self._period_left = None
 
     # End-of-period callback handling.
 
@@ -126,14 +141,6 @@ class Timer(state_machine.StateMachine):
         if self._evt_id:
             self._scheduler.cancel(self._evt_id)
             self._evt_id = None
-
-
-class Clock(Protocol):
-    def time(self) -> float:
-        ...
-
-    def sleep(self, seconds: float, /):
-        ...
 
 
 @dataclasses.dataclass
