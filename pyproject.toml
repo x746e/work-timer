@@ -4,7 +4,7 @@ description = "Default template for PDM package"
 authors = [
     {name = "Kirill Spitsyn", email = "k@spitsyn.me"},
 ]
-dependencies = ["pytest>=8.3.3", "mypy>=1.13.0", "pyright>=1.1.389", "ruff>=0.7.4", "pylint>=3.3.1", "rope>=1.13.0", "bowler>=0.9.0", "ipython>=8.29.0", "textual>=0.86.3", "textual-dev>=1.7.0", "llm>=0.18"]
+dependencies = ["pytest>=8.3.3", "mypy>=1.13.0", "pyright>=1.1.389", "ruff>=0.7.4", "pylint>=3.3.1", "rope>=1.13.0", "bowler>=0.9.0", "ipython>=8.29.0", "textual>=0.86.3", "textual-dev>=1.7.0", "llm>=0.18", "pytest-textual-snapshot>=1.0.0", "pytest-asyncio>=0.24.0"]
 requires-python = ">=3.13"
 readme = "README.md"
 license = {text = "MIT"}
