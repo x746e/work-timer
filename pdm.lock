@@ -5,7 +5,7 @@
 groups = ["default"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:df905b035ef522763e4e01676c91b66d3e0d4ca320bc74501faa3e1486e9cdea"
+content_hash = "sha256:f452a9558963646403027057c378901a1689f50454475d55243998cf5b674bdb"
 
 [[metadata.targets]]
 requires_python = ">=3.13"
@@ -270,6 +270,19 @@ groups = ["default"]
 files = [
     {file = "distro-1.9.0-py3-none-any.whl", hash = "sha256:7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2"},
     {file = "distro-1.9.0.tar.gz", hash = "sha256:2fa77c6fd8940f116ee1d6b94a2f90b13b5ea8d019b98bc8bafdcabcdd9bdbed"},
+]
+
+[[package]]
+name = "epdb"
+version = "0.15.1"
+summary = "Enhanced Python Debugger"
+groups = ["default"]
+dependencies = [
+    "six",
+]
+files = [
+    {file = "epdb-0.15.1-py2.py3-none-any.whl", hash = "sha256:4208e310f4ed000b92d40e4fafad3ba67a295e6ecdaae0a3d64380c8c8fac629"},
+    {file = "epdb-0.15.1.tar.gz", hash = "sha256:f59e9d54866faad6fcbd8fcfc634b85e8fde2b045b13d10f2f8d083f6cbd2668"},
 ]
 
 [[package]]

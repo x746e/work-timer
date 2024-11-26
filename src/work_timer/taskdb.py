@@ -7,20 +7,20 @@ import threading
 type TaskID = int  # pylint: disable=invalid-name
 
 
-_UNSET_TASK_ID = -1
+UNSET_TASK_ID = -1
 
 @dataclass
 class Task:
     title: str
-    id: TaskID = _UNSET_TASK_ID
-    parent: TaskID | None = None
+    id: TaskID = UNSET_TASK_ID
+    parent_id: TaskID | None = None
 
 
 class TaskDB:
 
     """A class with tasks."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._tasks = {}
         self._lock = threading.Lock()
         self._next_id = 1
@@ -33,18 +33,21 @@ class TaskDB:
 
     def add(self, task: Task) -> TaskID:
         task = copy.deepcopy(task)
-        if task.id != _UNSET_TASK_ID:
+        if task.id != UNSET_TASK_ID:
             raise ValueError("Directly setting Task.id is not supported")
         task.id = self._get_next_id()
         self._tasks[task.id] = task
         return task.id
 
-    def update(self, task: Task):
-        if task.id == _UNSET_TASK_ID:
+    def update(self, task: Task) -> None:
+        if task.id == UNSET_TASK_ID:
             raise ValueError(f"Can't update a Task with an unset id: {task}.  Add it first.")
         if task.id not in self._tasks:
             raise KeyError(f"No task with id {task.id} to update.")
         self._tasks[task.id] = copy.deepcopy(task)
+
+    def delete(self, task_id: TaskID) -> None:
+        del self._tasks[task_id]
 
     def _get_next_id(self):
         with self._lock:

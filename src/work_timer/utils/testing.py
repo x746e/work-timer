@@ -39,6 +39,10 @@ class FakeClock(clock.Clock):
 
 
 def td(s: str | datetime.timedelta) -> datetime.timedelta:
+    """𝑇ime 𝐷elta.
+
+    Currently can parse "<int>(s|m|h)", like "10h" or "15m" or "3s".
+    """
     if isinstance(s, datetime.timedelta):
         return s
     if s[-1] == 's':

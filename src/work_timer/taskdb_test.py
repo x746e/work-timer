@@ -3,6 +3,8 @@ import unittest
 
 from work_timer import taskdb
 
+# TODO: Consider refactoring this file to use .utils.fake_tasks
+
 
 class TaskDBTest(unittest.TestCase):
 
@@ -57,6 +59,15 @@ class TaskDBTest(unittest.TestCase):
         new_task = taskdb.Task(title='Original Title')
         with self.assertRaises(ValueError):
             self.db.update(new_task)
+
+    def test_delete(self):
+        task = taskdb.Task(title='Original Title')
+        task_id = self.db.add(task)
+
+        self.db.delete(task_id)
+
+        with self.assertRaises(KeyError):
+            self.db.get(task_id)
 
     def test_get_all(self):
         task_a = taskdb.Task(title='Task A')
