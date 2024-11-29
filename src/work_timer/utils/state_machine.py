@@ -56,6 +56,7 @@ class StateMachine:
 
 
 class _AnyState:
+    # pylint: disable=too-few-public-methods
 
     def __repr__(self):
         return '<ANY_STATE>'

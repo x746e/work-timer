@@ -1,0 +1,14 @@
+{
+    "pylint.importStrategy": "fromEnvironment",
+    "python.testing.pytestArgs": [
+        "src"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "vim.handleKeys": {
+        "<C-w>": true,
+        "<C-d>": true,
+        "<C-s>": false,
+        "<C-z>": false
+    }
+}
