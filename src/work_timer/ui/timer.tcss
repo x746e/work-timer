@@ -1,0 +1,12 @@
+Timer {
+    align-vertical: middle;
+}
+
+Timer TimeDisplay {
+    text-align: center;
+}
+
+Timer ProgressBar {
+    width: 1fr;
+    align: center middle;
+}

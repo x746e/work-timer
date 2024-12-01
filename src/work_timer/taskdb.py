@@ -3,11 +3,13 @@ import copy
 from dataclasses import dataclass
 import threading
 
+from typing import NewType
 
-type TaskID = int  # pylint: disable=invalid-name
+
+TaskID = NewType('TaskID', int)  # pylint: disable=invalid-name
 
 
-UNSET_TASK_ID = -1
+UNSET_TASK_ID = TaskID(-1)
 
 @dataclass
 class Task:
@@ -53,4 +55,4 @@ class TaskDB:
         with self._lock:
             next_id = self._next_id
             self._next_id += 1
-        return next_id
+        return TaskID(next_id)

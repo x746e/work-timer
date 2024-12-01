@@ -2,6 +2,7 @@
 import unittest
 
 from work_timer import taskdb
+from work_timer.taskdb import TaskID
 
 # TODO: Consider refactoring this file to use .utils.fake_tasks
 
@@ -20,7 +21,7 @@ class TaskDBTest(unittest.TestCase):
 
     def test_trying_to_set_task_id_raises(self):
         with self.assertRaises(ValueError):
-            self.db.add(taskdb.Task(title='I shall raise', id=123))
+            self.db.add(taskdb.Task(title='I shall raise', id=TaskID(123)))
 
     def test_changing_returned_task_doesnt_change_the_db(self):
         new_task = taskdb.Task(title='Original Title')
@@ -51,7 +52,7 @@ class TaskDBTest(unittest.TestCase):
         self.assertEqual(updated_task.title, 'Changed Title')
 
     def test_update_missing_task_raises(self):
-        new_task = taskdb.Task(title='Original Title', id=123)
+        new_task = taskdb.Task(title='Original Title', id=TaskID(123))
         with self.assertRaises(KeyError):
             self.db.update(new_task)
 
