@@ -1,0 +1,44 @@
+Timer {
+    align-vertical: middle;
+}
+
+Timer ProgressBar {
+    width: 1fr;
+    align: center middle;
+}
+
+Timer TimeDisplay {
+    text-align: center;
+}
+
+
+PPlayground {
+    #static-3 {
+        border: panel cornflowerblue 60%;
+    }
+    #con-4 {
+        height: 4;
+        align: center middle;
+    }
+    #con-5-6-7 {
+        align: center bottom;
+        /* content-align: right bottom; */
+        layout: horizontal;
+    }
+    #static-5, #static-6 {
+        border: hkey red;
+        width: auto;
+        /*padding: 0 5;*/
+        height: 3;
+        /*margin: 3;*/
+    }
+    #static-5 {
+        /* box-sizing: border-box; */
+    }
+    #static-6 {
+        /* box-sizing: content-box; */
+    }
+    #static-7 {
+        width: auto;
+    }
+}
