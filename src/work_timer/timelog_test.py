@@ -17,9 +17,10 @@ class TimeLogTest(unittest.TestCase):
     def test_it(self):
         log = timelog.TimeLog()
         start_dt = datetime.datetime.fromtimestamp(self._clock.time())
-        t = timer.Timer(clock=self._clock, time_log=log)
+        t = timer.Timer(task_id=TaskID(42), period_length=td('5m'),
+                        clock=self._clock, time_log=log)
 
-        t.start(task_id=TaskID(42), period_length=td('5m'))
+        t.start()
         self._clock.advance('5m')
 
         self.assertEqual(

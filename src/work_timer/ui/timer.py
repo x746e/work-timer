@@ -11,7 +11,7 @@ from textual.widgets import Digits, Footer, ProgressBar
 
 from work_timer import timer
 from work_timer import taskdb
-from work_timer.utils.typing import not_none
+from work_timer.utils.profiling import log_call
 
 
 class TimeDisplay(Digits):
@@ -28,7 +28,9 @@ class TimeDisplay(Digits):
         hours, minutes = divmod(minutes, 60)
         self.update(f"{hours:02,.0f}:{minutes:02.0f}:{seconds:02.0f}")
 
-
+# TODO: @log_call on a class should:
+# Log when the class is instantiated;
+# and add a @log_call to each method.
 class Timer(Widget):
     """Timer interface widget."""
 
@@ -62,103 +64,103 @@ class Timer(Widget):
     #
     # TODO: Maybe rename it to TimerWidget?  Too many Timer classes.
 
-    class _Restart(Message):
+    class _PeriodEnded(Message):
         pass
 
     can_focus = True
 
-    _ticker: TextualTimer | None
-    _wt_timer: timer.Timer | None
+    _ticker: TextualTimer
+    _wt_timer: timer.Timer
 
-    # TODO: We never really need the TimerWidget without a task and period attached.
     def __init__(
             self,
             timed_task = taskdb.Task(title='Test', id=taskdb.TaskID(42)),
             period_length = timedelta(seconds=4)):
         super().__init__()
-        self._ticker = None
-        self._wt_timer = None
+        self._ticker = self.set_interval(.05, self._tick, pause=True)
         self._timed_task = timed_task
         self._period_length = period_length
+        self._wt_timer = timer.Timer(self._timed_task.id, self._period_length)
 
     def compose(self) -> ComposeResult:
-        # print('compose')
+        print('compose')
         yield TimeDisplay(self._period_length.seconds)
         progress_bar = ProgressBar(show_percentage=False, show_eta=False)
-        progress_bar.update(progress=0, total=self._period_length.seconds)
-        if self._ticker:
-            self._ticker.stop()
-        self._ticker = self.set_interval(.05, self._tick, pause=True)
-        self._wt_timer = None
+        progress_bar.update(progress=0, total=self._period_length.total_seconds())
         yield progress_bar
         self.refresh_bindings()
 
     def action_start(self) -> None:
-        # print('action_start')
-        self._wt_timer = timer.Timer()
-        self._wt_timer.start(taskdb.TaskID(42), self._period_length)
+        print('action_start')
+        self._wt_timer.start()
         self._wt_timer.set_on_period_end_callback(self._on_period_end)
-        not_none(self._ticker).resume()
+        self._ticker.resume()
         self.refresh_bindings()
 
     def _on_period_end(self, info: timer.TimerInfo) -> None:
-        del info
-        # print(f'_on_period_end({info=})')
-        # print(f'{Timer._Restart.handler_name=}')
-        self.post_message(Timer._Restart())
+        # del info
+        print(f'_on_period_end({info=})')
+        self.post_message(Timer._PeriodEnded())
 
-    @on(_Restart)
-    async def on_timer_restart(self) -> None:
-        not_none(self._ticker).stop()
+    @on(_PeriodEnded)
+    async def on_period_end(self) -> None:
+        self._ticker.stop()
         self._tick()
+        self.disabled = True
         self.refresh_bindings()
-        # print('on_timer_restart')
+        print('on_timer_restart')
 
     def action_pause(self) -> None:
-        # print('action_pause')
-        not_none(self._wt_timer).pause()
+        print('action_pause')
+        self._wt_timer.pause()
         self.refresh_bindings()
 
     def action_resume(self) -> None:
-        # print('action_resume')
-        not_none(self._wt_timer).resume()
+        print('action_resume')
+        self._wt_timer.resume()
         self.refresh_bindings()
 
+    #@log_call(when=lambda args: args.action == 'stop', locals=True)
+    # locals should print locals at `return`.
+
+    #@log_call(watch=lambda: f'{self._wt_timer.get_info()=}')
+    # (equivalent to)
+    #@log_call(watch='self._wt_timer.get_info()')
+
+    #@log_call(when=lambda args: args.action == 'stop', trace=True)
+    # Print each executed line, along with resolved local variables:
+    # match (action /*='stop'*/, self._wt_timer..... /*=STOPPED*/):
+    # ...
+
+    # Make a library that use profiling to store all the possible information
+    # for all the calls, and that make an interface to query that info
+    # afterwards.
+
+    @log_call
     def check_action(  # pylint: disable=too-many-return-statements
         self, action: str, parameters: tuple[object, ...]
     ) -> bool | None:
-        # def inner():
-        if self._wt_timer is None:
-            if action == 'start':
+        # print(f'   timer_info: {self._wt_timer.get_info()}')
+        match (action, self._wt_timer.get_info().state):
+            case ('start', timer.Timer.State.STOPPED):
                 return True
-            if action in ('pause', 'resume', 'stop'):
+            case ('pause', timer.Timer.State.RUNNING):
+                return True
+            case ('resume', timer.Timer.State.PAUSED):
+                return True
+            case ('stop', timer.Timer.State.RUNNING):
+                return True
+            case ('stop', timer.Timer.State.PAUSED):
+                return True
+            case _:
                 return False
-        if self._wt_timer is not None and action in ('start', 'pause', 'resume', 'stop'):
-            if action == 'start':
-                return False
-            match (action, self._wt_timer.get_info().state):
-                case ('pause', timer.Timer.State.RUNNING):
-                    return True
-                case ('resume', timer.Timer.State.PAUSED):
-                    return True
-                case ('stop', timer.Timer.State.RUNNING):
-                    return True
-                case ('stop', timer.Timer.State.PAUSED):
-                    return True
-                case (_, timer.Timer.State.STOPPED):
-                    return False
-                case _:
-                    return False
-        return True
-        # ret = inner()
-        # print(f'check_action({action=}, {parameters=}) -> {ret}')
-        # return ret
 
     def _tick(self) -> None:
-        ti = not_none(self._wt_timer).get_info()
-        seconds_left = not_none(ti.period_length).total_seconds() - ti.elapsed_time.total_seconds()
+        # print('_tick')
+        ti = self._wt_timer.get_info()
+        seconds_left = ti.period_length.total_seconds() - ti.elapsed_time.total_seconds()
         self.query_one(TimeDisplay).seconds_left = max(0, seconds_left)
-        self.query_one(ProgressBar).update(total=not_none(ti.period_length).total_seconds(),
+        self.query_one(ProgressBar).update(total=ti.period_length.total_seconds(),
                                            progress=ti.elapsed_time.total_seconds())
 
 

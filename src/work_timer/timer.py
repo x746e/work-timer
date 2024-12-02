@@ -21,13 +21,16 @@ Seconds = NewType('Seconds', int)
 
 class _TimeKeeper:
 
-    _started_at: float
+    # TODO: Consider start the Timer in a Started state, in which case this
+    # wouldn't ever be None.
+    # TODO: And disallow STOPPED -> STARTED transition.
+    _started_at: float | None
     _elapsed_seconds: float
     _period_left: float
     _period_length: float
 
-    def __init__(self, started_at: float, period_length: float):
-        self._started_at = started_at
+    def __init__(self, period_length: float):
+        self._started_at = None
         # `self.elapsed_seconds` and `self.period_left` are updated when the
         # Timer isn't ticking (when changing into STOPPED or PAUSED from RUNNING).
         # How much time from the current period has already passed.
@@ -43,7 +46,9 @@ class _TimeKeeper:
                 f'_period_left={self._period_left!r}, '
                 f'_period_length={self._period_length!r}>')
 
-    def pause(self, ts_now: float) -> Tuple[float, float]:
+    # TODO: Do I need to pass timestamps into it?  Maybe just give the class a clock?
+    def pause(self, ts_now: float) -> Tuple[float, float]:  # pylint: disable=missing-function-docstring
+        assert self._started_at is not None
         elapsed_seconds = ts_now - self._started_at
         if elapsed_seconds > self._period_left:
             # That's a very late tick, but that can happen.
@@ -54,13 +59,14 @@ class _TimeKeeper:
             self._period_left -= elapsed_seconds
         return (self._started_at, elapsed_seconds)
 
-    def resume(self, ts_now: float) -> None:
+    def start(self, ts_now: float) -> None:
         self._started_at = ts_now
 
     def get_elapsed_seconds(self) -> float:
         return self._elapsed_seconds
 
     def get_started_at(self) -> float:
+        assert self._started_at is not None
         return self._started_at
 
     def get_period_left(self) -> float:
@@ -83,24 +89,29 @@ class Timer(state_machine.StateMachine):
         RUNNING = enum.auto()
         PAUSED = enum.auto()
 
-    def __init__(self, clock: Clock = time, time_log: timelog.TimeLog = timelog.TimeLog()):
+    def __init__(
+            self,
+            task_id: TaskID,
+            period_length: timedelta,
+            clock: Clock = time,
+            time_log: timelog.TimeLog = timelog.TimeLog()):
         super().__init__()
         self._clock = clock
         self._time_log = time_log
 
-        self._task_id = None
+        self._task_id = task_id
 
-        # TODO: Try creating the `Timer` in `RUNNING` state, set _tk, _task_id, etc., here.
-        self._tk: _TimeKeeper | None = None
+        self._tk = _TimeKeeper(period_length.total_seconds())
 
+        # TODO: Can I group these arguments together into a class?
         self._scheduler = sched.scheduler(self._clock.time, self._clock.sleep)
         self._thread = None
         self._evt_id = None
         self._on_period_end_callback = None
 
     # Public API of the class.
-    def start(self, task_id: TaskID, period_length: timedelta):
-        self.transition_to(self.State.RUNNING, task_id=task_id, period_length=period_length)
+    def start(self):
+        self.transition_to(self.State.RUNNING)
 
     def stop(self):
         self.transition_to(self.State.STOPPED)
@@ -117,22 +128,16 @@ class Timer(state_machine.StateMachine):
             return self._get_info(state=self.get_state())
 
     def _get_info(self, state: 'Timer.State') -> 'TimerInfo':
-        if self._tk is None:
-            period_length = None
-            elapsed_seconds = 0
-        else:
-            period_length = self._tk.get_period_length()
-            elapsed_seconds = self._tk.get_elapsed_seconds()
+        elapsed_seconds = self._tk.get_elapsed_seconds()
 
         if state == self.State.RUNNING:
             # TODO: Can we have all time related logic inside _TimeKeeper?
-            assert self._tk is not None
             elapsed_seconds += self._clock.time() - self._tk.get_started_at()
 
         return TimerInfo(
             state=self.get_state(),
             elapsed_time=timedelta(seconds=elapsed_seconds),
-            period_length=period_length,
+            period_length=self._tk.get_period_length(),
         )
 
     def set_on_period_end_callback(self, callback: Callable[['TimerInfo'], None]):
@@ -140,26 +145,16 @@ class Timer(state_machine.StateMachine):
 
     # State transition handlers.
     @state_machine.handler(State.STOPPED, State.RUNNING)
-    def _when_starting_a_new_period(self, task_id: TaskID, period_length: timedelta):
-        assert self._task_id is None
-        assert self._tk is None
-        self._task_id = task_id
-        self._tk = _TimeKeeper(self._clock.time(), period_length.total_seconds())
-        self._schedule_period_end()
-
     @state_machine.handler(State.PAUSED, State.RUNNING)
-    def _when_resuming_a_period(self, *unused_args, **unused_kwargs):
-        assert self._tk is not None
-        self._tk.resume(self._clock.time())
+    def _when_timer_starts_ticking(self):
+        self._tk.start(self._clock.time())
         self._schedule_period_end()
 
     @state_machine.handler(State.RUNNING, State.STOPPED)
     @state_machine.handler(State.RUNNING, State.PAUSED)
     def _when_timer_stops_ticking(self):
-        assert self._tk is not None
         started_at, elapsed_seconds = self._tk.pause(self._clock.time())
         self._cancel_period_end()
-        assert self._task_id is not None
         self._time_log.add_period(
                 task_id=self._task_id,
                 start=datetime.fromtimestamp(started_at),
@@ -177,7 +172,6 @@ class Timer(state_machine.StateMachine):
         assert self._evt_id is None
         on_period_end = weakref.WeakMethod(self._on_period_end)()
         assert on_period_end is not None  # to make pyright happy.
-        assert self._tk is not None
         self._evt_id = self._scheduler.enter(
                 delay=self._tk.get_period_left(), priority=1,
                 action=on_period_end)
@@ -198,15 +192,16 @@ class Timer(state_machine.StateMachine):
 class TimerInfo:
     """Information about the current Timer state."""
     state: Timer.State
+    period_length: timedelta
     elapsed_time: timedelta = timedelta(0)
-    period_length: timedelta | None = None
 
     def __post_init__(self):
         self._validate()
 
     def _validate(self):
+        eps = timedelta(seconds=1)
         if self.period_length:
-            assert self.elapsed_time <= self.period_length, (
-                f"{self.elapsed_time=}, shouldn't be more than "
-                f"{self.period_length=}."
+            assert self.elapsed_time <= self.period_length + eps, (
+                f"{self.elapsed_time=}, shouldn't be (much) more than "
+                f"{self.period_length + eps=}."
             )

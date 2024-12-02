@@ -75,10 +75,9 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(progress_bar.total, self.period_length.total_seconds())
         self.assertEqual(progress_bar.progress, 0)
         # The footer says "Start".
-        bindings = pilot.app.query(FooterKey)
         self.assertEqual(
             ['space Start'],
-            [str(b.render()).strip() for b in bindings],
+            get_binding(pilot),
         )
 
     def check_running_state(self, pilot: Pilot) -> None:
@@ -91,10 +90,9 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(progress_bar.total, self.period_length.total_seconds())
         self.assertEqual(math.floor(progress_bar.progress), 1)
         # Check `pause` and `stop` bindings are active.
-        bindings = pilot.app.query(FooterKey)
         self.assertEqual(
             ['space Pause', 'S Stop'],
-            [str(b.render()).strip() for b in bindings],
+            get_binding(pilot),
         )
 
     def check_paused_state(self, pilot: Pilot) -> None:
@@ -106,10 +104,9 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(progress_bar.total, self.period_length.total_seconds())
         self.assertEqual(math.floor(progress_bar.progress), 1)
         # Check `pause` and `stop` bindings are active.
-        bindings = pilot.app.query(FooterKey)
         self.assertEqual(
             ['space Resume', 'S Stop'],
-            [str(b.render()).strip() for b in bindings],
+            get_binding(pilot),
         )
 
     def check_stopped_state(self, pilot: Pilot) -> None:
@@ -119,7 +116,13 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
         progress_bar = pilot.app.query_exactly_one(ProgressBar)
         self.assertEqual(progress_bar.total, progress_bar.progress)
         # No binding should be active.
-        self.assertCountEqual(pilot.app.query(FooterKey), [])
+        self.assertEqual(get_binding(pilot), [])
+
+
+def get_binding(pilot: Pilot) -> list[str]:
+    """Gets a list of current app bindings from the Footer."""
+    bindings = pilot.app.query(FooterKey)
+    return [str(b.render()).strip() for b in bindings]
 
 
 def run_test_app():

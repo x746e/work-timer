@@ -15,6 +15,7 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = "--doctest-modules"
 
+# TODO: Remove the default options?
 [tool.pylint.main]
 # Analyse import fallback blocks. This can be used to support both Python 2 and 3
 # compatible code, which means that the block might have code that exists only in
@@ -392,6 +393,7 @@ confidence = ["HIGH", "CONTROL_FLOW", "INFERENCE", "INFERENCE_FAILURE", "UNDEFIN
 disable = [
     # This is taken care of by ruff.
     "unused-import",
+    "too-few-public-methods",
 ]
 
 # Enable the message, report, category or checker with the given id(s). You can

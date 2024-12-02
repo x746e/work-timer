@@ -186,8 +186,94 @@ def log_call(f):
     #       before each return.  And probably a statement at the start caching
     #       the parameter values.  (If they are changed in the bytecode!)
     #       Not terribly useful, but fun to do :D.
+    #
+    #       Try making this bytecode changing version, compare the performance
+    #       with the regular version above.
+
+
+
+class CallLogger:
+    """Profiling/tracing-based logger."""
+
+    # - How will that work with async/await?
+    # - How will that work with multithreahing?
+
+
+    def __init__(self):
+        self._started_calls = {}
+        # self.finished_calls = collections.defaultdict(list)
+
+    def __enter__(self):
+        sys.setprofile(self._trace)
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        sys.setprofile(None)
+        # self.finished_calls = dict(self.finished_calls)
+
+    def _trace(self, frame, why, arg):
+        # pylint: disable=inconsistent-return-statements
+
+        pass
+
+        # if why not in ('call', 'return', 'c_call', 'c_return'):
+        #     return
+        #
+        # def get_func_name():
+        #     if why in ('call', 'return'):
+        #         return frame.f_code.co_name
+        #     if why in ('c_call', 'c_return'):
+        #         return arg.__name__
+        #
+        # func_name = get_func_name()
+        # if func_name != self._function_name:
+        #     return
+        #
+        # def get_args():
+        #     if why in ('call', 'return'):
+        #         return inspect.formatargvalues(*inspect.getargvalues(frame))
+        #     if why in ('c_call', 'c_return'):
+        #         lines, start_line = inspect.getsourcelines(frame)
+        #         source_line = lines[frame.f_lineno - start_line]
+        #         assert func_name in source_line
+        #         parsed_line = ast.parse(source_line.strip())
+        #         calls = [node for node in ast.walk(parsed_line) if isinstance(node, ast.Call)]
+        #         assert len(calls) == 1, (
+        #                 "More than one call on a line isn't yet supported.  "
+        #                 "TODO: Filter nodes by name")
+        #         call = calls[0]
+        #         args = [_resolve_call_arg(a, frame) for a in call.args]
+        #         args = ', '.join(repr(a) for a in args)
+        #         return f'({args})'
+        #
+        # call = f'{func_name}{get_args()}'
+        # frame_id = hex(id(frame))
+        #
+        # if why in ('call', 'c_call'):
+        #     assert frame_id not in self._started_calls
+        #     self._started_calls[frame_id] = (time.time(), call)
+        # elif why in ('return', 'c_return'):
+        #     start_time, started_call = self._started_calls.pop(frame_id)
+        #     assert call == started_call
+        #     self.finished_calls[call].append(time.time() - start_time)
+
+
+
+def main():
+
+    def inc(a):
+        return a + 1
+
+    def inc_n_tripple(b):
+        return inc(b) * 3
+
+    inc_n_tripple(2)
+    # -> Call('inc_n_tripple', {'b': 2}, thread=...)
+    # -> Call('inc', {'a': 2}, thread=..., parent=...)
+    # -> Return('inc',
 
 
 if __name__ == '__main__':
-    import doctest
-    doctest.testmod()
+    main()
+    # import doctest
+    # doctest.testmod()
