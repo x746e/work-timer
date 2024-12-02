@@ -13,6 +13,53 @@ import trace
 from types import FrameType
 
 
+# Random idea: how do I know when, say, my naive approach to task persistence --
+# just write down the whole thing to tasks.json on disk -- becomes too slow?
+#
+# An obvious answer: I'll see that the interface getting slugish.
+# But that can be a bit hard to notice.
+#
+# I'm thinking about something like: have some profiling going on in the
+# background at all times.  Have some general metrics..  Event loop latency, is
+# there such a thing?
+#
+# Taking a step back: for performance (regression) testing, which it is, we need:
+# (1) Define a performance metric to track  (2) Collect data about it
+# (3) Report about the regressions.
+#
+#
+# ## Defining the metrics
+#
+# Can we have just collect most/many calls?  For the TaskDB example the metric
+# can be "time it takes to run TaskDB.add".  The method can either be
+# explicitly marked, or the profiler can do it somehow automatically.  A few options:
+# - Do a background random sampling.
+# - Just sample everything.
+# - With either random or everything sampling, determine the too fast to sample functions.
+#
+# Let's try to collect everything, and if it's too expensive, consider the alternatives.
+#
+# While here I can also go and fix the USDT call/return probes in cpython.
+#
+#
+# ## Collecting
+#
+# A few ideas about collection:
+# - Explicitly mark the profiled functions with decorators.
+# - sys.setprofile.
+# - USDT probes.
+# - Some ebpf hackery.  I know you can get all the info from python somehow.  It is there,
+#   you can explore it with gdb (though probably with a bunch of python code running inside gdb).
+#   Can you do it without unreasonable effort?
+#   Most likely it's better to use some code on the cpython side -- like USDT probes.
+#
+# The data will have to be stored somewhere in some kind of database.
+#
+# ## Reporting
+#
+# A cron-job to look for regressions and send emails?
+
+
 class TimeFunctionCalls:
 
     """A context manager for timing function invocations.

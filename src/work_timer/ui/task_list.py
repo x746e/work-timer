@@ -91,7 +91,7 @@ class TaskList(Widget):
         changed = await self.app.push_screen_wait(TaskEditor(self._task_db, task))
         if changed:
             # TODO: Check changed.fields.
-            # TODO: If reparanted, move the node, then focus on it.
+            # TODO: If reparented, move the node, then focus on it.
             node.set_label(changed.new.title)
             node.data = changed.new
 

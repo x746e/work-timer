@@ -1,8 +1,12 @@
 """Tests for work_timer.taskdb."""
+import json
+from pathlib import Path
+import tempfile
 import unittest
 
 from work_timer import taskdb
 from work_timer.taskdb import TaskID
+from work_timer.utils import fake_tasks
 
 # TODO: Consider refactoring this file to use .utils.fake_tasks
 
@@ -80,6 +84,48 @@ class TaskDBTest(unittest.TestCase):
 
         self.assertCountEqual([id_a, id_b], tasks.keys())
         self.assertCountEqual([task_a.title, task_b.title], [t.title for t in tasks.values()])
+
+
+
+EXPECTED_JSON = {
+    'data': [
+        {'id': 1, 'parent_id': None, 'title': 'Write Work Time app'},
+        {'id': 2, 'parent_id': 1, 'title': 'Write a Textual TUI'},
+        {'id': 3, 'parent_id': 2, 'title': 'Task list'},
+        {'id': 4, 'parent_id': 2, 'title': 'Task create / edit'},
+        {'id': 5, 'parent_id': 2, 'title': 'Timer'},
+        {'id': 6, 'parent_id': 1, 'title': 'Calendar integration'}],
+    'schema': {
+        'fields': [
+            {'extDtype': 'Int64', 'name': 'id', 'type': 'integer'},
+            {'extDtype': 'string', 'name': 'title', 'type': 'any'},
+            {'extDtype': 'Int64', 'name': 'parent_id', 'type': 'integer'}],
+        'pandas_version': '1.4.0',
+        'primaryKey': ['id']}}
+
+
+class PersistentTaskDBTest(unittest.TestCase):
+
+    def test_saving(self):
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / 'tasks.json'
+            db = taskdb.PersistentTaskDB(f)
+            fake_tasks.add_fake_tasks(db)
+
+            db._persist()  # pylint: disable=protected-access
+
+            with f.open() as f:
+                data = json.load(f)
+            self.assertEqual(data, EXPECTED_JSON)
+
+    def test_loading(self):
+        with tempfile.NamedTemporaryFile(mode='w+t') as f:
+            json.dump(EXPECTED_JSON, f)
+            f.flush()
+
+            db = taskdb.PersistentTaskDB(Path(f.name))
+
+            assert list(fake_tasks.FAKE_TASKS) == fake_tasks.fake_tasks_from_db(db)
 
 
 if __name__ == '__main__':

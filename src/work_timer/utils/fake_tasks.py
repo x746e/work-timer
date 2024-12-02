@@ -29,11 +29,12 @@ FAKE_TASKS = (
 
 def get_task_db(fake_tasks: Sequence[FakeTask] = FAKE_TASKS) -> taskdb.TaskDB:
     task_db = taskdb.TaskDB()
-    _add_fake_tasks(task_db, fake_tasks)
+    add_fake_tasks(task_db, fake_tasks)
     return task_db
 
 
-def _add_fake_tasks(task_db: taskdb.TaskDB, tasks: Sequence[FakeTask]) -> None:
+def add_fake_tasks(task_db: taskdb.TaskDB, tasks: Sequence[FakeTask] = FAKE_TASKS) -> None:
+    """Add some fake `tasks` to the supplied `task_db`."""
 
     def add_child(parent_id: taskdb.TaskID, child: FakeTask) -> None:
         t_id = task_db.add(taskdb.Task(child.title, parent_id=parent_id))
