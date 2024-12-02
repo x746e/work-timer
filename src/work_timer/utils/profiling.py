@@ -1,7 +1,8 @@
-"""Profiling helpers."""
+"""Misc profiling and tracing utilities."""
 import ast
 import cProfile
 import collections
+import functools
 import inspect
 import io
 import pstats
@@ -113,3 +114,80 @@ class ProfileContextManager:
         ps = pstats.Stats(self.profiler, stream=s).sort_stats(self.sort_by)
         ps.print_stats()
         print(s.getvalue())
+
+
+def log_call(f):
+    """Print the invocations of `f`.
+
+    >>> @log_call
+    ... def foo(a, b=0):
+    ...     return a + b
+    ...
+    >>> foo(42)
+    foo(a=42) -> 42
+    42
+    >>> foo(10, b=20)
+    foo(a=10, b=20) -> 30
+    30
+
+    Method support:
+
+    >>> class Foo:
+    ...     def __repr__(self):
+    ...        return 'Foo()'
+    ...     @log_call
+    ...     def bar(self, a):
+    ...         return a + 1
+    ...
+    >>> foo = Foo()
+    >>> foo.bar(1)
+    Foo().bar(a=1) -> 2
+    2
+    """
+
+    sig = inspect.signature(f)
+
+    def first(iterable):
+        return next(iter(iterable))
+
+    has_self = sig.parameters and first(sig.parameters.keys()) == 'self'
+
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        bound_args = sig.bind(*args, **kwargs)
+        ret = f(*args, **kwargs)
+
+        is_method = False
+        obj = None
+        if has_self:
+            obj = bound_args.arguments['self']
+            meth = getattr(obj, f.__name__)
+            if meth.__wrapped__ == f:
+                is_method = True
+
+        if is_method:
+            print(
+                f'{obj!r}.{f.__name__}(' +
+                ', '.join(f'{k}={v}' for k, v in bound_args.arguments.items() if k != 'self') +
+                f') -> {ret}'
+            )
+        else:
+            print(
+                f'{f.__name__}(' +
+                ', '.join(f'{k}={v}' for k, v in bound_args.arguments.items()) +
+                f') -> {ret}'
+            )
+
+        return ret
+
+    return wrapper
+
+    # TODO: It's also possible to change the bytecode to have a `print` just
+    #       before each return.  And probably a statement at the start caching
+    #       the parameter values.  (If they are changed in the bytecode!)
+    #       Not terribly useful, but fun to do :D.
+
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()

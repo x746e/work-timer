@@ -1,5 +1,6 @@
 """State machine abstraction."""
 import collections
+import threading
 
 
 # TODO: Use a metaclass.
@@ -24,6 +25,7 @@ class StateMachine:
     """
 
     def __init__(self):
+        self._state_transition_lock = threading.RLock()
         self._state = next(iter(self.State))  # type: ignore  # pylint: disable=no-member
         marked_methods = collections.defaultdict(list)
         for member in self.__class__.__dict__.values():
@@ -41,18 +43,24 @@ class StateMachine:
                 self._handlers[(from_state, to_state)].extend(methods)
 
     def get_state(self):
-        return self._state
+        with self._state_transition_lock:
+            return self._state
 
     def transition_to(self, state, *args, **kwargs):
-        from_state = self._state
-        to_state = state
-        if (from_state, to_state) not in self._handlers:
-            raise DisallowedStateTransitionError(
-                    f"Transition from {from_state} to {to_state} isn't allowed",
-                    from_state=from_state, to_state=to_state)
-        for h in self._handlers[(from_state, to_state)]:
-            h(self, *args, **kwargs)
-        self._state = to_state
+        """Transition to `state`.
+
+        The handlers, if any will be called with `args` and/or `kwargs` if passed in.
+        """
+        with self._state_transition_lock:
+            from_state = self._state
+            to_state = state
+            if (from_state, to_state) not in self._handlers:
+                raise DisallowedStateTransitionError(
+                        f"Transition from {from_state} to {to_state} isn't allowed",
+                        from_state=from_state, to_state=to_state)
+            for h in self._handlers[(from_state, to_state)]:
+                h(self, *args, **kwargs)
+            self._state = to_state
 
 
 class _AnyState:

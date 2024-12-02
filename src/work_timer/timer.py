@@ -113,6 +113,10 @@ class Timer(state_machine.StateMachine):
 
     def get_info(self) -> 'TimerInfo':
         """Returns information about the current timer state."""
+        with self._state_transition_lock:
+            return self._get_info(state=self.get_state())
+
+    def _get_info(self, state: 'Timer.State') -> 'TimerInfo':
         if self._tk is None:
             period_length = None
             elapsed_seconds = 0
@@ -120,7 +124,8 @@ class Timer(state_machine.StateMachine):
             period_length = self._tk.get_period_length()
             elapsed_seconds = self._tk.get_elapsed_seconds()
 
-        if self.get_state() == self.State.RUNNING:
+        if state == self.State.RUNNING:
+            # TODO: Can we have all time related logic inside _TimeKeeper?
             assert self._tk is not None
             elapsed_seconds += self._clock.time() - self._tk.get_started_at()
 
@@ -139,7 +144,7 @@ class Timer(state_machine.StateMachine):
         assert self._task_id is None
         assert self._tk is None
         self._task_id = task_id
-        self._tk = _TimeKeeper(self._clock.time(), period_length.seconds)
+        self._tk = _TimeKeeper(self._clock.time(), period_length.total_seconds())
         self._schedule_period_end()
 
     @state_machine.handler(State.PAUSED, State.RUNNING)
@@ -164,7 +169,7 @@ class Timer(state_machine.StateMachine):
     @state_machine.handler(State.RUNNING, State.STOPPED)
     def _when_stopping_the_timer_call_the_callback(self):
         if self._on_period_end_callback:
-            self._on_period_end_callback(self.get_info())
+            self._on_period_end_callback(self._get_info(self.State.STOPPED))
 
     # End-of-period callback handling.
 
@@ -189,8 +194,19 @@ class Timer(state_machine.StateMachine):
             self._evt_id = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class TimerInfo:
+    """Information about the current Timer state."""
     state: Timer.State
     elapsed_time: timedelta = timedelta(0)
     period_length: timedelta | None = None
+
+    def __post_init__(self):
+        self._validate()
+
+    def _validate(self):
+        if self.period_length:
+            assert self.elapsed_time <= self.period_length, (
+                f"{self.elapsed_time=}, shouldn't be more than "
+                f"{self.period_length=}."
+            )
