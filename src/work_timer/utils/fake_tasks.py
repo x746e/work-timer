@@ -12,6 +12,7 @@ from work_timer import taskdb
 @dataclass
 class FakeTask:
     title: str
+    status: taskdb.TaskStatus = taskdb.TaskStatus.NEW
     kids: list['FakeTask'] = field(default_factory=list)
 
 
@@ -20,7 +21,7 @@ FAKE_TASKS = (
         FakeTask('Write a Textual TUI', kids=[
             FakeTask('Task list'),
             FakeTask('Task create / edit'),
-            FakeTask('Timer'),
+            FakeTask('Timer', status=taskdb.TaskStatus.COMPLETED),
         ]),
         FakeTask('Calendar integration'),
     ]),
@@ -37,12 +38,13 @@ def add_fake_tasks(task_db: taskdb.TaskDB, tasks: Sequence[FakeTask] = FAKE_TASK
     """Add some fake `tasks` to the supplied `task_db`."""
 
     def add_child(parent_id: taskdb.TaskID, child: FakeTask) -> None:
-        t_id = task_db.add(taskdb.Task(child.title, parent_id=parent_id))
+        t_id = task_db.add(
+                taskdb.Task(child.title, status=child.status, parent_id=parent_id))
         for grandchild in child.kids:
             add_child(parent_id=t_id, child=grandchild)
 
     for top_level in tasks:
-        t_id = task_db.add(taskdb.Task(top_level.title))
+        t_id = task_db.add(taskdb.Task(top_level.title, status=top_level.status))
         for child in top_level.kids:
             add_child(parent_id=t_id, child=child)
 
@@ -50,7 +52,7 @@ def add_fake_tasks(task_db: taskdb.TaskDB, tasks: Sequence[FakeTask] = FAKE_TASK
 def fake_tasks_from_tree(tree: Tree) -> list[FakeTask]:
 
     def node_to_task(node):
-        return FakeTask(node.data.title, kids=get_kids(node))
+        return FakeTask(node.data.title, status=node.data.status, kids=get_kids(node))
 
     def get_kids(node):
         return [node_to_task(child) for child in node.children]
@@ -63,7 +65,7 @@ def fake_tasks_from_db(task_db: taskdb.TaskDB) -> list[FakeTask]:
 
     Useful to compare the state of the `TaskDB` in tests.
     """
-    # This duplicates (in approack) the code from
+    # This duplicates (in approach) the code from
     # work_timer.ui.task_list.TaskList._make_tree_with_tasks.
     tasks_by_parent_id = defaultdict(list)
     for t in task_db.get_all().values():
@@ -73,6 +75,7 @@ def fake_tasks_from_db(task_db: taskdb.TaskDB) -> list[FakeTask]:
     def make_task(task: taskdb.Task) -> FakeTask:
         return FakeTask(
                 task.title,
+                status=task.status,
                 kids=[make_task(t) for t in tasks_by_parent_id.get(task.id, [])])
 
     return [make_task(t) for t in tasks_by_parent_id.get(None, [])]

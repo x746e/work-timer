@@ -5,7 +5,7 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal
 from textual.message import Message
 from textual.screen import Screen
-from textual.widgets import Button, Label, Input, Footer
+from textual.widgets import Button, Label, Input, Footer, Select
 
 from work_timer import taskdb
 
@@ -56,6 +56,8 @@ class TaskEditor(Screen):
         # TODO: Can I somehow bind Input.value to self._edited_task.title?
         title_input = self.query_one('#title', Input)
         updated_task.title = title_input.value
+        status_select = self.query_one('#status', Select)
+        updated_task.status = status_select.value  # type: ignore
 
         if updated_task == self._edited_task:
             self.dismiss(None)
@@ -78,6 +80,11 @@ class TaskEditor(Screen):
         with Horizontal():
             yield Label('Title:')
             yield Input(self._edited_task.title, id='title')
+        with Horizontal():
+            yield Label('Status:')
+            yield Select(
+                    options=[(status.name, status.value) for status in taskdb.TaskStatus],
+                    allow_blank=False, id='status')
         with Horizontal():
             yield Label('Parent ID:')
             yield Input(str(self._edited_task.parent_id))

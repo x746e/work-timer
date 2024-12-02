@@ -5,6 +5,7 @@ from textual.app import App
 from textual.widgets import Tree
 
 from work_timer import taskdb
+from work_timer.taskdb import TaskStatus
 from work_timer.ui import ui_testing
 from work_timer.ui.task_list import TaskList
 from work_timer.utils import fake_tasks
@@ -57,6 +58,41 @@ class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
             tree = app.query_one(Tree)
 
         self.assertEqual(tasks, fake_tasks.fake_tasks_from_tree(tree))
+
+    async def test_completed_tasks_are_not_shown(self):
+        tasks = [
+            FakeTask('a', kids=[
+                FakeTask('b', status=TaskStatus.COMPLETED, kids=[
+                    FakeTask('c', status=TaskStatus.COMPLETED),
+                ])
+            ])
+        ]
+
+        app = FakeApp(fake_tasks.get_task_db(tasks))
+        async with app.run_test():
+            tree = app.query_one(Tree)
+
+        want_displayed_tasks = [
+                FakeTask('a'),
+        ]
+        self.assertEqual(want_displayed_tasks,
+                         fake_tasks.fake_tasks_from_tree(tree))
+
+    async def test_completed_tasks_with_active_children_are_shown(self):
+        tasks = [
+            FakeTask('a', kids=[
+                FakeTask('b', status=TaskStatus.COMPLETED, kids=[
+                    FakeTask('c', status=TaskStatus.NEW),
+                ])
+            ])
+        ]
+
+        app = FakeApp(fake_tasks.get_task_db(tasks))
+        async with app.run_test():
+            tree = app.query_one(Tree)
+
+        self.assertEqual(tasks,
+                         fake_tasks.fake_tasks_from_tree(tree))
 
 
 class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
@@ -192,5 +228,5 @@ def run_test_app():
 
 
 if __name__ == '__main__':
-    # run_test_app()
-    unittest.main()
+    run_test_app()
+    # unittest.main()

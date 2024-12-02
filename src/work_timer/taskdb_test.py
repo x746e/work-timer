@@ -90,17 +90,19 @@ class TaskDBTest(unittest.TestCase):
 
 EXPECTED_JSON = {
     'data': [
-        {'id': 1, 'parent_id': None, 'title': 'Write Work Time app'},
-        {'id': 2, 'parent_id': 1, 'title': 'Write a Textual TUI'},
-        {'id': 3, 'parent_id': 2, 'title': 'Task list'},
-        {'id': 4, 'parent_id': 2, 'title': 'Task create / edit'},
-        {'id': 5, 'parent_id': 2, 'title': 'Timer'},
-        {'id': 6, 'parent_id': 1, 'title': 'Calendar integration'}],
+        {'id': 1, 'parent_id': None, 'status': 'new', 'title': 'Write Work Time app'},
+        {'id': 2, 'parent_id': 1, 'status': 'new', 'title': 'Write a Textual TUI'},
+        {'id': 3, 'parent_id': 2, 'status': 'new', 'title': 'Task list'},
+        {'id': 4, 'parent_id': 2, 'status': 'new', 'title': 'Task create / edit'},
+        {'id': 5, 'parent_id': 2, 'status': 'completed', 'title': 'Timer'},
+        {'id': 6, 'parent_id': 1, 'status': 'new', 'title': 'Calendar integration'}],
     'schema': {
         'fields': [
             {'extDtype': 'Int64', 'name': 'id', 'type': 'integer'},
             {'extDtype': 'string', 'name': 'title', 'type': 'any'},
-            {'extDtype': 'Int64', 'name': 'parent_id', 'type': 'integer'}],
+            {'extDtype': 'Int64', 'name': 'parent_id', 'type': 'integer'},
+            {'constraints': {'enum': ['completed', 'new']},
+             'name': 'status', 'ordered': False, 'type': 'any'}],
         'pandas_version': '1.4.0',
         'primaryKey': ['id']}}
 
@@ -117,7 +119,7 @@ class PersistentTaskDBTest(unittest.TestCase):
             f = Path(d) / 'tasks.json'
             with f.open() as f:
                 data = json.load(f)
-            self.assertEqual(data, EXPECTED_JSON)
+            assert data == EXPECTED_JSON
 
     def test_loading(self):
         with tempfile.TemporaryDirectory() as d:

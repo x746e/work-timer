@@ -1,9 +1,10 @@
 """A place to store the task to be timed by the timer."""
 import copy
 from dataclasses import dataclass
-import threading
+import enum
 from pathlib import Path
 import subprocess
+import threading
 from typing import NewType
 
 import pandas as pd
@@ -14,11 +15,18 @@ TaskID = NewType('TaskID', int)  # pylint: disable=invalid-name
 
 UNSET_TASK_ID = TaskID(-1)
 
+
+class TaskStatus(enum.StrEnum):
+    NEW = enum.auto()
+    COMPLETED = enum.auto()
+
+
 @dataclass
 class Task:
     title: str
     id: TaskID = UNSET_TASK_ID
     parent_id: TaskID | None = None
+    status: TaskStatus = TaskStatus.NEW
 
 
 class TaskDB:
@@ -89,6 +97,13 @@ class PersistentTaskDB(TaskDB):
         self._path = self._repo_path / 'tasks.json'
         super().__init__()
 
+    def get_data_frame(self) -> pd.DataFrame:
+        """Returns (a copy of) tasks as a Pandas DataFrame."""
+        tasks = self.get_all()
+        df = pd.DataFrame(tasks.values()).convert_dtypes().set_index('id')
+        df.status = df.status.astype('category')
+        return df
+
     def _load_tasks(self) -> dict[TaskID, Task]:
         if not self._path.exists():
             return {}
@@ -96,13 +111,10 @@ class PersistentTaskDB(TaskDB):
         return self._from_df(df)
 
     def _persist(self, why: str) -> None:
-        df = self._to_df(self.get_all())
+        df = self.get_data_frame()
         df.to_json(self._path, orient='table', indent=2)
         subprocess.check_call(['git', '-C', self._repo_path, 'add', self._path])
         subprocess.check_call(['git', '-C', self._repo_path, 'commit', '-m', why])
-
-    def _to_df(self, tasks: dict[TaskID, Task]) -> pd.DataFrame:
-        return pd.DataFrame(tasks.values()).convert_dtypes().set_index('id')
 
     def _from_df(self, df: pd.DataFrame) -> dict[TaskID, Task]:
         return {d['id']: Task(**d) for d in df.reset_index().to_dict(orient='records')}

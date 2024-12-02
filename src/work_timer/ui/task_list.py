@@ -137,13 +137,22 @@ class TaskList(Widget):
         tasks = list(self._task_db.get_all().values())
         parent_to_task = self._group_tasks_by_parent_id(tasks)
 
-        def add_task(task, parent_node):
+        def add_task(task: taskdb.Task, parent_node: TreeNode) -> None:
+            if whole_subtree_is_completed(task):
+                return
             node = parent_node.add(task.title, data=task)
             children = parent_to_task.get(task.id, [])
             for child_task in children:
                 add_task(child_task, parent_node=node)
             if not children:
                 node.allow_expand = False
+
+        def whole_subtree_is_completed(task: taskdb.Task) -> bool:
+            if task.status != taskdb.TaskStatus.COMPLETED:
+                return False
+            children = parent_to_task.get(task.id, [])
+            return all(whole_subtree_is_completed(child) for child
+                       in children)
 
         tree = Tree[taskdb.Task]('')
 
