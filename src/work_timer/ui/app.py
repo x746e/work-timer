@@ -28,7 +28,7 @@ class WorkTimer(App):
 
     def __init__(self):
         super().__init__()
-        self._task_db = taskdb.PersistentTaskDB(Path('~/tasks.json'))
+        self._task_db = taskdb.PersistentTaskDB(Path('~/tasks/'))
 
     def compose(self) -> ComposeResult:
         yield TaskList(self._task_db)

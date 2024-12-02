@@ -3,6 +3,7 @@ import copy
 from dataclasses import dataclass
 import threading
 from pathlib import Path
+import subprocess
 from typing import NewType
 
 import pandas as pd
@@ -45,7 +46,7 @@ class TaskDB:
         task.id = self._get_next_id()
         self._tasks[task.id] = task
         with self._lock:
-            self._persist()
+            self._persist(why=f'Adding {task}')
         return task.id
 
     def update(self, task: Task) -> None:
@@ -55,12 +56,12 @@ class TaskDB:
             raise KeyError(f"No task with id {task.id} to update.")
         self._tasks[task.id] = copy.deepcopy(task)
         with self._lock:
-            self._persist()
+            self._persist(why=f'Updating {task}')
 
     def delete(self, task_id: TaskID) -> None:
-        del self._tasks[task_id]
+        task = self._tasks.pop(task_id)
         with self._lock:
-            self._persist()
+            self._persist(why=f'Deleting {task}')
 
     def _get_next_id(self):
         with self._lock:
@@ -73,7 +74,7 @@ class TaskDB:
     def _load_tasks(self) -> dict[TaskID, Task]:
         return {}
 
-    def _persist(self) -> None:
+    def _persist(self, why: str) -> None:
         pass
 
 
@@ -83,8 +84,9 @@ class PersistentTaskDB(TaskDB):
     The current implementation uses JSON, through Pandas.
     """
 
-    def __init__(self, path: Path):
-        self._path = path.expanduser()
+    def __init__(self, repo_path: Path):
+        self._repo_path = repo_path.expanduser()
+        self._path = self._repo_path / 'tasks.json'
         super().__init__()
 
     def _load_tasks(self) -> dict[TaskID, Task]:
@@ -93,14 +95,14 @@ class PersistentTaskDB(TaskDB):
         df = pd.read_json(self._path, orient='table')
         return self._from_df(df)
 
-    def _persist(self) -> None:
+    def _persist(self, why: str) -> None:
         df = self._to_df(self.get_all())
         df.to_json(self._path, orient='table', indent=2)
+        subprocess.check_call(['git', '-C', self._repo_path, 'add', self._path])
+        subprocess.check_call(['git', '-C', self._repo_path, 'commit', '-m', why])
 
     def _to_df(self, tasks: dict[TaskID, Task]) -> pd.DataFrame:
         return pd.DataFrame(tasks.values()).convert_dtypes().set_index('id')
 
     def _from_df(self, df: pd.DataFrame) -> dict[TaskID, Task]:
         return {d['id']: Task(**d) for d in df.reset_index().to_dict(orient='records')}
-
-    # TODO: git-backed storage.

@@ -1,6 +1,7 @@
 """Tests for work_timer.taskdb."""
 import json
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 
@@ -108,22 +109,23 @@ class PersistentTaskDBTest(unittest.TestCase):
 
     def test_saving(self):
         with tempfile.TemporaryDirectory() as d:
-            f = Path(d) / 'tasks.json'
-            db = taskdb.PersistentTaskDB(f)
+            subprocess.check_call(f'git -C {d} init', shell=True)
+            db = taskdb.PersistentTaskDB(repo_path=Path(d))
+
             fake_tasks.add_fake_tasks(db)
 
-            db._persist()  # pylint: disable=protected-access
-
+            f = Path(d) / 'tasks.json'
             with f.open() as f:
                 data = json.load(f)
             self.assertEqual(data, EXPECTED_JSON)
 
     def test_loading(self):
-        with tempfile.NamedTemporaryFile(mode='w+t') as f:
-            json.dump(EXPECTED_JSON, f)
-            f.flush()
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / 'tasks.json'
+            with f.open('w') as f:
+                json.dump(EXPECTED_JSON, f)
 
-            db = taskdb.PersistentTaskDB(Path(f.name))
+            db = taskdb.PersistentTaskDB(Path(d))
 
             assert list(fake_tasks.FAKE_TASKS) == fake_tasks.fake_tasks_from_db(db)
 
