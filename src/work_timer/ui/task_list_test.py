@@ -221,6 +221,68 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
         got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
         self.assertEqual(want_tasks, got_ui_tasks)
 
+    async def test_task_delete(self):
+        initial_tasks = [
+            FakeTask('task_a', kids=[
+                FakeTask('task_b', kids=[
+                    FakeTask('task_c'),
+                    FakeTask('task_d'),
+                ])
+            ])
+        ]
+        task_db = fake_tasks.get_task_db(initial_tasks)
+        app = FakeApp(task_db)
+
+        async with app.run_test() as pilot:
+            await pilot.press('down')
+            await pilot.press('down')
+            await pilot.press('down')
+            tree = app.query_one(Tree)
+            self.assertEqual(not_none(not_none(tree.cursor_node).data).title, 'task_c')
+            await pilot.press('e')
+            # We should be in the TaskEdit now.
+            await pilot.press('ctrl+r')
+
+        want_tasks = [
+            FakeTask('task_a', kids=[
+                FakeTask('task_b', kids=[
+                    # task_c should be deleted now.
+                    FakeTask('task_d'),
+                ])
+            ])
+        ]
+        got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
+        self.assertEqual(want_tasks, got_db_tasks)
+        got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
+        self.assertEqual(want_tasks, got_ui_tasks)
+
+    async def test_task_subtree_deletion_isnt_supported(self):
+        initial_tasks = [
+            FakeTask('task_a', kids=[
+                FakeTask('task_b', kids=[
+                    FakeTask('task_c'),
+                    FakeTask('task_d'),
+                ])
+            ])
+        ]
+        task_db = fake_tasks.get_task_db(initial_tasks)
+        app = FakeApp(task_db)
+
+        async with app.run_test() as pilot:
+            await pilot.press('down')
+            await pilot.press('down')
+            tree = app.query_one(Tree)
+            self.assertEqual(not_none(not_none(tree.cursor_node).data).title, 'task_b')
+            await pilot.press('e')
+            # We should be in the TaskEdit now.
+            await pilot.press('ctrl+r')
+
+        # Nothing should change
+        got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
+        self.assertEqual(initial_tasks, got_db_tasks)
+        got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
+        self.assertEqual(initial_tasks, got_ui_tasks)
+
 
 # def prereq(meth):
 #     # TODO:

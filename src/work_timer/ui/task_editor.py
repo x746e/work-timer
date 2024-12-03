@@ -19,10 +19,15 @@ class TaskEditor(Screen):
 
     class Changed(Message):
 
+        __match_args__ = ('old', 'new')
+
         def __init__(self, old: None | taskdb.Task, new: taskdb.Task) -> None:
             super().__init__()
             self.old = old
             self.new = new
+
+    class Deleted(Message):
+        pass
 
     BINDINGS = [
         ('escape', 'dismiss'),
@@ -39,6 +44,7 @@ class TaskEditor(Screen):
         #
         # ('ctrl+enter', 'save'),
         ('ctrl+s', 'save', 'Save'),
+        ('ctrl+r', 'delete', 'Delete'),
     ]
 
     def __init__(self, task_db: taskdb.TaskDB, task: taskdb.Task):
@@ -48,6 +54,9 @@ class TaskEditor(Screen):
 
     def _creating_new_task(self) -> bool:
         return self._edited_task.id == taskdb.UNSET_TASK_ID
+
+    def _editing_a_parent(self) -> bool:
+        return bool(self._task_db.get_children(parent_id=self._edited_task.id))
 
     def action_save(self):
         """Updates or creates the currently edited task."""
@@ -74,6 +83,31 @@ class TaskEditor(Screen):
         self.post_message(message)
         self.dismiss(message)
 
+    def action_delete(self):
+        if self._editing_a_parent():
+            raise RuntimeError('Removing subtrees is not yet supported.')
+        self._task_db.delete(self._edited_task.id)
+        message = self.Deleted()
+        self.post_message(message)
+        self.dismiss(message)
+
+    def check_action(
+        self, action: str, parameters: tuple[object, ...]
+    ) -> bool | None:
+        if action == 'dismiss':
+            return True
+        if action == 'save':
+            # TODO: Validate the title is not empty.
+            return True
+        if action == 'delete':
+            if self._creating_new_task():
+                return False
+            if self._editing_a_parent():
+                return None  # Mark the action as disabled.
+            return True
+
+        assert False, 'unreachable'
+
     def compose(self) -> ComposeResult:
         if not self._creating_new_task():
             with Horizontal():
@@ -98,5 +132,8 @@ class TaskEditor(Screen):
         yield Button(label='Create' if self._creating_new_task() else 'Save',
                      variant='success' if self._creating_new_task() else 'primary',
                      action='save')
-        yield Button('Cancel', variant='error', action='dismiss')
+        if not self._creating_new_task():
+            yield Button('Delete', variant='error', action='dismiss',
+                         disabled=self._editing_a_parent())
+        yield Button('Cancel', variant='warning', action='dismiss')
         yield Footer()

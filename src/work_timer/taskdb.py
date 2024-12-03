@@ -67,6 +67,9 @@ class TaskDB:
     def get(self, task_id: TaskID) -> Task:
         return copy.deepcopy(self._tasks[task_id])
 
+    def get_children(self, parent_id: TaskID) -> list[Task]:
+        return [task for task in self._tasks.values() if task.parent_id == parent_id]
+
     def add(self, task: Task) -> TaskID:
         task = copy.deepcopy(task)
         if task.id != UNSET_TASK_ID:

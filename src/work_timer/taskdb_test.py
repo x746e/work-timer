@@ -98,6 +98,20 @@ class TaskDBTest(unittest.TestCase):
         self.assertCountEqual([id_a, id_b], tasks.keys())
         self.assertCountEqual([task_a.title, task_b.title], [t.title for t in tasks.values()])
 
+    def test_get_children(self):
+        task_a = taskdb.Task(title='Task A')
+        id_a = self.db.add(task_a)
+        task_b = taskdb.Task(title='Task B', parent_id=id_a)
+        self.db.add(task_b)
+        task_c = taskdb.Task(title='Task C', parent_id=id_a)
+        id_c = self.db.add(task_c)
+        task_d = taskdb.Task(title='Task D', parent_id=id_c)
+        self.db.add(task_d)
+
+        children = self.db.get_children(parent_id=id_a)
+
+        self.assertCountEqual([task_b.title, task_c.title], [t.title for t in children])
+
 
 EXPECTED_JSON = {
     'data': [

@@ -88,13 +88,21 @@ class TaskList(Widget):
             return
 
         task = not_none(node.data)
-        changed = await self.app.push_screen_wait(TaskEditor(self._task_db, task))
-        if changed:
-            # TODO: Check changed.fields.
-            # TODO: If reparented, move the node, then focus on it.
-            node.set_label(_title_with_style(changed.new))
-            node.data = changed.new
-            node.refresh()
+        resp = await self.app.push_screen_wait(TaskEditor(self._task_db, task))
+        match resp:
+            case TaskEditor.Changed(_, updated_task):
+                # TODO: Check changed.fields.
+                # TODO: If reparented, move the node, then focus on it.
+                node.set_label(_title_with_style(updated_task))
+                node.data = updated_task
+                node.refresh()
+            case TaskEditor.Deleted():
+                assert not node.children
+                node.remove()
+            case None:
+                pass
+            case _:
+                assert False, 'unreachable'
 
     @work
     async def action_create(self) -> None:
@@ -116,7 +124,7 @@ class TaskList(Widget):
         changed = await self.app.push_screen_wait(TaskEditor(self._task_db, new_task))
         if changed:
             parent_node.allow_expand = True
-            parent_node.add_leaf(changed.new.title, changed.new)
+            parent_node.add_leaf(_title_with_style(changed.new), changed.new)
 
     @work
     async def action_start(self) -> None:
@@ -134,7 +142,7 @@ class TaskList(Widget):
     def check_action(
         self, action: str, parameters: tuple[object, ...]
     ) -> bool | None:
-        if action in ('delete', 'edit', 'mark_done', 'start'):
+        if action in ('edit', 'mark_done', 'start'):
             if not self._get_selected_task_node():
                 return None  # Mark the action as disabled.
         return True
