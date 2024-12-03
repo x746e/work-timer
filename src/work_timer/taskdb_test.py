@@ -116,21 +116,22 @@ class TaskDBTest(unittest.TestCase):
 EXPECTED_JSON = {
     'data': [
         {'id': 1, 'parent_id': None, 'priority': 'P2',
-         'status': 'new', 'title': 'Write Work Time app'},
+         'description': '', 'status': 'new', 'title': 'Write Work Time app'},
         {'id': 2, 'parent_id': 1, 'priority': 'P2',
-         'status': 'new', 'title': 'Write a Textual TUI'},
+         'description': '', 'status': 'new', 'title': 'Write a Textual TUI'},
         {'id': 3, 'parent_id': 2, 'priority': 'P2',
-         'status': 'new', 'title': 'Task list'},
+         'description': '', 'status': 'new', 'title': 'Task list'},
         {'id': 4, 'parent_id': 2, 'priority': 'P2',
-         'status': 'new', 'title': 'Task create / edit'},
+         'description': '', 'status': 'new', 'title': 'Task create / edit'},
         {'id': 5, 'parent_id': 2, 'priority': 'P2',
-         'status': 'done', 'title': 'Timer'},
+         'description': '', 'status': 'done', 'title': 'Timer'},
         {'id': 6, 'parent_id': 1, 'priority': 'P2',
-         'status': 'new', 'title': 'Calendar integration'}],
+         'description': '', 'status': 'new', 'title': 'Calendar integration'}],
     'schema': {
         'fields': [
             {'extDtype': 'Int64', 'name': 'id', 'type': 'integer'},
             {'extDtype': 'string', 'name': 'title', 'type': 'any'},
+            {'extDtype': 'string', 'name': 'description', 'type': 'any'},
             {'extDtype': 'Int64', 'name': 'parent_id', 'type': 'integer'},
             {'constraints': {'enum': ['done', 'new']},
              'name': 'status', 'ordered': False, 'type': 'any'},

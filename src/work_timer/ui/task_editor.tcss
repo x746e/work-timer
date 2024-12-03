@@ -1,16 +1,29 @@
 TaskEditor {
     Grid {
-	background: $boost;
 	padding: 1 2;
 	height: auto;
 	grid-size: 2;
 	grid-gutter: 1;
 	grid-columns: auto 1fr;
-	Label {
-	    width: 100%;
-	    padding: 1;
-	    text-align: right;
-	}
+    }
+
+    Label {
+        width: 100%;
+        padding: 1;
+        text-align: right;
+    }
+
+    #text-container {
+        layout: grid;
+        grid-size: 2;
+        grid-gutter: 1;
+	grid-columns: auto 1fr;
+
+        TextArea {
+            height: 10;
+            width: 100%;
+            margin-right: 2;
+        }
     }
 
     #buttons {

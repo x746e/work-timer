@@ -18,8 +18,14 @@ from textual.widgets import Static, ProgressBar, Tree, Footer
 from textual.widgets import tree as tree_widget
 
 # from work_timer.ui.timer import Timer
-from work_timer.ui.task_editor import TaskEditor
+from work_timer.ui.task_editor import TaskEditorWidget
 from work_timer.utils import fake_tasks
+
+# Make all the linters to shut up about unused symbols.
+_ = Horizontal
+_ = Vertical
+_ = Container
+_ = ProgressBar
 
 # Dev tools ideas:
 # - Dom tree browser.
@@ -111,23 +117,23 @@ class Playground(Widget):
         with Vertical(id='playground'):
             db = fake_tasks.get_task_db()
             task = list(db.get_all().values())[0]
-            yield TaskEditor(db, task)
-            widgets = [Static(f"Static #{n}", id=f'static-{n}') for n in range(8)]
-            widgets[0].styles.margin = 3
-            widgets[1].styles.padding = 2
-            widgets[3].styles.width = 30
-            widgets[3].styles.height = 10
-            pb = ProgressBar()
-            pb.update(total=100, progress=42)
-            # with Container(id='tcon'):
-            # yield Timer()
-            yield ProgressBar()
-            with Container(id='con-0-1-2-3'):
-                yield from widgets[:4]
-            with Container(id='con-4'):
-                yield pb
-            with Container(id='con-5-6-7'):
-                yield from widgets[5:8]
+            yield TaskEditorWidget(db, task)
+            # widgets = [Static(f"Static #{n}", id=f'static-{n}') for n in range(8)]
+            # widgets[0].styles.margin = 3
+            # widgets[1].styles.padding = 2
+            # widgets[3].styles.width = 30
+            # widgets[3].styles.height = 10
+            # pb = ProgressBar()
+            # pb.update(total=100, progress=42)
+            # # with Container(id='tcon'):
+            # # yield Timer()
+            # yield ProgressBar()
+            # with Container(id='con-0-1-2-3'):
+            #     yield from widgets[:4]
+            # with Container(id='con-4'):
+            #     yield pb
+            # with Container(id='con-5-6-7'):
+            #     yield from widgets[5:8]
 
 
 class DOMTree(Widget):

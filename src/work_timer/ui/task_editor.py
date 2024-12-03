@@ -1,11 +1,13 @@
 """A widget for editing a Task."""
 import copy
 
+from textual import on
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Grid
 from textual.message import Message
 from textual.screen import Screen
-from textual.widgets import Button, Label, Input, Footer, Select
+from textual.widget import Widget
+from textual.widgets import Button, Label, Input, Footer, Select, TextArea
 
 from work_timer import taskdb
 
@@ -13,7 +15,7 @@ from work_timer import taskdb
 # TODO: On click / enter on the Parent input, show a dialog to select the new
 #       parent.  ParentChooser widget.  That will require passing the TaskDB
 #       all the way through.
-class TaskEditor(Screen):
+class TaskEditorWidget(Widget):
 
     """A Task editing Widget."""
 
@@ -27,6 +29,9 @@ class TaskEditor(Screen):
             self.new = new
 
     class Deleted(Message):
+        pass
+
+    class Dismiss(Message):
         pass
 
     BINDINGS = [
@@ -47,8 +52,6 @@ class TaskEditor(Screen):
         ('ctrl+r', 'delete', 'Delete'),
     ]
 
-    CSS_PATH = 'task_editor.tcss'
-
     def __init__(self, task_db: taskdb.TaskDB, task: taskdb.Task):
         super().__init__()
         self._task_db = task_db
@@ -60,6 +63,11 @@ class TaskEditor(Screen):
     def _editing_a_parent(self) -> bool:
         return bool(self._task_db.get_children(parent_id=self._edited_task.id))
 
+    @on(Button.Pressed, '#dismiss')
+    def action_dismiss(self):
+        self.post_message(self.Dismiss())
+
+    @on(Button.Pressed, '#save')
     def action_save(self):
         """Updates or creates the currently edited task."""
         updated_task = copy.deepcopy(self._edited_task)
@@ -71,9 +79,14 @@ class TaskEditor(Screen):
         updated_task.status = status_select.value  # type: ignore
         priority_select = self.query_one('#priority', Select)
         updated_task.priority = priority_select.value  # type: ignore
+        description_text_area = self.query_one('#description', TextArea)
+        updated_task.description = description_text_area.text
+
+        # TODO: Replace all `query_one` by `query_exactly_one`.
+        #       Add a linter check.
 
         if updated_task == self._edited_task:
-            self.dismiss(None)
+            self.post_message(self.Dismiss())
             return
 
         if self._creating_new_task():
@@ -83,15 +96,14 @@ class TaskEditor(Screen):
             self._task_db.update(updated_task)
             message = self.Changed(old=self._edited_task, new=updated_task)
         self.post_message(message)
-        self.dismiss(message)
 
+    @on(Button.Pressed, '#delete')
     def action_delete(self):
         if self._editing_a_parent():
             raise RuntimeError('Removing subtrees is not yet supported.')
         self._task_db.delete(self._edited_task.id)
         message = self.Deleted()
         self.post_message(message)
-        self.dismiss(message)
 
     def check_action(
         self, action: str, parameters: tuple[object, ...]
@@ -132,13 +144,56 @@ class TaskEditor(Screen):
             yield Label('Parent ID:')
             yield Input(str(self._edited_task.parent_id))
 
+
+        with Horizontal(id='text-container'):
+            yield Label('Description:', id='dl')
+            yield TextArea(language='markdown', text=self._edited_task.description,
+                           id='description')
+
         with Horizontal(id='buttons'):
             yield Button(label='Create' if self._creating_new_task() else 'Save',
-                        variant='success' if self._creating_new_task() else 'primary',
-                        action='save')
+                         variant='success' if self._creating_new_task() else 'primary',
+                         id='save')
             if not self._creating_new_task():
-                yield Button('Delete', variant='error', action='dismiss',
-                            disabled=self._editing_a_parent())
-            yield Button('Cancel', variant='warning', action='dismiss')
+                yield Button('Delete', variant='error', id='delete',
+                             disabled=self._editing_a_parent())
+            yield Button('Cancel', variant='warning', id='dismiss')
 
+
+# TODO: How do you restart `pdm run textual ...` when .py file changes?
+# TODO: Show classes in the explorer.
+
+
+class TaskEditor(Screen):
+
+    """A screen containing the TaskEditorWidget.
+
+    The main reason it exists is to make it easier to debug the layout in
+    work_timer.ui.explorer, where yielding a Screen out of compose doesn't seem
+    to work.
+    """
+
+    CSS_PATH = 'task_editor.tcss'
+
+    Changed = TaskEditorWidget.Changed
+    Deleted = TaskEditorWidget.Deleted
+
+    def __init__(self, task_db: taskdb.TaskDB, task: taskdb.Task):
+        super().__init__()
+        self._task_db = task_db
+        self._edited_task = task
+
+    @on(TaskEditorWidget.Changed)
+    @on(TaskEditorWidget.Deleted)
+    def on_mutating_event(self, msg) -> None:
+        self.dismiss(msg)
+
+    @on(TaskEditorWidget.Dismiss)
+    def on_noop_event(self, unused_msg) -> None:
+        self.dismiss(None)
+
+    # TODO: Decide on a standard way of ordering methods in Textual Widgets,
+    # enforce with a linter rule.
+    def compose(self) -> ComposeResult:
+        yield TaskEditorWidget(self._task_db, self._edited_task)
         yield Footer()

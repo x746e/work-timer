@@ -40,6 +40,7 @@ class Task:
 
     title: str
     id: TaskID = UNSET_TASK_ID
+    description: str = ''
     parent_id: TaskID | None = None
     status: Status = Status.NEW
     priority: Priority = Priority.P2
