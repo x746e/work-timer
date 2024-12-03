@@ -77,7 +77,7 @@ class TaskDB:
             self._next_id += 1
         return TaskID(next_id)
 
-    # Method for overriding in subclasses.
+    # Methods for overriding in subclasses.
 
     def _load_tasks(self) -> dict[TaskID, Task]:
         return {}

@@ -1,5 +1,6 @@
 """A widget to showing a list (or a tree) of tasks."""
 import collections
+from datetime import timedelta
 
 from textual import work
 from textual.app import ComposeResult
@@ -8,6 +9,7 @@ from textual.widgets import Tree
 from textual.widgets.tree import TreeNode
 
 from work_timer import taskdb
+from work_timer.ui.timer import TimerScreen
 from work_timer.ui.task_editor import TaskEditor
 from work_timer.utils.typing import not_none
 
@@ -16,9 +18,9 @@ class TaskList(Widget):
     """A widget to showing a list (or a tree) of tasks."""
 
     BINDINGS = [
-        ('d', 'delete', 'Delete task'),
-        ('e', 'edit', 'Edit task'),
-        ('c', 'create', 'Create a new task'),  # with the cursor_node as a parent.
+        ('e', 'edit', 'Edit'),
+        ('m', 'mark_done', 'Mark DONE'),
+        ('c', 'create', 'New task'),  # with the cursor_node as a parent.
         # TODO: ('m', 'move', 'Move the task'),
         #       that will change the TaskList into a special mode.
         #       up/down will move the task's order between it's siblings
@@ -26,7 +28,7 @@ class TaskList(Widget):
         #       enter will commit the change to the TaskDB
         #       escape will cancel the change
         #       Probably that should be done in another Screen
-        # TODO: ('s', 'start', 'Start the timer '),  # start the timer with the cursor_node.
+        ('s', 'start', 'Start the timer'),  # start the timer with the cursor_node.
         ('q', 'quit', 'Quit'),
     ]
 
@@ -48,32 +50,27 @@ class TaskList(Widget):
     def _get_tree(self) -> Tree:
         return not_none(self.query_one(Tree))
 
-    def action_delete(self) -> None:
-        """Action to delete the currently selected Task.
+    def action_mark_done(self) -> None:
+        """Mark the task as DONE.
 
-        Removes the task from the UI and deletes it from `self._task_db`.
+        Hide it from the view if doesn't have children.
         """
-        node = self._get_selected_task_node()
-        if not node:
-            return
+        node = not_none(self._get_selected_task_node())
 
-        # Handle the case if the deleted node has children.
-        if node.children:
-            raise NotImplementedError('Not sure what to do when deleting parent tasks. '
-                                      'Delete the whole subtree?')
+        # Mark as done.
+        task = not_none(node.data)
+        task.status = taskdb.TaskStatus.COMPLETED
+        self._task_db.update(task)
 
         # If deleting this node makes the parent "childless", then remove the
         # expand/collapse triangular marker from the parent node.
-        if node.parent:
+        if node.parent and not node.children:
             if len(node.siblings) == 1:
                 node.parent.allow_expand = False
 
-        # Delete the Task from the TaskDB.
-        task = not_none(node.data)
-        self._task_db.delete(task.id)
-
         # And remove it from the UI.
-        node.remove()
+        if not node.children:
+            node.remove()
 
     @work
     async def action_edit(self) -> None:
@@ -117,13 +114,23 @@ class TaskList(Widget):
             parent_node.allow_expand = True
             parent_node.add_leaf(changed.new.title, changed.new)
 
+    @work
+    async def action_start(self) -> None:
+        node = self._get_selected_task_node()
+        if not node:
+            return
+
+        task = not_none(node.data)
+        await self.app.push_screen_wait(TimerScreen(task, timedelta(seconds=15)))
+
+
     def action_quit(self):
         self.app.exit()
 
     def check_action(
         self, action: str, parameters: tuple[object, ...]
     ) -> bool | None:
-        if action in ('delete', 'edit'):
+        if action in ('delete', 'edit', 'mark_done', 'start'):
             if not self._get_selected_task_node():
                 return None  # Mark the action as disabled.
         return True

@@ -139,7 +139,7 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
             node = not_none(tree.cursor_node)
             self.assertEqual(not_none(node.data).title, 'task_b')
 
-    async def test_task_delete_leaf(self):
+    async def test_marking_done(self):
         initial_tasks = [
             FakeTask('task_a', kids=[
                 FakeTask('task_b', kids=[
@@ -159,20 +159,28 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
             node = not_none(tree.cursor_node)
             self.assertEqual(not_none(node.data).title, 'task_c')
             node = not_none(tree.cursor_node)
-            await pilot.press('d')
+            await pilot.press('m')
 
-        want_tasks = [
+        want_db_tasks = [
             FakeTask('task_a', kids=[
                 FakeTask('task_b', kids=[
-                    # task_c should be removed.
+                    FakeTask('task_c', status=TaskStatus.COMPLETED),
                     FakeTask('task_d'),
                 ])
             ])
         ]
         got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
-        self.assertEqual(want_tasks, got_db_tasks)
+        assert want_db_tasks == got_db_tasks
+        want_ui_tasks = [
+            FakeTask('task_a', kids=[
+                FakeTask('task_b', kids=[
+                    # task_c shouldn't be shown.
+                    FakeTask('task_d'),
+                ])
+            ])
+        ]
         got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
-        self.assertEqual(want_tasks, got_ui_tasks)
+        assert want_ui_tasks == got_ui_tasks
 
     async def test_task_edit(self):
         initial_tasks = [

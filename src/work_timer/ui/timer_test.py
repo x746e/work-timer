@@ -9,6 +9,7 @@ from textual.pilot import Pilot
 from textual.widgets import Footer, ProgressBar
 from textual.widgets._footer import FooterKey
 
+from work_timer import taskdb
 from work_timer.ui.timer import Timer, TimeDisplay
 
 
@@ -19,7 +20,8 @@ class FakeApp(App):
         self._period_length = period_length
 
     def compose(self) -> ComposeResult:
-        yield Timer(period_length=self._period_length)
+        yield Timer(timed_task=taskdb.Task(title='Test', id=taskdb.TaskID(42)),
+                    period_length=self._period_length)
         yield Footer(show_command_palette=False)
 
 

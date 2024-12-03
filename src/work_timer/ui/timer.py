@@ -5,6 +5,7 @@ from textual import on
 from textual.app import App, ComposeResult
 from textual.message import Message
 from textual.reactive import reactive
+from textual.screen import Screen
 from textual.timer import Timer as TextualTimer
 from textual.widget import Widget
 from textual.widgets import Digits, Footer, ProgressBar
@@ -64,7 +65,7 @@ class Timer(Widget):
     #
     # TODO: Maybe rename it to TimerWidget?  Too many Timer classes.
 
-    class _PeriodEnded(Message):
+    class PeriodEnded(Message):
         pass
 
     can_focus = True
@@ -72,10 +73,7 @@ class Timer(Widget):
     _ticker: TextualTimer
     _wt_timer: timer.Timer
 
-    def __init__(
-            self,
-            timed_task = taskdb.Task(title='Test', id=taskdb.TaskID(42)),
-            period_length = timedelta(seconds=4)):
+    def __init__(self, timed_task: taskdb.Task, period_length: timedelta):
         super().__init__()
         self._ticker = self.set_interval(.05, self._tick, pause=True)
         self._timed_task = timed_task
@@ -83,7 +81,6 @@ class Timer(Widget):
         self._wt_timer = timer.Timer(self._timed_task.id, self._period_length)
 
     def compose(self) -> ComposeResult:
-        print('compose')
         yield TimeDisplay(self._period_length.seconds)
         progress_bar = ProgressBar(show_percentage=False, show_eta=False)
         progress_bar.update(progress=0, total=self._period_length.total_seconds())
@@ -91,32 +88,27 @@ class Timer(Widget):
         self.refresh_bindings()
 
     def action_start(self) -> None:
-        print('action_start')
         self._wt_timer.start()
         self._wt_timer.set_on_period_end_callback(self._on_period_end)
         self._ticker.resume()
         self.refresh_bindings()
 
     def _on_period_end(self, info: timer.TimerInfo) -> None:
-        # del info
-        print(f'_on_period_end({info=})')
-        self.post_message(Timer._PeriodEnded())
+        del info
+        self.post_message(Timer.PeriodEnded())
 
-    @on(_PeriodEnded)
+    @on(PeriodEnded)
     async def on_period_end(self) -> None:
         self._ticker.stop()
         self._tick()
         self.disabled = True
         self.refresh_bindings()
-        print('on_timer_restart')
 
     def action_pause(self) -> None:
-        print('action_pause')
         self._wt_timer.pause()
         self.refresh_bindings()
 
     def action_resume(self) -> None:
-        print('action_resume')
         self._wt_timer.resume()
         self.refresh_bindings()
 
@@ -140,7 +132,6 @@ class Timer(Widget):
     def check_action(  # pylint: disable=too-many-return-statements
         self, action: str, parameters: tuple[object, ...]
     ) -> bool | None:
-        # print(f'   timer_info: {self._wt_timer.get_info()}')
         match (action, self._wt_timer.get_info().state):
             case ('start', timer.Timer.State.STOPPED):
                 return True
@@ -156,7 +147,6 @@ class Timer(Widget):
                 return False
 
     def _tick(self) -> None:
-        # print('_tick')
         ti = self._wt_timer.get_info()
         seconds_left = ti.period_length.total_seconds() - ti.elapsed_time.total_seconds()
         self.query_one(TimeDisplay).seconds_left = max(0, seconds_left)
@@ -164,18 +154,38 @@ class Timer(Widget):
                                            progress=ti.elapsed_time.total_seconds())
 
 
-class TimerApp(App):
+class TimerScreen(Screen):
+
+    """A screen with a Timer widget."""
 
     CSS_PATH = 'timer.tcss'
 
+    def __init__(self, timed_task: taskdb.Task, period_length: timedelta):
+        super().__init__()
+        self._timed_task = timed_task
+        self._period_length = period_length
+
     def compose(self) -> ComposeResult:
-        yield Timer()
+        yield Timer(self._timed_task, self._period_length)
         yield Footer()
+
+    @on(Timer.PeriodEnded)
+    async def on_period_end(self) -> None:
+        self.dismiss()
 
 
 def main() -> None:
-    # db = fake_tasks.get_task_db()
-    # task = next(iter(db.get_all().values()))
+    """A way to exercise the widget in isolation, useful for development."""
+
+    class TimerApp(App):
+
+        CSS_PATH = 'timer.tcss'
+
+        def compose(self) -> ComposeResult:
+            yield Timer(timed_task = taskdb.Task(title='Test', id=taskdb.TaskID(42)),
+                        period_length = timedelta(seconds=4))
+            yield Footer()
+
     app = TimerApp()
     app.run()
 
