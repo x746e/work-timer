@@ -59,7 +59,7 @@ class TaskList(Widget):
 
         # Mark as done.
         task = not_none(node.data)
-        task.status = taskdb.TaskStatus.COMPLETED
+        task.status = taskdb.TaskStatus.DONE
         self._task_db.update(task)
 
         # If deleting this node makes the parent "childless", then remove the
@@ -155,7 +155,7 @@ class TaskList(Widget):
                 node.allow_expand = False
 
         def whole_subtree_is_completed(task: taskdb.Task) -> bool:
-            if task.status != taskdb.TaskStatus.COMPLETED:
+            if task.status != taskdb.TaskStatus.DONE:
                 return False
             children = parent_to_task.get(task.id, [])
             return all(whole_subtree_is_completed(child) for child

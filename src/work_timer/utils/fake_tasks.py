@@ -21,7 +21,7 @@ FAKE_TASKS = (
         FakeTask('Write a Textual TUI', kids=[
             FakeTask('Task list'),
             FakeTask('Task create / edit'),
-            FakeTask('Timer', status=taskdb.TaskStatus.COMPLETED),
+            FakeTask('Timer', status=taskdb.TaskStatus.DONE),
         ]),
         FakeTask('Calendar integration'),
     ]),

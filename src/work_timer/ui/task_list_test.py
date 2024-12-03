@@ -62,8 +62,8 @@ class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
     async def test_completed_tasks_are_not_shown(self):
         tasks = [
             FakeTask('a', kids=[
-                FakeTask('b', status=TaskStatus.COMPLETED, kids=[
-                    FakeTask('c', status=TaskStatus.COMPLETED),
+                FakeTask('b', status=TaskStatus.DONE, kids=[
+                    FakeTask('c', status=TaskStatus.DONE),
                 ])
             ])
         ]
@@ -81,7 +81,7 @@ class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
     async def test_completed_tasks_with_active_children_are_shown(self):
         tasks = [
             FakeTask('a', kids=[
-                FakeTask('b', status=TaskStatus.COMPLETED, kids=[
+                FakeTask('b', status=TaskStatus.DONE, kids=[
                     FakeTask('c', status=TaskStatus.NEW),
                 ])
             ])
@@ -164,7 +164,7 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
         want_db_tasks = [
             FakeTask('task_a', kids=[
                 FakeTask('task_b', kids=[
-                    FakeTask('task_c', status=TaskStatus.COMPLETED),
+                    FakeTask('task_c', status=TaskStatus.DONE),
                     FakeTask('task_d'),
                 ])
             ])

@@ -18,7 +18,7 @@ UNSET_TASK_ID = TaskID(-1)
 
 class TaskStatus(enum.StrEnum):
     NEW = enum.auto()
-    COMPLETED = enum.auto()
+    DONE = enum.auto()
 
 
 @dataclass
