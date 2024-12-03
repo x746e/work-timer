@@ -33,8 +33,8 @@ class TaskList(Widget):
         ('-', 'dec_prio', 'Decrease priority'),
         ('+', 'inc_prio', 'Increase priority'),
         ('q', 'quit', 'Quit'),
-        ('j', 'focused.cursor_down'),
-        ('k', 'focused.cursor_up'),
+        ('j', 'cursor_down'),
+        ('k', 'cursor_up'),
     ]
 
     def __init__(self, task_db: taskdb.TaskDB):
@@ -168,6 +168,12 @@ class TaskList(Widget):
 
         task = not_none(node.data)
         await self.app.push_screen_wait(TimerScreen(task, timedelta(seconds=15)))
+
+    def action_cursor_up(self):
+        self._get_tree().action_cursor_up()
+
+    def action_cursor_down(self):
+        self._get_tree().action_cursor_down()
 
     def action_quit(self):
         self.app.exit()
