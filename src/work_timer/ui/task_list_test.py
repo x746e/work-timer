@@ -5,6 +5,7 @@ from textual.app import App
 from textual.widgets import Tree
 
 from work_timer import taskdb
+from work_timer.timelog import TimeLog
 from work_timer.ui import ui_testing
 from work_timer.ui.task_list import TaskList
 from work_timer.utils import fake_tasks
@@ -22,7 +23,7 @@ class FakeApp(App):
         self._task_db = task_db
 
     def compose(self):
-        yield TaskList(self._task_db)
+        yield TaskList(self._task_db, TimeLog())
 
 
 class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):

@@ -8,6 +8,7 @@ from textual.app import App, ComposeResult
 from textual.widgets import Footer
 
 from work_timer import taskdb
+from work_timer import timelog
 from work_timer.ui.task_list import TaskList
 
 
@@ -29,9 +30,10 @@ class WorkTimer(App):
     def __init__(self):
         super().__init__()
         self._task_db = taskdb.PersistentTaskDB(Path('~/tasks/'))
+        self._time_log = timelog.PersistentTimeLog(Path('~/timelog.json'))
 
     def compose(self) -> ComposeResult:
-        yield TaskList(self._task_db)
+        yield TaskList(self._task_db, self._time_log)
         yield Footer()
 
 

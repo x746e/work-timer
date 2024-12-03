@@ -12,6 +12,7 @@ from textual.widgets import Digits, Footer, ProgressBar
 
 from work_timer import timer
 from work_timer import taskdb
+from work_timer.timelog import TimeLog
 from work_timer.utils.profiling import log_call
 
 
@@ -74,12 +75,12 @@ class Timer(Widget):
     _ticker: TextualTimer
     _wt_timer: timer.Timer
 
-    def __init__(self, timed_task: taskdb.Task, period_length: timedelta):
+    def __init__(self, timed_task: taskdb.Task, period_length: timedelta, time_log: TimeLog):
         super().__init__()
         self._ticker = self.set_interval(.05, self._tick, pause=True)
         self._timed_task = timed_task
         self._period_length = period_length
-        self._wt_timer = timer.Timer(self._timed_task.id, self._period_length)
+        self._wt_timer = timer.Timer(self._timed_task.id, self._period_length, time_log)
 
     def compose(self) -> ComposeResult:
         yield TimeDisplay(self._period_length.seconds)
@@ -161,13 +162,14 @@ class TimerScreen(Screen):
 
     CSS_PATH = 'timer.tcss'
 
-    def __init__(self, timed_task: taskdb.Task, period_length: timedelta):
+    def __init__(self, timed_task: taskdb.Task, period_length: timedelta, time_log: TimeLog):
         super().__init__()
         self._timed_task = timed_task
         self._period_length = period_length
+        self._time_log = time_log
 
     def compose(self) -> ComposeResult:
-        yield Timer(self._timed_task, self._period_length)
+        yield Timer(self._timed_task, self._period_length, self._time_log)
         yield Footer()
 
     @on(Timer.PeriodEnded)
@@ -184,7 +186,7 @@ def main() -> None:
 
         def compose(self) -> ComposeResult:
             yield Timer(timed_task = taskdb.Task(title='Test', id=taskdb.TaskID(42)),
-                        period_length = timedelta(seconds=4))
+                        period_length = timedelta(seconds=4), time_log=TimeLog())
             yield Footer()
 
     app = TimerApp()

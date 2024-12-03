@@ -93,8 +93,8 @@ class Timer(state_machine.StateMachine):
             self,
             task_id: TaskID,
             period_length: timedelta,
-            clock: Clock = time,
-            time_log: timelog.TimeLog = timelog.TimeLog()):
+            time_log: timelog.TimeLog,
+            clock: Clock = time):
         super().__init__()
         self._clock = clock
         self._time_log = time_log

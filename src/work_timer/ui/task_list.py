@@ -10,6 +10,7 @@ from textual.widgets import Tree
 from textual.widgets.tree import TreeNode
 
 from work_timer import taskdb
+from work_timer.timelog import TimeLog
 from work_timer.ui.timer import TimerScreen
 from work_timer.ui.task_editor import TaskEditor
 from work_timer.utils.typing import not_none
@@ -37,9 +38,10 @@ class TaskList(Widget):
         ('k', 'cursor_up'),
     ]
 
-    def __init__(self, task_db: taskdb.TaskDB):
+    def __init__(self, task_db: taskdb.TaskDB, time_log: TimeLog):
         super().__init__()
         self._task_db = task_db
+        self._time_log = time_log
 
     def compose(self) -> ComposeResult:
         yield self._make_tree_with_tasks()
@@ -167,7 +169,7 @@ class TaskList(Widget):
             return
 
         task = not_none(node.data)
-        await self.app.push_screen_wait(TimerScreen(task, timedelta(seconds=15)))
+        await self.app.push_screen_wait(TimerScreen(task, timedelta(seconds=15), self._time_log))
 
     def action_cursor_up(self):
         self._get_tree().action_cursor_up()
