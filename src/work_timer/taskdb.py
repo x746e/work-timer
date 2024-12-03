@@ -136,8 +136,8 @@ class PersistentTaskDB(TaskDB):
     def _persist(self, why: str) -> None:
         df = self.get_data_frame()
         df.to_json(self._path, orient='table', indent=2)
-        subprocess.check_call(['git', '-C', self._repo_path, 'add', self._path])
-        subprocess.check_call(['git', '-C', self._repo_path, 'commit', '-m', why])
+        subprocess.check_output(['git', '-C', self._repo_path, 'add', self._path])
+        subprocess.check_output(['git', '-C', self._repo_path, 'commit', '-m', why])
 
     def _from_df(self, df: pd.DataFrame) -> dict[TaskID, Task]:
         return {d['id']: Task(**d) for d in df.reset_index().to_dict(orient='records')}
