@@ -18,6 +18,8 @@ from textual.widgets import Static, ProgressBar, Tree, Footer
 from textual.widgets import tree as tree_widget
 
 # from work_timer.ui.timer import Timer
+from work_timer.ui.task_editor import TaskEditor
+from work_timer.utils import fake_tasks
 
 # Dev tools ideas:
 # - Dom tree browser.
@@ -107,6 +109,9 @@ class Playground(Widget):
 
     def compose(self) -> ComposeResult:
         with Vertical(id='playground'):
+            db = fake_tasks.get_task_db()
+            task = list(db.get_all().values())[0]
+            yield TaskEditor(db, task)
             widgets = [Static(f"Static #{n}", id=f'static-{n}') for n in range(8)]
             widgets[0].styles.margin = 3
             widgets[1].styles.padding = 2

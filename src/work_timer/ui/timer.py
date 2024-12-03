@@ -29,6 +29,7 @@ class TimeDisplay(Digits):
         hours, minutes = divmod(minutes, 60)
         self.update(f"{hours:02,.0f}:{minutes:02.0f}:{seconds:02.0f}")
 
+
 # TODO: @log_call on a class should:
 # Log when the class is instantiated;
 # and add a @log_call to each method.

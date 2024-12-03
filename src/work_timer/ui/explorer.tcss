@@ -1,3 +1,23 @@
+TaskEditor {
+    Grid {
+	background: $boost;
+	padding: 1 2;
+	height: auto;
+	grid-size: 2;
+	grid-gutter: 1;
+	grid-columns: auto 1fr;
+	Label {
+	    width: 100%;
+	    padding: 1;
+	    text-align: right;
+	}
+    }
+
+    #buttons {
+        align-vertical: bottom;
+    }
+}
+
 Timer {
     align-vertical: middle;
 }

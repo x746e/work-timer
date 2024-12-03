@@ -2,7 +2,7 @@
 import copy
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal
+from textual.containers import Horizontal, Grid
 from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, Label, Input, Footer, Select
@@ -46,6 +46,8 @@ class TaskEditor(Screen):
         ('ctrl+s', 'save', 'Save'),
         ('ctrl+r', 'delete', 'Delete'),
     ]
+
+    CSS_PATH = 'task_editor.tcss'
 
     def __init__(self, task_db: taskdb.TaskDB, task: taskdb.Task):
         super().__init__()
@@ -109,31 +111,34 @@ class TaskEditor(Screen):
         assert False, 'unreachable'
 
     def compose(self) -> ComposeResult:
-        if not self._creating_new_task():
-            with Horizontal():
+        with Grid():
+            if not self._creating_new_task():
                 yield Label('ID:')
                 yield Input(str(self._edited_task.id), disabled=True)
-        with Horizontal():
+
             yield Label('Title:')
             yield Input(self._edited_task.title, id='title')
-        with Horizontal():
+
             yield Label('Status:')
             yield Select(
                     options=[(status.name, status.value) for status in taskdb.Task.Status],
                     allow_blank=False, value=self._edited_task.status, id='status')
-        with Horizontal():
+
             yield Label('Priority:')
             yield Select(
                     options=[(priority.name, priority.value) for priority in taskdb.Task.Priority],
                     allow_blank=False, value=self._edited_task.priority, id='priority')
-        with Horizontal():
+
             yield Label('Parent ID:')
             yield Input(str(self._edited_task.parent_id))
-        yield Button(label='Create' if self._creating_new_task() else 'Save',
-                     variant='success' if self._creating_new_task() else 'primary',
-                     action='save')
-        if not self._creating_new_task():
-            yield Button('Delete', variant='error', action='dismiss',
-                         disabled=self._editing_a_parent())
-        yield Button('Cancel', variant='warning', action='dismiss')
+
+        with Horizontal(id='buttons'):
+            yield Button(label='Create' if self._creating_new_task() else 'Save',
+                        variant='success' if self._creating_new_task() else 'primary',
+                        action='save')
+            if not self._creating_new_task():
+                yield Button('Delete', variant='error', action='dismiss',
+                            disabled=self._editing_a_parent())
+            yield Button('Cancel', variant='warning', action='dismiss')
+
         yield Footer()
