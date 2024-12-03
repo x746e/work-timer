@@ -95,6 +95,8 @@ class TaskEditor(Screen):
         with Horizontal():
             yield Label('Parent ID:')
             yield Input(str(self._edited_task.parent_id))
-        yield Button('Create' if self._creating_new_task() else 'Save')
-        yield Button('Cancel')
+        yield Button(label='Create' if self._creating_new_task() else 'Save',
+                     variant='success' if self._creating_new_task() else 'primary',
+                     action='save')
+        yield Button('Cancel', variant='error', action='dismiss')
         yield Footer()
