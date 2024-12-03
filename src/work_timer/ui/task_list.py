@@ -30,6 +30,8 @@ class TaskList(Widget):
         #       escape will cancel the change
         #       Probably that should be done in another Screen
         ('s', 'start', 'Start the timer'),  # start the timer with the cursor_node.
+        ('-', 'dec_prio', 'Decrease priority'),
+        ('+', 'inc_prio', 'Increase priority'),
         ('q', 'quit', 'Quit'),
         ('j', 'focused.cursor_down'),
         ('k', 'focused.cursor_up'),
@@ -74,6 +76,38 @@ class TaskList(Widget):
         # And remove it from the UI.
         if not node.children:
             node.remove()
+
+    def action_dec_prio(self) -> None:
+        """Decrease the Task's priority by one."""
+        node = not_none(self._get_selected_task_node())
+        task = not_none(node.data)
+
+        all_priorities = list(taskdb.Task.Priority)
+        idx = all_priorities.index(task.priority)
+        if idx + 1 >= len(all_priorities):
+            return
+
+        task.priority = all_priorities[idx + 1]
+        self._task_db.update(task)
+
+        node.set_label(_title_with_style(task))
+        node.refresh()
+
+    def action_inc_prio(self) -> None:
+        """Increase the Task's priority by one."""
+        node = not_none(self._get_selected_task_node())
+        task = not_none(node.data)
+
+        all_priorities = list(taskdb.Task.Priority)
+        idx = all_priorities.index(task.priority)
+        if idx - 1 < 0:
+            return
+
+        task.priority = all_priorities[idx - 1]
+        self._task_db.update(task)
+
+        node.set_label(_title_with_style(task))
+        node.refresh()
 
     @work
     async def action_edit(self) -> None:
@@ -135,14 +169,13 @@ class TaskList(Widget):
         task = not_none(node.data)
         await self.app.push_screen_wait(TimerScreen(task, timedelta(seconds=15)))
 
-
     def action_quit(self):
         self.app.exit()
 
     def check_action(
         self, action: str, parameters: tuple[object, ...]
     ) -> bool | None:
-        if action in ('edit', 'mark_done', 'start'):
+        if action in ('edit', 'mark_done', 'start', 'inc_prio', 'dec_prio'):
             if not self._get_selected_task_node():
                 return None  # Mark the action as disabled.
         return True
