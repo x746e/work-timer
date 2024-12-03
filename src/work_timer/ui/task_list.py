@@ -31,6 +31,8 @@ class TaskList(Widget):
         #       Probably that should be done in another Screen
         ('s', 'start', 'Start the timer'),  # start the timer with the cursor_node.
         ('q', 'quit', 'Quit'),
+        ('j', 'focused.cursor_down'),
+        ('k', 'focused.cursor_up'),
     ]
 
     def __init__(self, task_db: taskdb.TaskDB):
