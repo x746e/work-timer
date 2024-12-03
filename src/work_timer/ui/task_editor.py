@@ -58,6 +58,8 @@ class TaskEditor(Screen):
         updated_task.title = title_input.value
         status_select = self.query_one('#status', Select)
         updated_task.status = status_select.value  # type: ignore
+        priority_select = self.query_one('#priority', Select)
+        updated_task.priority = priority_select.value  # type: ignore
 
         if updated_task == self._edited_task:
             self.dismiss(None)
@@ -84,7 +86,12 @@ class TaskEditor(Screen):
             yield Label('Status:')
             yield Select(
                     options=[(status.name, status.value) for status in taskdb.Task.Status],
-                    allow_blank=False, id='status')
+                    allow_blank=False, value=self._edited_task.status, id='status')
+        with Horizontal():
+            yield Label('Priority:')
+            yield Select(
+                    options=[(priority.name, priority.value) for priority in taskdb.Task.Priority],
+                    allow_blank=False, value=self._edited_task.priority, id='priority')
         with Horizontal():
             yield Label('Parent ID:')
             yield Input(str(self._edited_task.parent_id))

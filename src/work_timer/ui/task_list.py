@@ -2,6 +2,7 @@
 import collections
 from datetime import timedelta
 
+from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
 from textual.widget import Widget
@@ -89,8 +90,9 @@ class TaskList(Widget):
         if changed:
             # TODO: Check changed.fields.
             # TODO: If reparented, move the node, then focus on it.
-            node.set_label(changed.new.title)
+            node.set_label(_title_with_style(changed.new))
             node.data = changed.new
+            node.refresh()
 
     @work
     async def action_create(self) -> None:
@@ -147,7 +149,7 @@ class TaskList(Widget):
         def add_task(task: taskdb.Task, parent_node: TreeNode) -> None:
             if whole_subtree_is_completed(task):
                 return
-            node = parent_node.add(task.title, data=task)
+            node = parent_node.add(_title_with_style(task), data=task)
             children = parent_to_task.get(task.id, [])
             for child_task in children:
                 add_task(child_task, parent_node=node)
@@ -175,3 +177,15 @@ class TaskList(Widget):
         for t in tasks:
             ret[t.parent_id].append(t)
         return dict(ret)
+
+
+def _title_with_style(task: taskdb.Task) -> Text:
+    def get_style() -> str:
+        match task.priority:
+            case taskdb.Task.Priority.P0:
+                return 'bright_red'
+            case taskdb.Task.Priority.P1:
+                return 'yellow'
+            case _:
+                return ''
+    return Text(task.title, style=get_style())

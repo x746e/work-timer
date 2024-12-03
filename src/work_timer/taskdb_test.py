@@ -12,6 +12,18 @@ from work_timer.utils import fake_tasks
 # TODO: Consider refactoring this file to use .utils.fake_tasks
 
 
+class TaskTest(unittest.TestCase):
+
+    def test_repr(self):
+        new_task = taskdb.Task(title='Hello!', id=TaskID(42))
+        self.assertEqual(repr(new_task), '<Task#42: Hello! | new P2>')
+
+        new_task = taskdb.Task(title='Hello one two, ' * 30, id=TaskID(42))
+        self.assertEqual(
+                repr(new_task),
+                '<Task#42: Hello one two, Hello one two, Hello... | new P2>')
+
+
 class TaskDBTest(unittest.TestCase):
 
     def setUp(self):
@@ -89,19 +101,26 @@ class TaskDBTest(unittest.TestCase):
 
 EXPECTED_JSON = {
     'data': [
-        {'id': 1, 'parent_id': None, 'status': 'new', 'title': 'Write Work Time app'},
-        {'id': 2, 'parent_id': 1, 'status': 'new', 'title': 'Write a Textual TUI'},
-        {'id': 3, 'parent_id': 2, 'status': 'new', 'title': 'Task list'},
-        {'id': 4, 'parent_id': 2, 'status': 'new', 'title': 'Task create / edit'},
-        {'id': 5, 'parent_id': 2, 'status': 'done', 'title': 'Timer'},
-        {'id': 6, 'parent_id': 1, 'status': 'new', 'title': 'Calendar integration'}],
+        {'id': 1, 'parent_id': None, 'priority': 'P2',
+         'status': 'new', 'title': 'Write Work Time app'},
+        {'id': 2, 'parent_id': 1, 'priority': 'P2',
+         'status': 'new', 'title': 'Write a Textual TUI'},
+        {'id': 3, 'parent_id': 2, 'priority': 'P2',
+         'status': 'new', 'title': 'Task list'},
+        {'id': 4, 'parent_id': 2, 'priority': 'P2',
+         'status': 'new', 'title': 'Task create / edit'},
+        {'id': 5, 'parent_id': 2, 'priority': 'P2',
+         'status': 'done', 'title': 'Timer'},
+        {'id': 6, 'parent_id': 1, 'priority': 'P2',
+         'status': 'new', 'title': 'Calendar integration'}],
     'schema': {
         'fields': [
             {'extDtype': 'Int64', 'name': 'id', 'type': 'integer'},
             {'extDtype': 'string', 'name': 'title', 'type': 'any'},
             {'extDtype': 'Int64', 'name': 'parent_id', 'type': 'integer'},
             {'constraints': {'enum': ['done', 'new']},
-             'name': 'status', 'ordered': False, 'type': 'any'}],
+             'name': 'status', 'ordered': False, 'type': 'any'},
+            {'extDtype': 'string', 'name': 'priority', 'type': 'any'},],
         'pandas_version': '1.4.0',
         'primaryKey': ['id']}}
 
