@@ -55,7 +55,7 @@ class TaskDB:
     """A class with tasks."""
 
     def __init__(self) -> None:
-        self._tasks = self._load_tasks()
+        self._tasks = self._load()
         self._lock = threading.Lock()
         if self._tasks:
             self._next_id = max(t.id for t in self._tasks.values()) + 1
@@ -103,7 +103,7 @@ class TaskDB:
 
     # Methods for overriding in subclasses.
 
-    def _load_tasks(self) -> dict[TaskID, Task]:
+    def _load(self) -> dict[TaskID, Task]:
         return {}
 
     def _persist(self, why: str) -> None:
@@ -128,7 +128,7 @@ class PersistentTaskDB(TaskDB):
         df.status = df.status.astype('category')
         return df
 
-    def _load_tasks(self) -> dict[TaskID, Task]:
+    def _load(self) -> dict[TaskID, Task]:
         if not self._path.exists():
             return {}
         df = pd.read_json(self._path, orient='table')

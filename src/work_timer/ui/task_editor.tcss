@@ -20,7 +20,7 @@ TaskEditor {
 	grid-columns: auto 1fr;
 
         TextArea {
-            height: 10;
+            height: 60;
             width: 100%;
             margin-right: 2;
         }

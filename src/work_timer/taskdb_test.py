@@ -113,7 +113,7 @@ class TaskDBTest(unittest.TestCase):
         self.assertCountEqual([task_b.title, task_c.title], [t.title for t in children])
 
 
-EXPECTED_JSON = {
+EXPECTED_DATA = {
     'data': [
         {'id': 1, 'parent_id': None, 'priority': 'P2',
          'description': '', 'status': 'new', 'title': 'Write Work Time app'},
@@ -152,13 +152,13 @@ class PersistentTaskDBTest(unittest.TestCase):
             f = Path(d) / 'tasks.json'
             with f.open() as f:
                 data = json.load(f)
-            assert data == EXPECTED_JSON
+            assert data == EXPECTED_DATA
 
     def test_loading(self):
         with tempfile.TemporaryDirectory() as d:
             f = Path(d) / 'tasks.json'
             with f.open('w') as f:
-                json.dump(EXPECTED_JSON, f)
+                json.dump(EXPECTED_DATA, f)
 
             db = taskdb.PersistentTaskDB(Path(d))
 
