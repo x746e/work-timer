@@ -9,10 +9,13 @@ from textual.widgets import Tree
 from work_timer import taskdb
 
 
+Status = taskdb.Task.Status
+
+
 @dataclass
 class FakeTask:
     title: str
-    status: taskdb.TaskStatus = taskdb.TaskStatus.NEW
+    status: Status = Status.NEW
     kids: list['FakeTask'] = field(default_factory=list)
 
 
@@ -21,7 +24,7 @@ FAKE_TASKS = (
         FakeTask('Write a Textual TUI', kids=[
             FakeTask('Task list'),
             FakeTask('Task create / edit'),
-            FakeTask('Timer', status=taskdb.TaskStatus.DONE),
+            FakeTask('Timer', status=Status.DONE),
         ]),
         FakeTask('Calendar integration'),
     ]),

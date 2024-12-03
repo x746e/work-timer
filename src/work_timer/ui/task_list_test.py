@@ -5,12 +5,14 @@ from textual.app import App
 from textual.widgets import Tree
 
 from work_timer import taskdb
-from work_timer.taskdb import TaskStatus
 from work_timer.ui import ui_testing
 from work_timer.ui.task_list import TaskList
 from work_timer.utils import fake_tasks
 from work_timer.utils.fake_tasks import FakeTask
 from work_timer.utils.typing import not_none
+
+
+Status = taskdb.Task.Status
 
 
 class FakeApp(App):
@@ -62,8 +64,8 @@ class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
     async def test_completed_tasks_are_not_shown(self):
         tasks = [
             FakeTask('a', kids=[
-                FakeTask('b', status=TaskStatus.DONE, kids=[
-                    FakeTask('c', status=TaskStatus.DONE),
+                FakeTask('b', status=Status.DONE, kids=[
+                    FakeTask('c', status=Status.DONE),
                 ])
             ])
         ]
@@ -81,8 +83,8 @@ class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
     async def test_completed_tasks_with_active_children_are_shown(self):
         tasks = [
             FakeTask('a', kids=[
-                FakeTask('b', status=TaskStatus.DONE, kids=[
-                    FakeTask('c', status=TaskStatus.NEW),
+                FakeTask('b', status=Status.DONE, kids=[
+                    FakeTask('c', status=Status.NEW),
                 ])
             ])
         ]
@@ -164,7 +166,7 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
         want_db_tasks = [
             FakeTask('task_a', kids=[
                 FakeTask('task_b', kids=[
-                    FakeTask('task_c', status=TaskStatus.DONE),
+                    FakeTask('task_c', status=Status.DONE),
                     FakeTask('task_d'),
                 ])
             ])

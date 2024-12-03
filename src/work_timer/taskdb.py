@@ -16,17 +16,17 @@ TaskID = NewType('TaskID', int)  # pylint: disable=invalid-name
 UNSET_TASK_ID = TaskID(-1)
 
 
-class TaskStatus(enum.StrEnum):
-    NEW = enum.auto()
-    DONE = enum.auto()
-
-
 @dataclass
 class Task:
+
+    class Status(enum.StrEnum):
+        NEW = enum.auto()
+        DONE = enum.auto()
+
     title: str
     id: TaskID = UNSET_TASK_ID
     parent_id: TaskID | None = None
-    status: TaskStatus = TaskStatus.NEW
+    status: Status = Status.NEW
 
 
 class TaskDB:

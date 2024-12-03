@@ -83,7 +83,7 @@ class TaskEditor(Screen):
         with Horizontal():
             yield Label('Status:')
             yield Select(
-                    options=[(status.name, status.value) for status in taskdb.TaskStatus],
+                    options=[(status.name, status.value) for status in taskdb.Task.Status],
                     allow_blank=False, id='status')
         with Horizontal():
             yield Label('Parent ID:')

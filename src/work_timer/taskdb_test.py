@@ -87,7 +87,6 @@ class TaskDBTest(unittest.TestCase):
         self.assertCountEqual([task_a.title, task_b.title], [t.title for t in tasks.values()])
 
 
-
 EXPECTED_JSON = {
     'data': [
         {'id': 1, 'parent_id': None, 'status': 'new', 'title': 'Write Work Time app'},
