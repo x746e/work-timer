@@ -38,10 +38,13 @@ class TaskList(Widget):
         ('k', 'cursor_up'),
     ]
 
-    def __init__(self, task_db: taskdb.TaskDB, time_log: TimeLog):
+    def __init__(self, task_db: taskdb.TaskDB, time_log: TimeLog,
+                 work_period_duration: timedelta, break_duration: timedelta):
         super().__init__()
         self._task_db = task_db
         self._time_log = time_log
+        self._work_period_duration = work_period_duration
+        self._break_duration = break_duration
 
     def compose(self) -> ComposeResult:
         yield self._make_tree_with_tasks()
@@ -175,7 +178,8 @@ class TaskList(Widget):
 
         task = not_none(node.data)
         # TODO: duration=self.app.settings.work_period_duration.
-        await self.app.push_screen_wait(TimerScreen(task, timedelta(seconds=15), self._time_log))
+        await self.app.push_screen_wait(TimerScreen(task, self._work_period_duration,
+                                                    self._time_log))
 
         def should_rest() -> bool:
             # TODO: Do we always rest?  If the period ended on its own, not when it was
@@ -184,7 +188,7 @@ class TaskList(Widget):
 
         def get_rest_length() -> timedelta:
             # TODO: Implement some logic there, like long rest every 3 hours or something.
-            return timedelta(seconds=10)
+            return self._break_duration
 
         if should_rest():
             await self.app.push_screen_wait(

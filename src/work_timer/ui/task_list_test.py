@@ -10,6 +10,7 @@ from work_timer.ui import ui_testing
 from work_timer.ui.task_list import TaskList
 from work_timer.utils import fake_tasks
 from work_timer.utils.fake_tasks import FakeTask
+from work_timer.utils.time import td
 from work_timer.utils.typing import not_none
 
 
@@ -24,7 +25,8 @@ class FakeApp(App):
         self._time_log = time_log
 
     def compose(self):
-        yield TaskList(self._task_db, self._time_log)
+        yield TaskList(self._task_db, self._time_log, work_period_duration=td('25m'),
+                       break_duration=td('5m'))
 
 
 class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):

@@ -2,6 +2,8 @@
 
 Should start some kind of UI.  For now it's a Textual TUI.
 """
+import argparse
+from datetime import timedelta
 from pathlib import Path
 
 from textual.app import App, ComposeResult
@@ -10,6 +12,7 @@ from textual.widgets import Footer
 from work_timer import taskdb
 from work_timer import timelog
 from work_timer.ui.task_list import TaskList
+from work_timer.utils.time import td
 
 
 # TODO: Make TaskList a Screen (or wrap it in a Screen)
@@ -27,16 +30,56 @@ from work_timer.ui.task_list import TaskList
 
 class WorkTimer(App):
 
-    def __init__(self):
+    """The main Textual App."""
+
+    def __init__(self, task_db_path: Path, time_log_path: Path,
+                 work_period_duration: timedelta, break_duration: timedelta) -> None:
         super().__init__()
-        self._task_db = taskdb.PersistentTaskDB(Path('~/tasks/'))
-        self._time_log = timelog.PersistentTimeLog(Path('~/timelog.json'))
+        self._task_db = taskdb.PersistentTaskDB(task_db_path)
+        self._time_log = timelog.PersistentTimeLog(time_log_path)
+        self._work_period_duration = work_period_duration
+        self._break_duration = break_duration
 
     def compose(self) -> ComposeResult:
-        yield TaskList(self._task_db, self._time_log)
+        # TODO: Package all these args into a "config" object of some sort?
+        #       That will be potentially changed in the runtime.
+        yield TaskList(self._task_db, self._time_log, self._work_period_duration,
+                       self._break_duration)
         yield Footer()
 
 
-if __name__ == "__main__":
-    app = WorkTimer()
+def directory(p: str) -> Path:
+    path = Path(p)
+    if not path.is_dir():
+        raise argparse.ArgumentTypeError(f'{path} is not a valid directory')
+    return path
+
+
+def existing_file(p: str) -> Path:
+    path = Path(p)
+    if not path.is_file():
+        raise argparse.ArgumentTypeError(f'{path} is not a file')
+    return path
+
+
+def main():
+    """The app entrypoint."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--taskdb', required=True, type=directory,
+                        help='Path to the directory to store the tasks data.')
+    parser.add_argument('--timelog', required=True, type=existing_file,
+                        help='Path to the file to store the time log.')
+    parser.add_argument('--work-period-duration', type=td, default='25m',
+                        help='Work period duration')
+    parser.add_argument('--break-duration', type=td, default='5m',
+                        help='Break duration')
+    args = parser.parse_args()
+
+    app = WorkTimer(task_db_path=args.taskdb, time_log_path=args.timelog,
+                    work_period_duration=args.work_period_duration,
+                    break_duration=args.break_duration)
     app.run()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,8 +1,9 @@
 """Misc testing helpers."""
-import datetime
+from datetime import timedelta
 import time
 
 from work_timer.utils import clock
+from work_timer.utils.time import td
 
 
 class FakeClock(clock.Clock):
@@ -16,7 +17,7 @@ class FakeClock(clock.Clock):
         self._time = 0.
         self._stopped = False
 
-    def advance(self, delta: datetime.timedelta | str, ticks=30):
+    def advance(self, delta: timedelta | str, ticks=30):
         inc = td(delta).seconds / ticks
         for _ in range(ticks):
             self._time += inc
@@ -36,19 +37,3 @@ class FakeClock(clock.Clock):
         self._stopped = True
         self.advance('1h')
         self._time = 2**32
-
-
-def td(s: str | datetime.timedelta) -> datetime.timedelta:
-    """𝑇ime 𝐷elta.
-
-    Currently can parse "<int>(s|m|h)", like "10h" or "15m" or "3s".
-    """
-    if isinstance(s, datetime.timedelta):
-        return s
-    if s[-1] == 's':
-        return datetime.timedelta(seconds=int(s[:-1]))
-    if s[-1] == 'm':
-        return datetime.timedelta(minutes=int(s[:-1]))
-    if s[-1] == 'h':
-        return datetime.timedelta(hours=int(s[:-1]))
-    raise ValueError(s)
