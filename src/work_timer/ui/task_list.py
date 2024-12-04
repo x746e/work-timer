@@ -169,6 +169,7 @@ class TaskList(Widget):
             return
 
         task = not_none(node.data)
+        # TODO: duration=self.app.settings.work_period_duration.
         await self.app.push_screen_wait(TimerScreen(task, timedelta(seconds=15), self._time_log))
 
     def action_cursor_up(self):

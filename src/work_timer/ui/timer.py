@@ -13,7 +13,6 @@ from textual.widgets import Digits, Footer, ProgressBar
 from work_timer import timer
 from work_timer import taskdb
 from work_timer.timelog import TimeLog
-from work_timer.utils.profiling import log_call
 
 
 class TimeDisplay(Digits):
@@ -133,7 +132,6 @@ class Timer(Widget):
     # for all the calls, and that make an interface to query that info
     # afterwards.
 
-    @log_call
     def check_action(  # pylint: disable=too-many-return-statements
         self, action: str, parameters: tuple[object, ...]
     ) -> bool | None:

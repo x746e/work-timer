@@ -18,12 +18,13 @@ Status = taskdb.Task.Status
 
 class FakeApp(App):
 
-    def __init__(self, task_db: taskdb.TaskDB) -> None:
+    def __init__(self, task_db: taskdb.TaskDB, time_log: TimeLog = TimeLog()) -> None:
         super().__init__()
         self._task_db = task_db
+        self._time_log = time_log
 
     def compose(self):
-        yield TaskList(self._task_db, TimeLog())
+        yield TaskList(self._task_db, self._time_log)
 
 
 class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
@@ -283,6 +284,32 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(initial_tasks, got_db_tasks)
         got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
         self.assertEqual(initial_tasks, got_ui_tasks)
+
+
+class TestTimer(unittest.IsolatedAsyncioTestCase):
+
+    async def test_it_logs(self):
+        # Make a TaskDB, as usual.
+        tasks = [FakeTask('task_a')]
+        task_db = fake_tasks.get_task_db(tasks)
+        # And a TimeLog instance.
+        time_log = TimeLog()
+        app = FakeApp(task_db, time_log)
+
+        async with app.run_test() as pilot:
+            # Navigate to the task.
+            await pilot.press('down')
+            tree = app.query_one(Tree)
+            self.assertEqual(not_none(not_none(tree.cursor_node).data).title, 'task_a')
+            # Go to the Timer view.
+            await pilot.press('s')
+            # Start the period.
+            await pilot.press('space')
+            # Stop the period.
+            await pilot.press('S')
+
+        # Check there's a entry in the TimeLog.
+        self.assertEqual(len(time_log.get_periods()), 1)
 
 
 # def prereq(meth):
