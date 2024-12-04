@@ -5,7 +5,7 @@
 groups = ["default"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:2db9903e508af66714bbfe284026c6d96ba5f31442476fd21ab50f16e71d3024"
+content_hash = "sha256:5bea47b342aa30b2aa790fb4a1e9c008d99d3e0b24866fe4c04faf6a29e6d3eb"
 
 [[metadata.targets]]
 requires_python = ">=3.13"
@@ -334,6 +334,17 @@ files = [
     {file = "frozenlist-1.5.0-cp313-cp313-win_amd64.whl", hash = "sha256:11aabdd62b8b9c4b84081a3c246506d1cddd2dd93ff0ad53ede5defec7886b28"},
     {file = "frozenlist-1.5.0-py3-none-any.whl", hash = "sha256:d994863bba198a4a518b467bb971c56e1db3f180a25c6cf7bb1949c267f748c3"},
     {file = "frozenlist-1.5.0.tar.gz", hash = "sha256:81d5af29e61b9c8348e876d442253723928dce6433e0e76cd925cd83f1b4b817"},
+]
+
+[[package]]
+name = "gprof2dot"
+version = "2024.6.6"
+requires_python = ">=3.8"
+summary = "Generate a dot graph from the output of several profilers."
+groups = ["default"]
+files = [
+    {file = "gprof2dot-2024.6.6-py2.py3-none-any.whl", hash = "sha256:45b14ad7ce64e299c8f526881007b9eb2c6b75505d5613e96e66ee4d5ab33696"},
+    {file = "gprof2dot-2024.6.6.tar.gz", hash = "sha256:fa1420c60025a9eb7734f65225b4da02a10fc6dd741b37fa129bc6b41951e5ab"},
 ]
 
 [[package]]
@@ -1110,6 +1121,22 @@ dependencies = [
 files = [
     {file = "pytest_asyncio-0.24.0-py3-none-any.whl", hash = "sha256:a811296ed596b69bf0b6f3dc40f83bcaf341b155a269052d82efa2b25ac7037b"},
     {file = "pytest_asyncio-0.24.0.tar.gz", hash = "sha256:d081d828e576d85f875399194281e92bf8a68d60d72d1a2faf2feddb6c46b276"},
+]
+
+[[package]]
+name = "pytest-profiling"
+version = "1.8.1"
+requires_python = ">=3.6"
+summary = "Profiling plugin for py.test"
+groups = ["default"]
+dependencies = [
+    "gprof2dot",
+    "pytest",
+    "six",
+]
+files = [
+    {file = "pytest-profiling-1.8.1.tar.gz", hash = "sha256:3f171fa69d5c82fa9aab76d66abd5f59da69135c37d6ae5bf7557f1b154cb08d"},
+    {file = "pytest_profiling-1.8.1-py3-none-any.whl", hash = "sha256:3dd8713a96298b42d83de8f5951df3ada3e61b3e5d2a06956684175529e17aea"},
 ]
 
 [[package]]
