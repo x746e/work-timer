@@ -164,6 +164,11 @@ class TaskList(Widget):
 
     @work
     async def action_start(self) -> None:
+        """Start the Timer with the selected task.
+
+        Pushes the TimerScreen.  After the work period ends, starts a break
+        period.
+        """
         node = self._get_selected_task_node()
         if not node:
             return
@@ -171,6 +176,19 @@ class TaskList(Widget):
         task = not_none(node.data)
         # TODO: duration=self.app.settings.work_period_duration.
         await self.app.push_screen_wait(TimerScreen(task, timedelta(seconds=15), self._time_log))
+
+        def should_rest() -> bool:
+            # TODO: Do we always rest?  If the period ended on its own, not when it was
+            # cancelled?
+            return True
+
+        def get_rest_length() -> timedelta:
+            # TODO: Implement some logic there, like long rest every 3 hours or something.
+            return timedelta(seconds=10)
+
+        if should_rest():
+            await self.app.push_screen_wait(
+                    TimerScreen(taskdb.BREAK, get_rest_length(), self._time_log, start=True))
 
     def action_cursor_up(self):
         self._get_tree().action_cursor_up()

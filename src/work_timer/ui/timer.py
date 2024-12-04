@@ -74,19 +74,28 @@ class Timer(Widget):
     _ticker: TextualTimer
     _wt_timer: timer.Timer
 
-    def __init__(self, timed_task: taskdb.Task, period_length: timedelta, time_log: TimeLog):
+    def __init__(self,
+                 timed_task: taskdb.Task,
+                 period_length: timedelta,
+                 time_log: TimeLog,
+                 start = False):
         super().__init__()
         self._ticker = self.set_interval(.05, self._tick, pause=True)
         self._timed_task = timed_task
         self._period_length = period_length
         self._wt_timer = timer.Timer(self._timed_task.id, self._period_length, time_log)
+        self._start = start
 
     def compose(self) -> ComposeResult:
         yield TimeDisplay(self._period_length.seconds)
         progress_bar = ProgressBar(show_percentage=False, show_eta=False)
         progress_bar.update(progress=0, total=self._period_length.total_seconds())
         yield progress_bar
-        self.refresh_bindings()
+        self.refresh_bindings()  # TODO: Is this needed?
+
+    def on_mount(self) -> None:
+        if self._start:
+            self.action_start()
 
     def action_start(self) -> None:
         self._wt_timer.start()
@@ -163,14 +172,16 @@ class TimerScreen(Screen):
 
     CSS_PATH = 'timer.tcss'
 
-    def __init__(self, timed_task: taskdb.Task, period_length: timedelta, time_log: TimeLog):
+    def __init__(self, timed_task: taskdb.Task, period_length: timedelta, time_log: TimeLog,
+                 start=False):
         super().__init__()
         self._timed_task = timed_task
         self._period_length = period_length
         self._time_log = time_log
+        self._start = start
 
     def compose(self) -> ComposeResult:
-        yield Timer(self._timed_task, self._period_length, self._time_log)
+        yield Timer(self._timed_task, self._period_length, self._time_log, start=self._start)
         yield Footer()
 
     @on(Timer.PeriodEnded)

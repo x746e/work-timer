@@ -50,6 +50,12 @@ class Task:
         return f'<Task#{self.id}: {title} | {self.status} {self.priority}>'
 
 
+BREAK_TASK_ID = TaskID(-2)
+
+BREAK = Task('Not really a task -- a break!', id=BREAK_TASK_ID,
+             priority=Task.Priority.P0)
+
+
 class TaskDB:
 
     """A class with tasks."""
