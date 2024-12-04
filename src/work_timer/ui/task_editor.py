@@ -2,6 +2,7 @@
 import copy
 
 from textual import on
+from textual import work
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Grid
 from textual.message import Message
@@ -10,6 +11,7 @@ from textual.widget import Widget
 from textual.widgets import Button, Label, Input, Footer, Select, TextArea
 
 from work_timer import taskdb
+from work_timer.ui.dialogs import Confirm
 
 
 # TODO: On click / enter on the Parent input, show a dialog to select the new
@@ -63,13 +65,34 @@ class TaskEditorWidget(Widget):
     def _editing_a_parent(self) -> bool:
         return bool(self._task_db.get_children(parent_id=self._edited_task.id))
 
+    @work
     @on(Button.Pressed, '#dismiss')
-    def action_dismiss(self):
+    async def action_dismiss(self):
+        if self._get_updated_task() != self._edited_task:
+            if not await self.app.push_screen_wait(
+                Confirm('Are you sure you want to discard the changes to the task?')
+            ):
+                return
         self.post_message(self.Dismiss())
 
     @on(Button.Pressed, '#save')
     def action_save(self):
         """Updates or creates the currently edited task."""
+        updated_task = self._get_updated_task()
+
+        if updated_task == self._edited_task:
+            self.post_message(self.Dismiss())
+            return
+
+        if self._creating_new_task():
+            task_id = self._task_db.add(updated_task)
+            message = self.Changed(old=None, new=self._task_db.get(task_id))
+        else:
+            self._task_db.update(updated_task)
+            message = self.Changed(old=self._edited_task, new=updated_task)
+        self.post_message(message)
+
+    def _get_updated_task(self) -> taskdb.Task:
         updated_task = copy.deepcopy(self._edited_task)
 
         # TODO: Can I somehow bind Input.value to self._edited_task.title?
@@ -84,18 +107,7 @@ class TaskEditorWidget(Widget):
 
         # TODO: Replace all `query_one` by `query_exactly_one`.
         #       Add a linter check.
-
-        if updated_task == self._edited_task:
-            self.post_message(self.Dismiss())
-            return
-
-        if self._creating_new_task():
-            task_id = self._task_db.add(updated_task)
-            message = self.Changed(old=None, new=self._task_db.get(task_id))
-        else:
-            self._task_db.update(updated_task)
-            message = self.Changed(old=self._edited_task, new=updated_task)
-        self.post_message(message)
+        return updated_task
 
     @on(Button.Pressed, '#delete')
     def action_delete(self):
