@@ -114,6 +114,9 @@ class Timer(Widget):
         self._wt_timer.resume()
         self.refresh_bindings()
 
+    def action_stop(self) -> None:
+        self._wt_timer.stop()
+
     #@log_call(when=lambda args: args.action == 'stop', locals=True)
     # locals should print locals at `return`.
 

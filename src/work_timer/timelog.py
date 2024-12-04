@@ -44,7 +44,7 @@ class PersistentTimeLog(TimeLog):
     """An implementation of TimeLog that persists the records in a JSON file."""
 
     def __init__(self, path: Path):
-        self._path = path
+        self._path = path.expanduser()
         super().__init__()
 
     def get_data_frame(self) -> pd.DataFrame:
