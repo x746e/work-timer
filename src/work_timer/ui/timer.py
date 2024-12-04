@@ -85,6 +85,8 @@ class Timer(Widget):
         self._period_length = period_length
         self._wt_timer = timer.Timer(self._timed_task.id, self._period_length, time_log)
         self._start = start
+        if timed_task.id == taskdb.BREAK_TASK_ID:
+            self.classes = 'break'
 
     def compose(self) -> ComposeResult:
         yield TimeDisplay(self._period_length.seconds)

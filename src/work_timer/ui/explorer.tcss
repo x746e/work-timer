@@ -36,6 +36,11 @@ Timer {
     align-vertical: middle;
 }
 
+Timer.break {
+    background: lavenderblush;
+    color: black;
+}
+
 Timer ProgressBar {
     width: 1fr;
     align: center middle;

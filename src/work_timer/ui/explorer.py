@@ -6,6 +6,7 @@ browsers.
 import re
 from copy import deepcopy
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Sequence
 
 from textual import events
@@ -17,8 +18,10 @@ from textual.widget import Widget
 from textual.widgets import Static, ProgressBar, Tree, Footer
 from textual.widgets import tree as tree_widget
 
-# from work_timer.ui.timer import Timer
+from work_timer import taskdb
+from work_timer.timelog import TimeLog
 from work_timer.ui.task_editor import TaskEditorWidget
+from work_timer.ui.timer import Timer
 from work_timer.utils import fake_tasks
 
 # Make all the linters to shut up about unused symbols.
@@ -115,25 +118,39 @@ class Playground(Widget):
 
     def compose(self) -> ComposeResult:
         with Vertical(id='playground'):
-            db = fake_tasks.get_task_db()
-            task = list(db.get_all().values())[0]
-            yield TaskEditorWidget(db, task)
-            # widgets = [Static(f"Static #{n}", id=f'static-{n}') for n in range(8)]
-            # widgets[0].styles.margin = 3
-            # widgets[1].styles.padding = 2
-            # widgets[3].styles.width = 30
-            # widgets[3].styles.height = 10
-            # pb = ProgressBar()
-            # pb.update(total=100, progress=42)
-            # # with Container(id='tcon'):
-            # # yield Timer()
-            # yield ProgressBar()
-            # with Container(id='con-0-1-2-3'):
-            #     yield from widgets[:4]
-            # with Container(id='con-4'):
-            #     yield pb
-            # with Container(id='con-5-6-7'):
-            #     yield from widgets[5:8]
+            # yield get_timer()
+            # yield get_task_editor()
+            yield from get_random_widgets()
+
+
+def get_timer():
+    return Timer(timed_task=taskdb.Task(title='Test', id=taskdb.TaskID(42)),
+                 period_length=timedelta(seconds=5), time_log=TimeLog())
+
+
+def get_task_editor():
+    db = fake_tasks.get_task_db()
+    task = list(db.get_all().values())[0]
+    return TaskEditorWidget(db, task)
+
+
+def get_random_widgets():
+    """Yields a few random widgets to play with in the playground."""
+    widgets = [Static(f"Static #{n}", id=f'static-{n}') for n in range(8)]
+    widgets[0].styles.margin = 3
+    widgets[1].styles.padding = 2
+    widgets[3].styles.width = 30
+    widgets[3].styles.height = 10
+    pb = ProgressBar()
+    pb.update(total=100, progress=42)
+    # with Container(id='tcon'):
+    yield ProgressBar()
+    with Container(id='con-0-1-2-3'):
+        yield from widgets[:4]
+    with Container(id='con-4'):
+        yield pb
+    with Container(id='con-5-6-7'):
+        yield from widgets[5:8]
 
 
 class DOMTree(Widget):
@@ -188,7 +205,7 @@ class DOMTree(Widget):
 
         def add(parent_node: tree_widget.TreeNode, child_widgets: Sequence[Widget]) -> None:
             for child in child_widgets:
-                node = parent_node.add(str(child),
+                node = parent_node.add(wrepr(child),
                                        data=DOMTree._TreeNodeData(child),
                                        allow_expand=bool(len(child.children)))
                 self._widget_to_node_id[id(child)] = node.id
@@ -200,6 +217,18 @@ class DOMTree(Widget):
         tree.auto_expand = False
 
         return tree
+
+
+def wrepr(widget: Widget) -> str:
+    r = f'{widget.__class__.__name__}('
+    attrs = []
+    if widget.id:
+        attrs += [f'id={widget.id}']
+    if widget.classes:
+        attrs += [f'classes="{" ".join(widget.classes)}"']
+    r += ', '.join(attrs)
+    r += ')'
+    return r
 
 
 class StyleExplorer(Widget):
