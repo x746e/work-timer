@@ -2,11 +2,12 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from typing import Sequence
+from typing import Sequence, TYPE_CHECKING
 
-from textual.widgets import Tree
+if TYPE_CHECKING:
+    from textual.widgets import Tree
 
-from work_timer import taskdb
+from work_timer import taskdb  # pylint: disable=wrong-import-position
 
 
 Status = taskdb.Task.Status
@@ -52,7 +53,7 @@ def add_fake_tasks(task_db: taskdb.TaskDB, tasks: Sequence[FakeTask] = FAKE_TASK
             add_child(parent_id=t_id, child=child)
 
 
-def fake_tasks_from_tree(tree: Tree) -> list[FakeTask]:
+def fake_tasks_from_tree(tree: 'Tree') -> list[FakeTask]:
 
     def node_to_task(node):
         return FakeTask(node.data.title, status=node.data.status, kids=get_kids(node))

@@ -1,9 +1,15 @@
 """Misc testing helpers."""
 from datetime import timedelta
 import time
+from typing import Protocol, Callable
 
 from work_timer.utils import clock
 from work_timer.utils.time import td
+
+
+class TestCaseMixin(Protocol):
+
+    def addCleanup(self, function: Callable) -> None: ...  # pylint: disable=invalid-name
 
 
 class FakeClock(clock.Clock):

@@ -1,4 +1,5 @@
 """Tests for work_timer.taskdb."""
+import contextlib
 import json
 from pathlib import Path
 import subprocess
@@ -8,6 +9,7 @@ import unittest
 from work_timer import taskdb
 from work_timer.taskdb import TaskID
 from work_timer.utils import fake_tasks
+from work_timer.utils.testing import TestCaseMixin
 
 # TODO: Consider refactoring this file to use .utils.fake_tasks
 
@@ -58,6 +60,10 @@ class TaskDBTest(unittest.TestCase):
         returned_task = self.db.get(new_task_id)
         self.assertEqual(returned_task.title, 'Original Title')
 
+    def test_adding_with_invalid_parent_id_isnt_allowed(self):
+        with self.assertRaises(ValueError):
+            self.db.add(taskdb.Task(title='Task', parent_id=TaskID(42)))
+
     def test_update(self):
         new_task = taskdb.Task(title='Original Title')
         new_task_id = self.db.add(new_task)
@@ -78,6 +84,14 @@ class TaskDBTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.db.update(new_task)
 
+    def test_update_with_invalid_parent_id_isnt_allowed(self):
+        task_id = self.db.add(taskdb.Task(title='Task A'))
+        task = self.db.get(task_id)
+
+        task.parent_id = TaskID(42)
+        with self.assertRaises(ValueError):
+            self.db.update(task)
+
     def test_delete(self):
         task = taskdb.Task(title='Original Title')
         task_id = self.db.add(task)
@@ -86,6 +100,15 @@ class TaskDBTest(unittest.TestCase):
 
         with self.assertRaises(KeyError):
             self.db.get(task_id)
+
+    def test_deleting_parents_isnt_allowed(self):
+        task_a = taskdb.Task(title='Task A')
+        id_a = self.db.add(task_a)
+        task_b = taskdb.Task(title='Task B', parent_id=id_a)
+        self.db.add(task_b)
+
+        with self.assertRaises(ValueError):
+            self.db.delete(id_a)
 
     def test_get_all(self):
         task_a = taskdb.Task(title='Task A')
@@ -140,29 +163,177 @@ EXPECTED_DATA = {
         'primaryKey': ['id']}}
 
 
-class PersistentTaskDBTest(unittest.TestCase):
+class TaskDBMixin(TestCaseMixin):
+
+    """Helps creating PersistentTaskDBs and backing git repos."""
+
+    def init_task_db(self) -> Path:
+        temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)  # pylint: disable=consider-using-with
+        repo_path = Path(temp_dir.name)
+        taskdb.PersistentTaskDB.init_repo(repo_path)
+        self.addCleanup(temp_dir.cleanup)
+        return repo_path
+
+    def task_db(self, repo_path: Path) -> taskdb.PersistentTaskDB:
+        db = taskdb.PersistentTaskDB(repo_path=repo_path)
+        self.addCleanup(db.close)
+        return db
+
+
+class PersistentTaskDBTest(unittest.TestCase, TaskDBMixin):
 
     def test_saving(self):
-        with tempfile.TemporaryDirectory() as d:
-            subprocess.check_call(f'git -C {d} init', shell=True)
-            db = taskdb.PersistentTaskDB(repo_path=Path(d))
+        d = self.init_task_db()
+        db = self.task_db(repo_path=d)
 
-            fake_tasks.add_fake_tasks(db)
+        fake_tasks.add_fake_tasks(db)
 
-            f = Path(d) / 'tasks.json'
-            with f.open() as f:
-                data = json.load(f)
-            assert data == EXPECTED_DATA
+        f = d / 'tasks.json'
+        with f.open() as f:
+            data = json.load(f)
+        assert data == EXPECTED_DATA
 
     def test_loading(self):
-        with tempfile.TemporaryDirectory() as d:
-            f = Path(d) / 'tasks.json'
-            with f.open('w') as f:
-                json.dump(EXPECTED_DATA, f)
+        d = self.init_task_db()
+        f = d / 'tasks.json'
+        with f.open('w') as f:
+            json.dump(EXPECTED_DATA, f)
+        subprocess.check_call(f'git -C {d} add tasks.json', shell=True)
+        subprocess.check_call(f'git -C {d} commit -a -m "Added test task data."', shell=True)
 
-            db = taskdb.PersistentTaskDB(Path(d))
+        db = self.task_db(d)
 
-            assert list(fake_tasks.FAKE_TASKS) == fake_tasks.fake_tasks_from_db(db)
+        assert list(fake_tasks.FAKE_TASKS) == fake_tasks.fake_tasks_from_db(db)
+
+    def test_empty_db_persistence(self):
+        d = self.init_task_db()
+        db = self.task_db(d)
+
+        task_id = db.add(taskdb.Task(title='The only task'))
+        # Shouldn't fail:
+        db.delete(task_id)
+        db.close()
+
+    def test_no_id_reuse(self):
+        d = self.init_task_db()
+        db = self.task_db(d)
+
+        db.add(taskdb.Task(title='An initial task to not fail with an empty DB'))
+        first_id = db.add(taskdb.Task(title='First task'))
+        db.delete(first_id)
+        db.close()
+        # Now recreate the TaskDB, add again.
+        db = taskdb.PersistentTaskDB(repo_path=Path(d))
+        second_id = db.add(taskdb.Task(title='Another task'))
+
+        self.assertNotEqual(first_id, second_id)
+        db.close()
+
+
+class PersistentTaskDBParallelTest(unittest.TestCase, TaskDBMixin):
+
+    def test_parallel_writing(self):
+        d = self.init_task_db()
+        db_a = self.task_db(repo_path=d)
+        db_b = self.task_db(repo_path=d)
+
+        id_a = db_a.add(taskdb.Task(title='One task'))
+        id_b = db_b.add(taskdb.Task(title='Another task'))
+
+        assert id_a != id_b
+
+    def test_reading_from_different_db(self):
+        d = self.init_task_db()
+        db_a = self.task_db(repo_path=d)
+        db_b = self.task_db(repo_path=d)
+
+        orig_task = taskdb.Task(title='One task')
+        task_id = db_a.add(orig_task)
+        read_from_b = db_b.get(task_id)
+
+        assert orig_task.title == read_from_b.title
+
+
+class PersistentTaskDBConflictTest(unittest.TestCase, TaskDBMixin):
+
+    def test_updating_deleted_task(self):
+        d = self.init_task_db()
+        db = taskdb.PersistentTaskDB(repo_path=d)
+        with contextlib.closing(db):
+            task_id = db.add(taskdb.Task(title='One task'))
+        del db
+
+        db_a = self.task_db(repo_path=d)
+        db_b = self.task_db(repo_path=d)
+
+        task = db_a.get(task_id)
+        task.title = 'Updated!'
+        db_b.delete(task_id)
+        with self.assertRaises(KeyError):
+            db_a.update(task)
+
+    def test_update_conflict(self):
+        d = self.init_task_db()
+        db = taskdb.PersistentTaskDB(repo_path=d)
+        with contextlib.closing(db):
+            task_id = db.add(taskdb.Task(title='One task'))
+        del db
+        db_a = self.task_db(repo_path=d)
+        db_b = self.task_db(repo_path=d)
+
+        task_a = db_a.get(task_id)
+        task_a.title = 'Updated from db_a!'
+        task_b = db_b.get(task_id)
+        task_b.title = 'Updated from db_b!'
+
+        db_a.update(task_a)
+        with self.assertRaises(taskdb.UpdateConflict):
+            db_b.update(task_b)
+
+    def test_parallel_update_without_conflict(self):
+        d = self.init_task_db()
+        db = taskdb.PersistentTaskDB(repo_path=d)
+        with contextlib.closing(db):
+            first_task_id = db.add(taskdb.Task(title='First task'))
+            second_task_id = db.add(taskdb.Task(title='Second task'))
+        del db
+        db_a = self.task_db(repo_path=d)
+        db_b = self.task_db(repo_path=d)
+
+        first_task = db_a.get(first_task_id)
+        first_task.title = 'Updated from db_a!'
+        second_task = db_b.get(second_task_id)
+        second_task.title = 'Updated from db_b!'
+
+        db_a.update(first_task)
+        # Shouldn't fail.
+        db_b.update(second_task)
+
+    def test_creating_task_with_deleted_parent(self):
+        d = self.init_task_db()
+        db = taskdb.PersistentTaskDB(repo_path=d)
+        with contextlib.closing(db):
+            parent_id = db.add(taskdb.Task(title='Parent task'))
+        del db
+        db_a = self.task_db(repo_path=d)
+        db_b = self.task_db(repo_path=d)
+
+        db_a.delete(parent_id)
+        with self.assertRaises(ValueError):
+            db_b.add(taskdb.Task(title='Child task', parent_id=parent_id))
+
+    def test_parallel_delete(self):
+        d = self.init_task_db()
+        db = taskdb.PersistentTaskDB(repo_path=d)
+        with contextlib.closing(db):
+            task_id = db.add(taskdb.Task(title='One task'))
+        del db
+        db_a = self.task_db(repo_path=d)
+        db_b = self.task_db(repo_path=d)
+
+        db_a.delete(task_id)
+        with self.assertRaises(KeyError):
+            db_b.delete(task_id)
 
 
 if __name__ == '__main__':

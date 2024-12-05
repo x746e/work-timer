@@ -3,8 +3,13 @@
 Should start some kind of UI.  For now it's a Textual TUI.
 """
 import argparse
-from datetime import timedelta
+from datetime import datetime, timedelta
+import os
 from pathlib import Path
+import sys
+
+from loguru import logger
+import platformdirs
 
 from textual.app import App, ComposeResult
 from textual.widgets import Footer
@@ -64,6 +69,13 @@ def existing_file(p: str) -> Path:
 
 def main():
     """The app entrypoint."""
+    logger.remove()
+    log_dir = platformdirs.user_state_path('wtx')
+    process_name = os.path.basename(sys.argv[0])
+    pid = os.getpid()
+    now = datetime.now().replace(microsecond=0).isoformat()
+    logger.add(log_dir / f'{process_name}-{pid}-{now}.log')
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--taskdb', required=True, type=directory,
                         help='Path to the directory to store the tasks data.')
