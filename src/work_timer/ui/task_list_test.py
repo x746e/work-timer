@@ -1,4 +1,5 @@
 """Tests for work_timer.ui.task_list."""
+from unittest import mock
 import unittest
 
 from textual.app import App
@@ -23,6 +24,7 @@ class FakeApp(App):
         super().__init__()
         self._task_db = task_db
         self._time_log = time_log
+        self.notifier = mock.AsyncMock()
 
     def compose(self):
         yield TaskList(self._task_db, self._time_log, work_period_duration=td('25m'),

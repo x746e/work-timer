@@ -5,7 +5,7 @@
 groups = ["default"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:66a7d0b62cbfb02c300519664f411759512d6e589f360b376902ea21d6916d65"
+content_hash = "sha256:f4212cea3b52243acd4f109cd72bd6d67c7a9e6b040e9fb982c1864b490bdb15"
 
 [[metadata.targets]]
 requires_python = ">=3.13"
@@ -239,6 +239,18 @@ files = [
 ]
 
 [[package]]
+name = "dbus-next"
+version = "0.2.3"
+requires_python = ">=3.6.0"
+summary = "A zero-dependency DBus library for Python with asyncio support"
+groups = ["default"]
+marker = "sys_platform == \"linux\""
+files = [
+    {file = "dbus_next-0.2.3-py3-none-any.whl", hash = "sha256:58948f9aff9db08316734c0be2a120f6dc502124d9642f55e90ac82ffb16a18b"},
+    {file = "dbus_next-0.2.3.tar.gz", hash = "sha256:f4eae26909332ada528c0a3549dda8d4f088f9b365153952a408e28023a626a5"},
+]
+
+[[package]]
 name = "decorator"
 version = "5.1.1"
 requires_python = ">=3.5"
@@ -247,6 +259,23 @@ groups = ["default"]
 files = [
     {file = "decorator-5.1.1-py3-none-any.whl", hash = "sha256:b8c3f85900b9dc423225913c5aace94729fe1fa9763b38939a95226f02d37186"},
     {file = "decorator-5.1.1.tar.gz", hash = "sha256:637996211036b6385ef91435e4fae22989472f9d571faba8927ba8253acbc330"},
+]
+
+[[package]]
+name = "desktop-notifier"
+version = "3.5.6"
+requires_python = ">=3.7"
+summary = "Python library for cross-platform desktop notifications"
+groups = ["default"]
+dependencies = [
+    "dbus-next; sys_platform == \"linux\"",
+    "packaging",
+    "rubicon-objc; sys_platform == \"darwin\"",
+    "winsdk==1.0.0b9; sys_platform == \"win32\"",
+]
+files = [
+    {file = "desktop-notifier-3.5.6.tar.gz", hash = "sha256:3b23f901ef04649972f3adb2f0d58d4c450a590ff7dd710ad9d40fafd2ca36d1"},
+    {file = "desktop_notifier-3.5.6-py3-none-any.whl", hash = "sha256:d2e2c18cd4c93999998ee8b7304ce2f1c5f642aab37b1c7b4b117cc738909f61"},
 ]
 
 [[package]]
@@ -1300,6 +1329,18 @@ files = [
 ]
 
 [[package]]
+name = "rubicon-objc"
+version = "0.4.9"
+requires_python = ">=3.8"
+summary = "A bridge between an Objective C runtime environment and Python."
+groups = ["default"]
+marker = "sys_platform == \"darwin\""
+files = [
+    {file = "rubicon_objc-0.4.9-py3-none-any.whl", hash = "sha256:c351b3800cf74c8c23f7d534f008fd5de46c63818de7a44de96daffdb3ed8b8c"},
+    {file = "rubicon_objc-0.4.9.tar.gz", hash = "sha256:3d77a5b2d10cb1e49679aa90b7824b46f67b3fd636229aa4a1b902d24aec6a58"},
+]
+
+[[package]]
 name = "ruff"
 version = "0.8.2"
 requires_python = ">=3.7"
@@ -1619,6 +1660,17 @@ marker = "sys_platform == \"win32\""
 files = [
     {file = "win32_setctime-1.1.0-py3-none-any.whl", hash = "sha256:231db239e959c2fe7eb1d7dc129f11172354f98361c4fa2d6d2d7e278baa8aad"},
     {file = "win32_setctime-1.1.0.tar.gz", hash = "sha256:15cf5750465118d6929ae4de4eb46e8edae9a5634350c01ba582df868e932cb2"},
+]
+
+[[package]]
+name = "winsdk"
+version = "1.0.0b9"
+requires_python = ">=3.7"
+summary = "Python bindings for the Windows SDK"
+groups = ["default"]
+marker = "sys_platform == \"win32\""
+files = [
+    {file = "winsdk-1.0.0b9.tar.gz", hash = "sha256:207d35f9ab445521d4f060b5c1f2181660390cd3db27b32961af7438478fb226"},
 ]
 
 [[package]]

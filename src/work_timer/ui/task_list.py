@@ -176,10 +176,15 @@ class TaskList(Widget):
         if not node:
             return
 
+        # TODO: All this logic doesn't really belong there.
+
         task = not_none(node.data)
         # TODO: duration=self.app.settings.work_period_duration.
         await self.app.push_screen_wait(TimerScreen(task, self._work_period_duration,
                                                     self._time_log))
+        await self.app.notifier.send(  # type: ignore
+                title='Work period ended', message=task.title,
+                icon='document-open-recent', sound='complete')
 
         def should_rest() -> bool:
             # TODO: Do we always rest?  If the period ended on its own, not when it was
@@ -193,6 +198,9 @@ class TaskList(Widget):
         if should_rest():
             await self.app.push_screen_wait(
                     TimerScreen(taskdb.BREAK, get_rest_length(), self._time_log, start=True))
+            await self.app.notifier.send(  # type: ignore
+                    title='Break ended', message='', icon='document-open-recent',
+                    sound='dialog-error')
 
     def action_cursor_up(self):
         self._get_tree().action_cursor_up()

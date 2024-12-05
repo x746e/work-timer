@@ -7,4 +7,4 @@ HERE="$(dirname $0)"
 cd "$HERE"
 pdm run textual run --dev ui/app.py \
     --taskdb ~/dev-tasks --timelog ~/dev-timelog.json \
-    --work-period-duration 10s --break-duration 5s
+    --work-period-duration 10s --break-duration 10s

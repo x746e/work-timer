@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import sys
 
+from desktop_notifier import DesktopNotifier
 from loguru import logger
 import platformdirs
 
@@ -37,11 +38,16 @@ class WorkTimer(App):
 
     """The main Textual App."""
 
-    def __init__(self, task_db_path: Path, time_log_path: Path,
-                 work_period_duration: timedelta, break_duration: timedelta) -> None:
+    def __init__(self,  # pylint: disable=too-many-arguments,too-many-positional-arguments
+                 task_db_path: Path,
+                 time_log_path: Path,
+                 notifier: DesktopNotifier,
+                 work_period_duration: timedelta,
+                 break_duration: timedelta) -> None:
         super().__init__()
         self._task_db = taskdb.PersistentTaskDB(task_db_path)
         self._time_log = timelog.PersistentTimeLog(time_log_path)
+        self.notifier = notifier
         self._work_period_duration = work_period_duration
         self._break_duration = break_duration
 
@@ -87,7 +93,10 @@ def main():
                         help='Break duration')
     args = parser.parse_args()
 
+    notifier = DesktopNotifier(app_name='Work Timer')
+
     app = WorkTimer(task_db_path=args.taskdb, time_log_path=args.timelog,
+                    notifier=notifier,
                     work_period_duration=args.work_period_duration,
                     break_duration=args.break_duration)
     app.run()
