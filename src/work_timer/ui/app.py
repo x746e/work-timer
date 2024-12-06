@@ -37,6 +37,9 @@ from work_timer.utils.time import td
 
 class WorkTimer(App):
 
+    # TODO: pylint is right, I need to refactor this.
+    # pylint: disable=too-many-instance-attributes
+
     """The main Textual App."""
 
     def __init__(self,  # pylint: disable=too-many-arguments,too-many-positional-arguments
@@ -45,7 +48,9 @@ class WorkTimer(App):
                  notifier: DesktopNotifier,
                  calendar: GoogleCalendar,
                  work_period_duration: timedelta,
-                 break_duration: timedelta) -> None:
+                 break_duration: timedelta,
+                 long_break_duration: timedelta,
+                 long_break_after: timedelta) -> None:
         super().__init__()
         self._task_db = taskdb.PersistentTaskDB(task_db_path)
         self._time_log = timelog.PersistentTimeLog(time_log_path)
@@ -53,12 +58,15 @@ class WorkTimer(App):
         self.calendar = calendar
         self._work_period_duration = work_period_duration
         self._break_duration = break_duration
+        self._long_break_duration = long_break_duration
+        self._long_break_after = long_break_after
 
     def compose(self) -> ComposeResult:
         # TODO: Package all these args into a "config" object of some sort?
         #       That will be potentially changed in the runtime.
         yield TaskList(self._task_db, self._time_log, self._work_period_duration,
-                       self._break_duration)
+                       self._break_duration, self._long_break_duration,
+                       self._long_break_after)
         yield Footer()
 
 
@@ -94,6 +102,10 @@ def main():
                         help='Work period duration')
     parser.add_argument('--break-duration', type=td, default='5m',
                         help='Break duration')
+    parser.add_argument('--long-break-duration', type=td, default='20m',
+                        help='Long break duration')
+    parser.add_argument('--long-break-after', type=td, default='3h',
+                        help='Have long break after working for this long')
     args = parser.parse_args()
 
     notifier = DesktopNotifier(app_name='Work Timer')
@@ -104,7 +116,9 @@ def main():
                     notifier=notifier,
                     calendar=calendar,
                     work_period_duration=args.work_period_duration,
-                    break_duration=args.break_duration)
+                    break_duration=args.break_duration,
+                    long_break_duration=args.long_break_duration,
+                    long_break_after=args.long_break_after)
     app.run()
 
 

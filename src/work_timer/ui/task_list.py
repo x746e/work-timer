@@ -1,6 +1,7 @@
 """A widget to showing a list (or a tree) of tasks."""
 import collections
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+from typing import no_type_check
 
 from gcsa.event import Event
 
@@ -40,13 +41,16 @@ class TaskList(Widget):
         ('k', 'cursor_up'),
     ]
 
-    def __init__(self, task_db: taskdb.TaskDB, time_log: TimeLog,
-                 work_period_duration: timedelta, break_duration: timedelta):
+    def __init__(self, task_db: taskdb.TaskDB, time_log: TimeLog,  # pylint: disable=too-many-arguments,too-many-positional-arguments
+                 work_period_duration: timedelta, break_duration: timedelta,
+                 long_break_duration: timedelta, long_break_after: timedelta):
         super().__init__()
         self._task_db = task_db
         self._time_log = time_log
         self._work_period_duration = work_period_duration
         self._break_duration = break_duration
+        self._long_break_duration = long_break_duration
+        self._long_break_after = long_break_after
 
     def compose(self) -> ComposeResult:
         yield self._make_tree_with_tasks()
@@ -178,7 +182,7 @@ class TaskList(Widget):
         if not node:
             return
 
-        # TODO: All this logic doesn't really belong there.
+        # TODO: All this logic doesn't really belong here.
 
         task = not_none(node.data)
 
@@ -198,15 +202,36 @@ class TaskList(Widget):
             # cancelled?
             return True
 
+        @no_type_check  # pyright has hard time with the DataFrames for some reason.
         def get_rest_length() -> timedelta:
-            # TODO: Implement some logic there, like long rest every 3 hours or something.
+            logs = self._time_log.get_data_frame()
+            # Today logs.
+            tlogs = logs[logs.start.dt.date == date.today()]
+            twork = tlogs[tlogs.task_id != taskdb.BREAK_TASK_ID]
+            if twork.empty:
+                return self._break_duration
+            tbreaks = tlogs[tlogs.task_id == taskdb.BREAK_TASK_ID]
+            # To decide if it's time for a long break:
+            # 1. Find the last long break today, or count from the start of the day
+            long_breaks = tbreaks[tbreaks.duration > self._break_duration + timedelta(seconds=1)]
+            if long_breaks.empty:
+                count_from = twork.iloc[0].start
+            else:
+                count_from = long_breaks.iloc[-1].start
+            # 2. Count from count_from how much work time is there.
+            #    If it more than, say 3h, it time for a long break!
+            worked_since_long_break = twork[twork.start > count_from].duration.sum()
+            time_for_a_long_break = worked_since_long_break > self._long_break_after
+            if time_for_a_long_break:
+                return self._long_break_duration
             return self._break_duration
 
         if should_rest():
+            rest_length = get_rest_length()
             await self.app.push_screen_wait(
-                    TimerScreen(taskdb.BREAK, get_rest_length(), self._time_log, start=True))
+                    TimerScreen(taskdb.BREAK, rest_length, self._time_log, start=True))
             await self.app.notifier.send(  # type: ignore
-                    title='Break ended', message='', icon='document-open-recent',
+                    title='Break ended', message=str(rest_length), icon='document-open-recent',
                     sound='dialog-error')
 
     def action_cursor_up(self):

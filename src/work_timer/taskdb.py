@@ -75,6 +75,18 @@ class TaskDB:
         with self._lock:
             return copy.deepcopy(self._tasks)
 
+    def get_data_frame(self) -> pd.DataFrame:
+        """Returns (a copy of) tasks as a Pandas DataFrame."""
+        tasks = self.get_all()
+        if not tasks:
+            return pd.DataFrame()
+        df = pd.DataFrame(tasks.values())
+        df = df.convert_dtypes()
+        df = df.drop(columns=['_commit'])
+        df = df.set_index('id')
+        df.status = df.status.astype('category')
+        return df
+
     def get(self, task_id: TaskID) -> Task:
         with self._lock:
             return copy.deepcopy(self._tasks[task_id])
@@ -244,18 +256,6 @@ class PersistentTaskDB(TaskDB):
 
     # The methods dealing with reading Tasks from a JSON-serialized Pandas
     # DataFrame, and serializing and writing them back to a file.
-
-    def get_data_frame(self) -> pd.DataFrame:
-        """Returns (a copy of) tasks as a Pandas DataFrame."""
-        tasks = self.get_all()
-        if not tasks:
-            return pd.DataFrame()
-        df = pd.DataFrame(tasks.values())
-        df = df.convert_dtypes()
-        df = df.drop(columns=['_commit'])
-        df = df.set_index('id')
-        df.status = df.status.astype('category')
-        return df
 
     def _load(self) -> tuple[dict[TaskID, Task], int]:
         if not self._meta_path.exists():

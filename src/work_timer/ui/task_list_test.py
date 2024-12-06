@@ -29,7 +29,8 @@ class FakeApp(App):  # pylint: disable=missing-class-docstring
 
     def compose(self):
         yield TaskList(self._task_db, self._time_log, work_period_duration=td('25m'),
-                       break_duration=td('5m'))
+                       break_duration=td('5m'), long_break_duration=td('20m'),
+                       long_break_after=td('3h'))
 
 
 class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
