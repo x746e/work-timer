@@ -215,7 +215,7 @@ class TaskList(Widget):
         self._is_timer_ticking = True
         # TODO: duration=self.app.settings.work_period_duration.
         await self.app.push_screen_wait(TimerScreen(task, self._work_period_duration,
-                                                    self._time_log))
+                                                    self._time_log, start=True))
         self._is_timer_ticking = False
         self._not_ticking_since = datetime.now()
         await self.app.notifier.send(  # type: ignore
