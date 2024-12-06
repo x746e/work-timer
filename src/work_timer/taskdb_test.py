@@ -291,6 +291,8 @@ class PersistentTaskDBConflictTest(unittest.TestCase, TaskDBMixin):
             db_b.update(task_b)
 
     def test_parallel_update_without_conflict(self):
+        # TODO: (db, (first_task_id, second_task_id)) = self.init_task_db(with_tasks=[
+        #           taskdb.Task(...), taskdb.Task(...)])
         d = self.init_task_db()
         db = taskdb.PersistentTaskDB(repo_path=d)
         with contextlib.closing(db):
@@ -308,6 +310,25 @@ class PersistentTaskDBConflictTest(unittest.TestCase, TaskDBMixin):
         db_a.update(first_task)
         # Shouldn't fail.
         db_b.update(second_task)
+
+    def test_consecutive_updates_from_the_same_db(self):
+        # If we don't change `Task._commit` on update, that update invalidates
+        # the task, and fails on the second update.  See the task #143.
+        d = self.init_task_db()
+        db = taskdb.PersistentTaskDB(repo_path=d)
+        with contextlib.closing(db):
+            task_id = db.add(taskdb.Task(title='Update me!'))
+        del db
+
+        db = self.task_db(repo_path=d)
+        task = db.get(task_id)
+
+        # First update.
+        task.title = 'Updated!'
+        db.update(task)
+        # Second update, shouldn't fail.
+        task.title = 'Updated twice!'
+        db.update(task)
 
     def test_creating_task_with_deleted_parent(self):
         d = self.init_task_db()

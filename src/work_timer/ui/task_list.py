@@ -318,13 +318,12 @@ class TaskList(Widget):
         return dict(ret)
 
 
+_PRIO_TO_STYLE = {
+    taskdb.Task.Priority.P0: 'bright_red',
+    taskdb.Task.Priority.P1: 'yellow',
+    taskdb.Task.Priority.P2: '',
+}
+
+
 def _title_with_style(task: taskdb.Task) -> Text:
-    def get_style() -> str:
-        match task.priority:
-            case taskdb.Task.Priority.P0:
-                return 'bright_red'
-            case taskdb.Task.Priority.P1:
-                return 'yellow'
-            case _:
-                return ''
-    return Text(task.title, style=get_style())
+    return Text(task.title, style=_PRIO_TO_STYLE[task.priority])

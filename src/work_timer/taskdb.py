@@ -97,6 +97,7 @@ class TaskDB:
 
     def add(self, task: Task) -> TaskID:
         """Add a task to the DB."""
+        logger.debug(f'Adding {task.__dict__}')
         with self._lock:
             task = copy.deepcopy(task)
             if task.id != UNSET_TASK_ID:
@@ -109,7 +110,10 @@ class TaskDB:
             self._persist(why=f'Adding {task}')
             return task.id
 
+    # TODO: Use consistent docstring style: "Update the task..." or "Updates the task..."
     def update(self, task: Task) -> None:
+        """Update the `task` in the DB."""
+        logger.debug(f'Updating {task.__dict__}')
         with self._lock:
             if task.id == UNSET_TASK_ID:
                 raise ValueError(f"Can't update a Task with an unset id: {task}.  Add it first.")
@@ -219,6 +223,8 @@ class PersistentTaskDB(TaskDB):
                 if not repo_head:
                     return
                 if repo_head != self._commit:
+                    logger.debug(f'The repo ({self._repo_path}) was modified, reloading. '
+                                 f'On disk: {repo_head}, self._commit: {self._commit}.')
                     self._reload()
 
     def update(self, task: Task) -> None:
@@ -226,16 +232,28 @@ class PersistentTaskDB(TaskDB):
 
         Raises an `UpdateConflict` exception in that case.
         """
+        # pylint: disable=protected-access
+
         def asjson(task: Task) -> str:
             return json.dumps(dataclasses.asdict(task))
 
         with self._lock:
             with self._file_lock:
-                assert self._commit == self._get_repo_head()
-                logger.info(f'Updating {task}. {task._commit=}, {self._commit=}')  # pylint: disable=protected-access
-                if task._commit != self._commit:   # pylint: disable=protected-access
+                repo_head = self._get_repo_head()
+                logger.info(f'Updating {task}. {task._commit=}, {self._commit=}, {repo_head=}')
+                if repo_head != self._commit:
+                    logger.debug(f'While updating {task}: the repo ({self._repo_path}) was '
+                                 f'modified, but not yet reloaded: '
+                                 f'on disk: {repo_head}, self._commit: {self._commit}. '
+                                 'Reloding before proceeding with the update.')
+                    self._reload()
+
+                assert self._commit == repo_head, (
+                        "The DB isn't updated to the latest repo version: "
+                        f'{self._commit=}, {repo_head=}')
+                if task._commit != self._commit:
                     # Possible conflict.
-                    orig_tasks = self._load_at(task._commit)  # pylint: disable=protected-access
+                    orig_tasks = self._load_at(task._commit)
                     orig_task = orig_tasks[task.id]
                     theirs_task = self.get(task.id)
                     logger.trace(
@@ -247,6 +265,9 @@ class PersistentTaskDB(TaskDB):
                         raise UpdateConflict(orig_task, theirs_task, task)
                 logger.trace('No conflict, updating.')
                 super().update(task)
+                new_repo_head = self._get_repo_head()
+                assert new_repo_head is not None
+                task._commit = new_repo_head
 
     def _get_repo_head(self) -> str | None:
         commit = subprocess.check_output(
@@ -277,6 +298,8 @@ class PersistentTaskDB(TaskDB):
     def _load_at(self, commit: str) -> dict[TaskID, Task]:
         assert _is_repo_clean(self._repo_path)
         logger.debug(f'Reading the repo at {commit!r}')
+        # TODO: Short traceback:
+        # [s/w/taskdb.py:284] _load → [s/w/taskdb.py:290] _load_at
 
         data = subprocess.check_output(
                 f'git -C {self._repo_path} show {commit}:tasks.json',

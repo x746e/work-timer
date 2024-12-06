@@ -105,6 +105,8 @@ class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
                          fake_tasks.fake_tasks_from_tree(tree))
 
 
+# TODO: Consider testing using a PersistentTaskDB as well.
+
 class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
 
     # IDEA: tests prerequisites / priorities:
@@ -290,6 +292,33 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(initial_tasks, got_db_tasks)
         got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
         self.assertEqual(initial_tasks, got_ui_tasks)
+
+    async def test_increasing_priority(self):
+        # Also tests two changes to the same object, that was failing with
+        # TaskDB.
+        initial_tasks = [
+            FakeTask('task_a'),
+            FakeTask('task_b'),
+        ]
+        task_db = fake_tasks.get_task_db(initial_tasks)
+        app = FakeApp(task_db)
+
+        async with app.run_test() as pilot:
+            await pilot.press('down')
+            await pilot.press('down')
+            tree = app.query_one(Tree)
+            self.assertEqual(not_none(not_none(tree.cursor_node).data).title, 'task_b')
+            await pilot.press('+')
+            await pilot.press('+')
+
+        want_tasks = [
+            FakeTask('task_a'),
+            FakeTask('task_b', priority=taskdb.Task.Priority.P0),
+        ]
+        got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
+        self.assertEqual(want_tasks, got_ui_tasks)
+        got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
+        self.assertEqual(want_tasks, got_db_tasks)
 
 
 class TestTimer(unittest.IsolatedAsyncioTestCase):
