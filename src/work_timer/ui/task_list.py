@@ -22,6 +22,8 @@ from work_timer.utils.typing import not_none
 class TaskList(Widget):
     """A widget to showing a list (or a tree) of tasks."""
 
+    # pylint: disable=too-many-instance-attributes
+
     BINDINGS = [
         ('e', 'edit', 'Edit'),
         ('m', 'mark_done', 'Mark DONE'),
@@ -51,6 +53,26 @@ class TaskList(Widget):
         self._break_duration = break_duration
         self._long_break_duration = long_break_duration
         self._long_break_after = long_break_after
+
+        self._is_timer_ticking = False
+        self._not_ticking_since = datetime.now()
+        self._bug_after = timedelta(minutes=10)
+        self._bug_every = timedelta(minutes=5)
+        self._bugged_last_at = None
+        self.set_interval(5, self._maybe_bug_about_not_ticking_timer)
+
+    async def _maybe_bug_about_not_ticking_timer(self) -> None:
+        if self._is_timer_ticking:
+            return
+        if datetime.now() - self._not_ticking_since < self._bug_after:
+            return
+        if (self._bugged_last_at and
+                datetime.now() - self._bugged_last_at < self._bug_every):
+            return
+        await self.app.notifier.send(  # type: ignore
+                title='The timer is not ticking!', message='Go do some work!',
+                icon='document-open-recent')
+        self._bugged_last_at = datetime.now()
 
     def compose(self) -> ComposeResult:
         yield self._make_tree_with_tasks()
@@ -190,9 +212,12 @@ class TaskList(Widget):
                 Event(
                     task.title, start=datetime.now(), end=datetime.now() + self._work_period_duration))
 
+        self._is_timer_ticking = True
         # TODO: duration=self.app.settings.work_period_duration.
         await self.app.push_screen_wait(TimerScreen(task, self._work_period_duration,
                                                     self._time_log))
+        self._is_timer_ticking = False
+        self._not_ticking_since = datetime.now()
         await self.app.notifier.send(  # type: ignore
                 title='Work period ended', message=task.title,
                 icon='document-open-recent', sound='complete')
