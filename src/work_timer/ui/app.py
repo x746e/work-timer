@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 
 from desktop_notifier import DesktopNotifier
+from gcsa.google_calendar import GoogleCalendar
 from loguru import logger
 import platformdirs
 
@@ -42,12 +43,14 @@ class WorkTimer(App):
                  task_db_path: Path,
                  time_log_path: Path,
                  notifier: DesktopNotifier,
+                 calendar: GoogleCalendar,
                  work_period_duration: timedelta,
                  break_duration: timedelta) -> None:
         super().__init__()
         self._task_db = taskdb.PersistentTaskDB(task_db_path)
         self._time_log = timelog.PersistentTimeLog(time_log_path)
         self.notifier = notifier
+        self.calendar = calendar
         self._work_period_duration = work_period_duration
         self._break_duration = break_duration
 
@@ -94,9 +97,12 @@ def main():
     args = parser.parse_args()
 
     notifier = DesktopNotifier(app_name='Work Timer')
+    calendar = GoogleCalendar(
+            'd5fbba89f4666458ede53c569d41103943eb08325997ebd73d6d4db6156fa518@group.calendar.google.com')
 
     app = WorkTimer(task_db_path=args.taskdb, time_log_path=args.timelog,
                     notifier=notifier,
+                    calendar=calendar,
                     work_period_duration=args.work_period_duration,
                     break_duration=args.break_duration)
     app.run()

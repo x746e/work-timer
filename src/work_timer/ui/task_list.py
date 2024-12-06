@@ -1,6 +1,8 @@
 """A widget to showing a list (or a tree) of tasks."""
 import collections
-from datetime import timedelta
+from datetime import datetime, timedelta
+
+from gcsa.event import Event
 
 from rich.text import Text
 from textual import work
@@ -179,6 +181,11 @@ class TaskList(Widget):
         # TODO: All this logic doesn't really belong there.
 
         task = not_none(node.data)
+
+        self.app.calendar.add_event(  # type: ignore
+                Event(
+                    task.title, start=datetime.now(), end=datetime.now() + self._work_period_duration))
+
         # TODO: duration=self.app.settings.work_period_duration.
         await self.app.push_screen_wait(TimerScreen(task, self._work_period_duration,
                                                     self._time_log))

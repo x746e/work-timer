@@ -18,13 +18,14 @@ from work_timer.utils.typing import not_none
 Status = taskdb.Task.Status
 
 
-class FakeApp(App):
+class FakeApp(App):  # pylint: disable=missing-class-docstring
 
     def __init__(self, task_db: taskdb.TaskDB, time_log: TimeLog = TimeLog()) -> None:
         super().__init__()
         self._task_db = task_db
         self._time_log = time_log
         self.notifier = mock.AsyncMock()
+        self.calendar = mock.Mock()
 
     def compose(self):
         yield TaskList(self._task_db, self._time_log, work_period_duration=td('25m'),
