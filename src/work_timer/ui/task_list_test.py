@@ -229,7 +229,7 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
         got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
         self.assertEqual(want_tasks, got_db_tasks)
         got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
-        self.assertEqual(want_tasks, got_ui_tasks)
+        assert want_tasks == got_ui_tasks
 
     async def test_task_delete(self):
         initial_tasks = [
@@ -319,6 +319,53 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(want_tasks, got_ui_tasks)
         got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
         self.assertEqual(want_tasks, got_db_tasks)
+
+    async def test_reparenting(self):
+        initial_tasks = [
+            FakeTask('task_a', kids=[
+                FakeTask('task_b', kids=[
+                    FakeTask('task_c'),
+                    FakeTask('task_d'),
+                ])
+            ])
+        ]
+        task_db = fake_tasks.get_task_db(initial_tasks)
+        (task_d_id,) = [id for (id, task) in task_db.get_all().items() if task.title == 'task_d']
+        app = FakeApp(task_db)
+
+        async with app.run_test() as pilot:
+            await pilot.press('down')
+            await pilot.press('down')
+            await pilot.press('down')
+            tree = app.query_one(Tree)
+            self.assertEqual(not_none(not_none(tree.cursor_node).data).title, 'task_c')
+            await pilot.press('e')
+            # We should be in the TaskEdit now, focused on the title.
+            await pilot.press('tab')
+            await pilot.press('tab')
+            await pilot.press('tab')
+            # Should be now focused on Parent ID field.
+            # Remove the current value.
+            await pilot.press('ctrl+a')
+            await pilot.press('ctrl+k')
+            # Type in the id of the new parent.
+            await pilot.press(*list(str(task_d_id)))
+            await pilot.press('ctrl+s')
+
+        want_tasks = [
+            FakeTask('task_a', kids=[
+                FakeTask('task_b', kids=[
+                    FakeTask('task_d', kids=[
+                        # task_c should have been moved.
+                        FakeTask('task_c'),
+                    ]),
+                ])
+            ])
+        ]
+        got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
+        self.assertEqual(want_tasks, got_db_tasks)
+        got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
+        assert want_tasks == got_ui_tasks
 
 
 class TestTimer(unittest.IsolatedAsyncioTestCase):

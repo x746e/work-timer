@@ -13,6 +13,7 @@ from textual.widgets import Tree
 from textual.widgets.tree import TreeNode
 
 from work_timer import taskdb
+from work_timer.taskdb import TaskID, Task
 from work_timer.timelog import TimeLog
 from work_timer.ui.timer import TimerScreen
 from work_timer.ui.task_editor import TaskEditor
@@ -49,6 +50,11 @@ class TaskList(Widget):
         super().__init__()
         self._task_db = task_db
         self._time_log = time_log
+
+        self._tasks = list(self._task_db.get_all().values())
+        self._parent_to_task = self._group_tasks_by_parent_id(self._tasks)
+        self._task_id_to_node_id = {}
+
         self._work_period_duration = work_period_duration
         self._break_duration = break_duration
         self._long_break_duration = long_break_duration
@@ -157,12 +163,18 @@ class TaskList(Widget):
         task = not_none(node.data)
         resp = await self.app.push_screen_wait(TaskEditor(self._task_db, task))
         match resp:
-            case TaskEditor.Changed(_, updated_task):
-                # TODO: Check changed.fields.
-                # TODO: If reparented, move the node, then focus on it.
-                node.set_label(_title_with_style(updated_task))
-                node.data = updated_task
-                node.refresh()
+            case TaskEditor.Changed(old_task, new_task):
+                if old_task.parent_id != new_task.parent_id:
+                    # If reparented, remove the node, then readd it with its children.
+                    node.remove()
+                    new_node = self._add_task(new_task)
+                    # Not sure why, but it appears I need both these calls.
+                    self._get_tree().move_cursor(new_node)
+                    self._get_tree().select_node(new_node)
+                else:
+                    node.set_label(_title_with_style(new_task))
+                    node.data = new_task
+                    node.refresh()
             case TaskEditor.Deleted():
                 assert not node.children
                 node.remove()
@@ -190,8 +202,7 @@ class TaskList(Widget):
         new_task = taskdb.Task(title='', parent_id=parent_id)
         changed = await self.app.push_screen_wait(TaskEditor(self._task_db, new_task))
         if changed:
-            parent_node.allow_expand = True
-            parent_node.add_leaf(_title_with_style(changed.new), changed.new)
+            self._add_task(changed.new)
 
     @work
     async def action_start(self) -> None:
@@ -282,33 +293,48 @@ class TaskList(Widget):
         self.refresh_bindings()
 
     def _make_tree_with_tasks(self) -> Tree:
-        tasks = list(self._task_db.get_all().values())
-        parent_to_task = self._group_tasks_by_parent_id(tasks)
-
-        def add_task(task: taskdb.Task, parent_node: TreeNode) -> None:
-            if whole_subtree_is_completed(task):
-                return
-            node = parent_node.add(_title_with_style(task), data=task)
-            children = parent_to_task.get(task.id, [])
-            for child_task in children:
-                add_task(child_task, parent_node=node)
-            if not children:
-                node.allow_expand = False
-
-        def whole_subtree_is_completed(task: taskdb.Task) -> bool:
-            if task.status != taskdb.Task.Status.DONE:
-                return False
-            children = parent_to_task.get(task.id, [])
-            return all(whole_subtree_is_completed(child) for child
-                       in children)
+        """Returns a Tree widget populated with Tasks."""
 
         tree = Tree[taskdb.Task]('')
 
-        for task in parent_to_task[None]:
-            add_task(task, parent_node=tree.root)
+        for task in self._parent_to_task[None]:
+            if not self._whole_subtree_is_completed(task):
+                self._add_task(task, parent_node=tree.root)
 
         tree.root.expand_all()
         return tree
+
+    def _add_task(self, task: Task, parent_node: TreeNode | None = None) -> TreeNode:
+        """Adds a `task`, with all its children, as a child of `parent_node`."""
+
+        def get_node_by_task_id(task_id: TaskID | None) -> TreeNode:
+            if task_id is None:
+                return self._get_tree().root
+            node_id = self._task_id_to_node_id[task_id]
+            return self._get_tree().get_node_by_id(node_id)
+
+        if not parent_node:
+            parent_node = get_node_by_task_id(task.parent_id)
+
+        node = parent_node.add(_title_with_style(task), data=task)
+        parent_node.allow_expand = True
+        self._task_id_to_node_id[task.id] = node.id
+        children = self._parent_to_task.get(task.id, [])
+        children_to_show = [c for c in children if not self._whole_subtree_is_completed(c)]
+
+        for child_task in children_to_show:
+            self._add_task(child_task, parent_node=node)
+
+        if not children_to_show:
+            node.allow_expand = False
+
+        return node
+
+    def _whole_subtree_is_completed(self, task: Task) -> bool:
+        if task.status != Task.Status.DONE:
+            return False
+        children = self._parent_to_task.get(task.id, [])
+        return all(self._whole_subtree_is_completed(child) for child in children)
 
     def _group_tasks_by_parent_id(
             self, tasks: list[taskdb.Task]) -> dict[None | taskdb.TaskID, list[taskdb.Task]]:

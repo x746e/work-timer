@@ -18,7 +18,7 @@ class FakeApp(App):
     @work
     async def on_mount(self) -> None:
         editor = TaskEditor(self._task_db, self._current_task)
-        self.changed_msg = await self.app.push_screen_wait(editor)  # pylint: disable=attribute-defined-outside-init
+        self.editor_msg = await self.app.push_screen_wait(editor)  # pylint: disable=attribute-defined-outside-init
 
 
 async def test_closes_on_esc_and_returns_none():
@@ -28,7 +28,7 @@ async def test_closes_on_esc_and_returns_none():
         await pilot.press('escape')
 
         assert not isinstance(app.screen, TaskEditor)
-        assert app.changed_msg is None
+        assert app.editor_msg is None
 
 
 class TestCreationMode:
@@ -42,10 +42,11 @@ class TestCreationMode:
             await pilot.press(*list('Hello!'))
             await pilot.press('ctrl+s')
 
-            assert app.changed_msg.old is None, "No .old when creating tasks"
-            assert matches_db_version(db, app.changed_msg.new), (
+            assert isinstance(app.editor_msg, TaskEditor.Created), (
+                    "Should return TaskEditor.Created when creating tasks")
+            assert matches_db_version(db, app.editor_msg.new), (
                 "The task in the message should match the one in the DB.")
-            assert app.changed_msg.new.title == 'Hello!', "The title should be as expected"
+            assert app.editor_msg.new.title == 'Hello!', "The title should be as expected"
 
     async def test_empty_titles_are_not_allowed(self):
         pass  # TODO
@@ -61,7 +62,7 @@ class TestUpdates:
 
             await pilot.press('ctrl+s')
 
-            assert app.changed_msg is None
+            assert app.editor_msg is None
 
     async def test_updating_a_task(self):
         db = fake_tasks.get_task_db()
@@ -72,9 +73,9 @@ class TestUpdates:
             await pilot.press(*list('!!!'))
             await pilot.press('ctrl+s')
 
-            assert app.changed_msg.old == task
-            assert app.changed_msg.new.title == f'{task.title}!!!'
-            assert matches_db_version(db, app.changed_msg.new), (
+            assert app.editor_msg.old == task
+            assert app.editor_msg.new.title == f'{task.title}!!!'
+            assert matches_db_version(db, app.editor_msg.new), (
                 "The task in the message should match the one in the DB.")
 
 

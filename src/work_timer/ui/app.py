@@ -14,6 +14,7 @@ from loguru import logger
 import platformdirs
 
 from textual.app import App, ComposeResult
+from textual.logging import TextualHandler
 from textual.widgets import Footer
 
 from work_timer import taskdb
@@ -91,7 +92,9 @@ def main():
     process_name = os.path.basename(sys.argv[0])
     pid = os.getpid()
     now = datetime.now().replace(microsecond=0).isoformat()
+    # TODO: Log rotation.
     logger.add(log_dir / f'{process_name}-{pid}-{now}.log')
+    logger.add(TextualHandler(), format="{message}")
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--taskdb', required=True, type=directory,

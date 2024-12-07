@@ -1,6 +1,8 @@
 """A widget for editing a Task."""
 import copy
 
+from loguru import logger
+
 from textual import on
 from textual import work
 from textual.app import ComposeResult
@@ -21,11 +23,19 @@ class TaskEditorWidget(Widget):
 
     """A Task editing Widget."""
 
+    class Created(Message):
+
+        __match_args__ = ('new',)
+
+        def __init__(self, new: taskdb.Task) -> None:
+            super().__init__()
+            self.new = new
+
     class Changed(Message):
 
         __match_args__ = ('old', 'new')
 
-        def __init__(self, old: None | taskdb.Task, new: taskdb.Task) -> None:
+        def __init__(self, old: taskdb.Task, new: taskdb.Task) -> None:
             super().__init__()
             self.old = old
             self.new = new
@@ -68,7 +78,16 @@ class TaskEditorWidget(Widget):
     @work
     @on(Button.Pressed, '#dismiss')
     async def action_dismiss(self):
-        if self._get_updated_task() != self._edited_task:
+        """Close the TaskEditor.
+
+        If the task was changed in the editor, confirm if the user wants to
+        discard the changes.
+        """
+        updated_task = self._get_updated_task()
+        logger.debug(f'action_dismiss: updated task: {updated_task.__dict__}')
+        logger.debug(f'action_dismiss: edited task: {self._edited_task.__dict__}')
+        logger.debug(f'action_dismiss: updated_task == edited_task: {updated_task == self._edited_task}')
+        if updated_task != self._edited_task:
             if not await self.app.push_screen_wait(
                 Confirm('Are you sure you want to discard the changes to the task?')
             ):
@@ -86,7 +105,7 @@ class TaskEditorWidget(Widget):
 
         if self._creating_new_task():
             task_id = self._task_db.add(updated_task)
-            message = self.Changed(old=None, new=self._task_db.get(task_id))
+            message = self.Created(new=self._task_db.get(task_id))
         else:
             self._task_db.update(updated_task)
             message = self.Changed(old=self._edited_task, new=updated_task)
@@ -102,6 +121,9 @@ class TaskEditorWidget(Widget):
         updated_task.status = status_select.value  # type: ignore
         priority_select = self.query_one('#priority', Select)
         updated_task.priority = priority_select.value  # type: ignore
+        parent_id_input = self.query_one('#parent_id', Input)
+        updated_task.parent_id = (
+                None if not parent_id_input.value else int(parent_id_input.value))  # type: ignore
         description_text_area = self.query_one('#description', TextArea)
         updated_task.description = description_text_area.text
 
@@ -154,8 +176,8 @@ class TaskEditorWidget(Widget):
                     allow_blank=False, value=self._edited_task.priority, id='priority')
 
             yield Label('Parent ID:')
-            yield Input(str(self._edited_task.parent_id))
-
+            parent_id = '' if not self._edited_task.parent_id else str(self._edited_task.parent_id)
+            yield Input(parent_id, id='parent_id')
 
         with Horizontal(id='text-container'):
             yield Label('Description:', id='dl')
@@ -188,6 +210,7 @@ class TaskEditor(Screen):
     CSS_PATH = 'task_editor.tcss'
 
     Changed = TaskEditorWidget.Changed
+    Created = TaskEditorWidget.Created
     Deleted = TaskEditorWidget.Deleted
 
     def __init__(self, task_db: taskdb.TaskDB, task: taskdb.Task):
@@ -195,6 +218,7 @@ class TaskEditor(Screen):
         self._task_db = task_db
         self._edited_task = task
 
+    @on(TaskEditorWidget.Created)
     @on(TaskEditorWidget.Changed)
     @on(TaskEditorWidget.Deleted)
     def on_mutating_event(self, msg) -> None:
