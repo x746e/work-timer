@@ -57,18 +57,18 @@ class TaskList(Widget):
 
         self._is_timer_ticking = False
         self._not_ticking_since = datetime.now()
-        self._bug_after = timedelta(minutes=10)
-        self._bug_every = timedelta(minutes=5)
         self._bugged_last_at = None
         self.set_interval(5, self._maybe_bug_about_not_ticking_timer)
 
     async def _maybe_bug_about_not_ticking_timer(self) -> None:
         if self._is_timer_ticking:
             return
-        if datetime.now() - self._not_ticking_since < self._bug_after:
+        if not self._config.bug_after:
+            return
+        if datetime.now() - self._not_ticking_since < self._config.bug_after:
             return
         if (self._bugged_last_at and
-                datetime.now() - self._bugged_last_at < self._bug_every):
+                datetime.now() - self._bugged_last_at < not_none(self._config.bug_every)):
             return
         if self._config.notifier:
             await self._config.notifier.send(

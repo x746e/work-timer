@@ -52,10 +52,10 @@ def main():
     now = datetime.now().replace(microsecond=0).isoformat()
     # TODO: Log rotation.
     logger.add(log_dir / f'{process_name}-{pid}-{now}.log')
-    logger.add(TextualHandler(), format="{message}")
 
     config = get_config_from_args()
 
+    logger.add(TextualHandler(), format="{message}")
     app = WorkTimerApp(config)
     app.run()
 

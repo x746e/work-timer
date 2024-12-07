@@ -32,6 +32,8 @@ class Config:  # pylint: disable=too-many-instance-attributes
     break_duration: timedelta
     long_break_duration: timedelta
     long_break_after: timedelta
+    bug_after: timedelta | None = None
+    bug_every: timedelta | None = None
 
 
 def get_config_from_args() -> Config:
@@ -41,6 +43,7 @@ def get_config_from_args() -> Config:
                         help='Path to the directory to store the tasks data.')
     parser.add_argument('--timelog', required=True, type=existing_file,
                         help='Path to the file to store the time log.')
+
     parser.add_argument('--work-period-duration', type=td, default='25m',
                         help='Work period duration')
     parser.add_argument('--break-duration', type=td, default='5m',
@@ -49,12 +52,26 @@ def get_config_from_args() -> Config:
                         help='Long break duration')
     parser.add_argument('--long-break-after', type=td, default='3h',
                         help='Have long break after working for this long')
+
     parser.add_argument('--calendar-id',
                         help='If set, add an event to that Google Calendar for each work period.')
+
     parser.add_argument('--enable-notifications', action='store_true',
                         help='Notify about ends of work periods and breaks.')
-    # TODO: Bugging.
+    parser.add_argument('--bug-after', type=td,
+                        help='Bug with a notification after timer is not running for this much time.')
+    parser.add_argument('--bug-every', type=td,
+                        help='How often to bug after the first bugging notification.  If not set, '
+                             'defaults to the value of --bug-after')
     args = parser.parse_args()
+
+    if (args.bug_after or args.bug_every) and not args.enable_notifications:
+        parser.error('--enable-notifications must be set for --bug-* arguments to make sense.')
+    if args.bug_every and not args.bug_after:
+        parser.error('--bug-every is set, but bugging is not enabled: you probably want '
+                     'to set --bug-after instead.')
+    if args.bug_after and not args.bug_every:
+        args.bug_every = args.bug_after
 
     config = {}
     config['task_db'] = taskdb.PersistentTaskDB(args.taskdb)
@@ -68,6 +85,9 @@ def get_config_from_args() -> Config:
     config['break_duration'] = args.break_duration
     config['long_break_duration'] = args.long_break_duration
     config['long_break_after'] = args.long_break_after
+
+    config['bug_after'] = args.bug_after
+    config['bug_every'] = args.bug_every
 
     return Config(**config)  # pylint: disable=missing-kwoa
 
