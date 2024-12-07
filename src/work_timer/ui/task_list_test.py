@@ -1,11 +1,11 @@
 """Tests for work_timer.ui.task_list."""
-from unittest import mock
 import unittest
 
 from textual.app import App
 from textual.widgets import Tree
 
 from work_timer import taskdb
+from work_timer.config import Config
 from work_timer.timelog import TimeLog
 from work_timer.ui import ui_testing
 from work_timer.ui.task_list import TaskList
@@ -24,13 +24,13 @@ class FakeApp(App):  # pylint: disable=missing-class-docstring
         super().__init__()
         self._task_db = task_db
         self._time_log = time_log
-        self.notifier = mock.AsyncMock()
-        self.calendar = mock.Mock()
 
     def compose(self):
-        yield TaskList(self._task_db, self._time_log, work_period_duration=td('25m'),
-                       break_duration=td('5m'), long_break_duration=td('20m'),
-                       long_break_after=td('3h'))
+        config = Config(task_db=self._task_db, time_log=self._time_log,
+                        work_period_duration=td('25m'),
+                        break_duration=td('5m'), long_break_duration=td('20m'),
+                        long_break_after=td('3h'))
+        yield TaskList(config)
 
 
 class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):

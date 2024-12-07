@@ -13,8 +13,8 @@ from textual.widgets import Tree
 from textual.widgets.tree import TreeNode
 
 from work_timer import taskdb
+from work_timer.config import Config
 from work_timer.taskdb import TaskID, Task
-from work_timer.timelog import TimeLog
 from work_timer.ui.timer import TimerScreen
 from work_timer.ui.task_editor import TaskEditor
 from work_timer.utils.typing import not_none
@@ -44,21 +44,16 @@ class TaskList(Widget):
         ('k', 'cursor_up'),
     ]
 
-    def __init__(self, task_db: taskdb.TaskDB, time_log: TimeLog,  # pylint: disable=too-many-arguments,too-many-positional-arguments
-                 work_period_duration: timedelta, break_duration: timedelta,
-                 long_break_duration: timedelta, long_break_after: timedelta):
+    def __init__(self, config: Config):
         super().__init__()
-        self._task_db = task_db
-        self._time_log = time_log
+        self._task_db = config.task_db
+        self._time_log = config.time_log
 
         self._tasks = list(self._task_db.get_all().values())
         self._parent_to_task = self._group_tasks_by_parent_id(self._tasks)
         self._task_id_to_node_id = {}
 
-        self._work_period_duration = work_period_duration
-        self._break_duration = break_duration
-        self._long_break_duration = long_break_duration
-        self._long_break_after = long_break_after
+        self._config = config
 
         self._is_timer_ticking = False
         self._not_ticking_since = datetime.now()
@@ -75,9 +70,10 @@ class TaskList(Widget):
         if (self._bugged_last_at and
                 datetime.now() - self._bugged_last_at < self._bug_every):
             return
-        await self.app.notifier.send(  # type: ignore
-                title='The timer is not ticking!', message='Go do some work!',
-                icon='document-open-recent')
+        if self._config.notifier:
+            await self._config.notifier.send(
+                    title='The timer is not ticking!', message='Go do some work!',
+                    icon='document-open-recent')
         self._bugged_last_at = datetime.now()
 
     def compose(self) -> ComposeResult:
@@ -219,19 +215,22 @@ class TaskList(Widget):
 
         task = not_none(node.data)
 
-        self.app.calendar.add_event(  # type: ignore
+        if self._config.calendar:
+            self._config.calendar.add_event(
                 Event(
-                    task.title, start=datetime.now(), end=datetime.now() + self._work_period_duration))
+                    task.title,
+                    start=datetime.now(), end=datetime.now() + self._config.work_period_duration))
 
         self._is_timer_ticking = True
         # TODO: duration=self.app.settings.work_period_duration.
-        await self.app.push_screen_wait(TimerScreen(task, self._work_period_duration,
+        await self.app.push_screen_wait(TimerScreen(task, self._config.work_period_duration,
                                                     self._time_log, start=True))
         self._is_timer_ticking = False
         self._not_ticking_since = datetime.now()
-        await self.app.notifier.send(  # type: ignore
-                title='Work period ended', message=task.title,
-                icon='document-open-recent', sound='complete')
+        if self._config.notifier:
+            await self._config.notifier.send(
+                    title='Work period ended', message=task.title,
+                    icon='document-open-recent', sound='complete')  # type: ignore
 
         def should_rest() -> bool:
             # TODO: Do we always rest?  If the period ended on its own, not when it was
@@ -245,11 +244,11 @@ class TaskList(Widget):
             tlogs = logs[logs.start.dt.date == date.today()]
             twork = tlogs[tlogs.task_id != taskdb.BREAK_TASK_ID]
             if twork.empty:
-                return self._break_duration
+                return self._config.break_duration
             tbreaks = tlogs[tlogs.task_id == taskdb.BREAK_TASK_ID]
             # To decide if it's time for a long break:
             # 1. Find the last long break today, or count from the start of the day
-            long_breaks = tbreaks[tbreaks.duration > self._break_duration + timedelta(seconds=1)]
+            long_breaks = tbreaks[tbreaks.duration > self._config.break_duration + timedelta(seconds=1)]
             if long_breaks.empty:
                 count_from = twork.iloc[0].start
             else:
@@ -257,18 +256,19 @@ class TaskList(Widget):
             # 2. Count from count_from how much work time is there.
             #    If it more than, say 3h, it time for a long break!
             worked_since_long_break = twork[twork.start > count_from].duration.sum()
-            time_for_a_long_break = worked_since_long_break > self._long_break_after
+            time_for_a_long_break = worked_since_long_break > self._config.long_break_after
             if time_for_a_long_break:
-                return self._long_break_duration
-            return self._break_duration
+                return self._config.long_break_duration
+            return self._config.break_duration
 
         if should_rest():
             rest_length = get_rest_length()
             await self.app.push_screen_wait(
                     TimerScreen(taskdb.BREAK, rest_length, self._time_log, start=True))
-            await self.app.notifier.send(  # type: ignore
-                    title='Break ended', message=str(rest_length), icon='document-open-recent',
-                    sound='dialog-error')
+            if self._config.notifier:
+                await self._config.notifier.send(
+                        title='Break ended', message=str(rest_length), icon='document-open-recent',
+                        sound='dialog-error')  # type: ignore
 
     def action_cursor_up(self):
         self._get_tree().action_cursor_up()
