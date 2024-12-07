@@ -6,7 +6,7 @@ import unittest
 
 from textual.app import App, ComposeResult
 from textual.pilot import Pilot
-from textual.widgets import Footer, ProgressBar
+from textual.widgets import Footer, Label, ProgressBar
 from textual.widgets._footer import FooterKey
 
 from work_timer import taskdb
@@ -16,13 +16,13 @@ from work_timer.ui.timer import Timer, TimeDisplay
 
 class FakeApp(App):
 
-    def __init__(self, period_length: timedelta = timedelta(seconds=5)) -> None:
+    def __init__(self, period_length: timedelta, timed_task: taskdb.Task) -> None:
         super().__init__()
-        self._period_length = period_length
+        self.period_length = period_length
+        self.timed_task = timed_task
 
     def compose(self) -> ComposeResult:
-        yield Timer(timed_task=taskdb.Task(title='Test', id=taskdb.TaskID(42)),
-                    period_length=self._period_length, time_log=TimeLog())
+        yield Timer(timed_task=self.timed_task, period_length=self.period_length, time_log=TimeLog())
         yield Footer(show_command_palette=False)
 
 
@@ -46,7 +46,8 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
         self.period_length = timedelta(seconds=4)
-        self.app = FakeApp(period_length=self.period_length)
+        self.task = taskdb.Task(title='Test task', id=taskdb.TaskID(42))
+        self.app = FakeApp(self.period_length, self.task)
 
     async def test_it(self):
         async with self.app.run_test() as pilot:
@@ -73,6 +74,8 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
         # Check the Digits show the right time.
         display = pilot.app.query_exactly_one(TimeDisplay)
         self.assertEqual(display.value, '00:00:04')
+        # The task title is shown.
+        assert pilot.app.query_exactly_one('#title', Label).renderable == self.task.title
         # Progress is on zero.
         progress_bar = pilot.app.query_exactly_one(ProgressBar)
         self.assertEqual(progress_bar.total, self.period_length.total_seconds())
@@ -129,7 +132,9 @@ def get_binding(pilot: Pilot) -> list[str]:
 
 
 def run_test_app():
-    app = FakeApp()
+    period_length = timedelta(seconds=5)
+    timed_task = taskdb.Task(title='Test task', id=taskdb.TaskID(42))
+    app = FakeApp(period_length, timed_task)
     app.run()
 
 

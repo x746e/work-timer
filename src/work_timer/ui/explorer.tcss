@@ -1,3 +1,29 @@
+Timer {
+    align-vertical: middle;
+
+    .break {
+        background: lavenderblush;
+        color: black;
+    }
+
+    #title {
+        text-align: center;
+        text-style: bold;
+        width: 1fr;
+        padding-bottom: 1;
+    }
+
+    TimeDisplay {
+        text-align: center;
+    }
+
+    ProgressBar {
+        width: 1fr;
+        align: center middle;
+    }
+}
+
+
 TaskEditorWidget {
     Grid {
 	padding: 1 2;
@@ -14,7 +40,6 @@ TaskEditorWidget {
     }
 
     #text-container {
-
         layout: grid;
         grid-size: 2;
         grid-gutter: 1;
@@ -30,24 +55,6 @@ TaskEditorWidget {
     #buttons {
         align-vertical: bottom;
     }
-}
-
-Timer {
-    align-vertical: middle;
-}
-
-Timer.break {
-    background: lavenderblush;
-    color: black;
-}
-
-Timer ProgressBar {
-    width: 1fr;
-    align: center middle;
-}
-
-Timer TimeDisplay {
-    text-align: center;
 }
 
 

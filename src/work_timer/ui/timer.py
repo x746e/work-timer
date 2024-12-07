@@ -8,7 +8,7 @@ from textual.reactive import reactive
 from textual.screen import Screen
 from textual.timer import Timer as TextualTimer
 from textual.widget import Widget
-from textual.widgets import Digits, Footer, ProgressBar
+from textual.widgets import Digits, Footer, Label, ProgressBar
 
 from work_timer import timer
 from work_timer import taskdb
@@ -89,6 +89,7 @@ class Timer(Widget):
             self.classes = 'break'
 
     def compose(self) -> ComposeResult:
+        yield Label(self._timed_task.title, id='title')
         yield TimeDisplay(self._period_length.seconds)
         progress_bar = ProgressBar(show_percentage=False, show_eta=False)
         progress_bar.update(progress=0, total=self._period_length.total_seconds())

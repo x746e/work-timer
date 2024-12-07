@@ -118,13 +118,13 @@ class Playground(Widget):
 
     def compose(self) -> ComposeResult:
         with Vertical(id='playground'):
-            # yield get_timer()
+            yield get_timer()
             # yield get_task_editor()
-            yield from get_random_widgets()
+            # yield from get_random_widgets()
 
 
 def get_timer():
-    return Timer(timed_task=taskdb.Task(title='Test', id=taskdb.TaskID(42)),
+    return Timer(timed_task=taskdb.Task(title='Make the Timer pretty!', id=taskdb.TaskID(42)),
                  period_length=timedelta(seconds=5), time_log=TimeLog())
 
 

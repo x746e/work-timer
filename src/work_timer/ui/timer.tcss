@@ -1,17 +1,24 @@
 Timer {
     align-vertical: middle;
-}
 
-Timer.break {
-    background: lavenderblush;
-    color: black;
-}
+    .break {
+        background: lavenderblush;
+        color: black;
+    }
 
-Timer TimeDisplay {
-    text-align: center;
-}
+    #title {
+        text-align: center;
+        text-style: bold;
+        width: 1fr;
+        padding-bottom: 1;
+    }
 
-Timer ProgressBar {
-    width: 1fr;
-    align: center middle;
+    TimeDisplay {
+        text-align: center;
+    }
+
+    ProgressBar {
+        width: 1fr;
+        align: center middle;
+    }
 }
