@@ -17,19 +17,6 @@ from work_timer.config import get_config_from_args, Config
 from work_timer.ui.task_list import TaskList
 
 
-# TODO: Make TaskList a Screen (or wrap it in a Screen)
-#       If the timer is running, a TimerStatus line/widget on the top should show the current task,
-#       and the timer state.
-
-# TODO: Keys to switch between the TaskList and Timer screens.  And task stats.
-
-# TODO: Tasks stats:
-# * Raw log of logged Periods.
-# * Group by task, day, week.
-# * Drop into ipython with periods dataframe?
-# * Or start a Juniper notebook.
-
-
 class WorkTimerApp(App):
 
     """The main Textual App."""
@@ -50,7 +37,6 @@ def main():
     process_name = os.path.basename(sys.argv[0])
     pid = os.getpid()
     now = datetime.now().replace(microsecond=0).isoformat()
-    # TODO: Log rotation.
     logger.add(log_dir / f'{process_name}-{pid}-{now}.log')
 
     config = get_config_from_args()

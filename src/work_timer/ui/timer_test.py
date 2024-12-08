@@ -26,14 +26,6 @@ class FakeApp(App):
         yield Footer(show_command_palette=False)
 
 
-# TODO:
-
-# Start. Check:
-# - Classes: .not-started is gone, .started is added.
-
-# Pause.  Check:
-# - Classes: .paused
-
 class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
     """Go through the whole workflow in one test.
 
@@ -138,9 +130,5 @@ def run_test_app():
     app.run()
 
 
-# TODO: How to mock out all the time Textual timer is using?
-#       I'll need to know more about asyncio it looks like.
-
 if __name__ == '__main__':
     run_test_app()
-    # unittest.main()

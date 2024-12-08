@@ -29,13 +29,6 @@ class TaskList(Widget):
         ('e', 'edit', 'Edit'),
         ('m', 'mark_done', 'Mark DONE'),
         ('c', 'create', 'New task'),  # with the cursor_node as a parent.
-        # TODO: ('m', 'move', 'Move the task'),
-        #       that will change the TaskList into a special mode.
-        #       up/down will move the task's order between it's siblings
-        #       left/right will reparent the task
-        #       enter will commit the change to the TaskDB
-        #       escape will cancel the change
-        #       Probably that should be done in another Screen
         ('s', 'start', 'Start the timer'),  # start the timer with the cursor_node.
         ('-', 'dec_prio', 'Decrease priority'),
         ('+', 'inc_prio', 'Increase priority'),
@@ -222,7 +215,6 @@ class TaskList(Widget):
                     start=datetime.now(), end=datetime.now() + self._config.work_period_duration))
 
         self._is_timer_ticking = True
-        # TODO: duration=self.app.settings.work_period_duration.
         await self.app.push_screen_wait(TimerScreen(task, self._config.work_period_duration,
                                                     self._time_log, start=True))
         self._is_timer_ticking = False

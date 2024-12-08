@@ -17,9 +17,6 @@ from work_timer import taskdb
 from work_timer.ui.dialogs import Confirm
 
 
-# TODO: On click / enter on the Parent input, show a dialog to select the new
-#       parent.  ParentChooser widget.  That will require passing the TaskDB
-#       all the way through.
 class TaskEditorWidget(Widget):
 
     """A Task editing Widget."""
@@ -49,18 +46,6 @@ class TaskEditorWidget(Widget):
 
     BINDINGS = [
         ('escape', 'dismiss'),
-        # TODO: Make ctrl+enter work.
-        # Something to do with weird teminal stuff.
-        # See:
-        # - https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h4-Functions-using-CSI-_-ordered-by-the-final-character-lparen-s-rparen:CSI-gt-Pp;Pv-m.1EB3
-        # - https://invisible-island.net/xterm/manpage/xterm.html#VT100-Widget-Resources:modifyOtherKeys
-        # - https://invisible-island.net/xterm/modified-keys.html
-        # - https://github.com/tmux/tmux/issues/4136
-        # - https://unix.stackexchange.com/questions/198519/tmux-option-xterm-keys-does-not-enable-controlarrows
-        # - https://unix.stackexchange.com/questions/709619/zsh-bindkey-ctrl-enter-to-autosuggest-accept-using-kitty
-        # - https://superuser.com/questions/1858041/how-do-i-specify-tmux-terminal-features-in-my-config-like-i-do-with-t
-        #
-        # ('ctrl+enter', 'save'),
         ('ctrl+s', 'save', 'Save'),
         ('ctrl+r', 'delete', 'Delete'),
     ]
@@ -139,8 +124,6 @@ class TaskEditorWidget(Widget):
         description_text_area = self.query_one('#description', TextArea)
         updated_task.description = description_text_area.text
 
-        # TODO: Replace all `query_one` by `query_exactly_one`.
-        #       Add a linter check.
         return updated_task
 
     @on(Button.Pressed, '#delete')
@@ -206,10 +189,6 @@ class TaskEditorWidget(Widget):
             yield Button('Cancel', variant='warning', id='dismiss')
 
 
-# TODO: How do you restart `pdm run textual ...` when .py file changes?
-# TODO: Show classes in the explorer.
-
-
 class TaskEditor(Screen):
 
     """A screen containing the TaskEditorWidget.
@@ -240,8 +219,6 @@ class TaskEditor(Screen):
     def on_noop_event(self, unused_msg) -> None:
         self.dismiss(None)
 
-    # TODO: Decide on a standard way of ordering methods in Textual Widgets,
-    # enforce with a linter rule.
     def compose(self) -> ComposeResult:
         yield TaskEditorWidget(self._task_db, self._edited_task)
         yield Footer()

@@ -30,9 +30,6 @@ class TimeDisplay(Digits):
         self.update(f"{hours:02,.0f}:{minutes:02.0f}:{seconds:02.0f}")
 
 
-# TODO: @log_call on a class should:
-# Log when the class is instantiated;
-# and add a @log_call to each method.
 class Timer(Widget):
     """Timer interface widget."""
 
@@ -42,9 +39,6 @@ class Timer(Widget):
         ("space", "resume", "Resume"),
         ("S", "stop", "Stop"),
     ]
-
-    # TODO: Set .pause / .running classes to the Timer.
-    # TODO: From the app, set .work_period / .break classes.
 
     # TODO: Don't have any non-started timers around.
     # Maybe "RunningTimer" subclass, with the logic that doesn't need to check
@@ -127,22 +121,6 @@ class Timer(Widget):
 
     def action_stop(self) -> None:
         self._wt_timer.stop()
-
-    #@log_call(when=lambda args: args.action == 'stop', locals=True)
-    # locals should print locals at `return`.
-
-    #@log_call(watch=lambda: f'{self._wt_timer.get_info()=}')
-    # (equivalent to)
-    #@log_call(watch='self._wt_timer.get_info()')
-
-    #@log_call(when=lambda args: args.action == 'stop', trace=True)
-    # Print each executed line, along with resolved local variables:
-    # match (action /*='stop'*/, self._wt_timer..... /*=STOPPED*/):
-    # ...
-
-    # Make a library that use profiling to store all the possible information
-    # for all the calls, and that make an interface to query that info
-    # afterwards.
 
     def check_action(  # pylint: disable=too-many-return-statements
         self, action: str, parameters: tuple[object, ...]

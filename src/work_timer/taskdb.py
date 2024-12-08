@@ -116,7 +116,6 @@ class TaskDB:
             self._persist(why=f'Adding {task}')
             return task.id
 
-    # TODO: Use consistent docstring style: "Update the task..." or "Updates the task..."
     def update(self, task: Task) -> None:
         """Update the `task` in the DB."""
         logger.debug(f'Updating {task.__dict__}')
@@ -292,8 +291,7 @@ class PersistentTaskDB(TaskDB):
 
     def _get_repo_head(self) -> str | None:
         commit = subprocess.check_output(
-                f'git -C {self._repo_path} rev-parse main',
-                text=True, shell=True)  #, stderr=subprocess.STDOUT)
+                f'git -C {self._repo_path} rev-parse main', text=True, shell=True)
         return commit.strip()
 
     # The methods dealing with reading Tasks from a JSON-serialized Pandas
@@ -319,8 +317,6 @@ class PersistentTaskDB(TaskDB):
     def _load_at(self, commit: str) -> dict[TaskID, Task]:
         assert _is_repo_clean(self._repo_path)
         logger.debug(f'Reading the repo at {commit!r}')
-        # TODO: Short traceback:
-        # [s/w/taskdb.py:284] _load → [s/w/taskdb.py:290] _load_at
 
         data = subprocess.check_output(
                 f'git -C {self._repo_path} show {commit}:tasks.json',

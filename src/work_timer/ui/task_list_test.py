@@ -109,11 +109,6 @@ class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
 
 class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
 
-    # IDEA: tests prerequisites / priorities:
-    # - don't run other tests if, e.g. this focus test fails.
-    # - @prio(0)
-    # @prereq
-
     async def test_app_starts_with_tree_root_focused(self):
         initial_tasks = [
             FakeTask('task_a', kids=[
@@ -394,16 +389,6 @@ class TestTimer(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(time_log.get_periods()), 1)
 
 
-# def prereq(meth):
-#     # TODO:
-#     # if this method fails, get the class out of it (how?), mark all other methods as failed as well.
-#     # I may also need to hack TestLoader.sortTestMethodsUsing to get the prereq method to run first.
-#     # Or just replace it's name with `test_0_prereq` or something.
-#     # Or it can check it's ordering, and warn the user if it won't be run
-#     # first, and instruct to rename it to run first.
-#     pass
-
-
 def run_test_app():
     app = FakeApp(fake_tasks.get_task_db())
     app.run()
@@ -411,4 +396,3 @@ def run_test_app():
 
 if __name__ == '__main__':
     run_test_app()
-    # unittest.main()
