@@ -1,4 +1,4 @@
-"""Tests for work_timer.taskdb."""
+"""Tests for work_timer.taskdb.persistence."""
 import contextlib
 import json
 from pathlib import Path
@@ -7,131 +7,8 @@ import tempfile
 import unittest
 
 from work_timer import taskdb
-from work_timer.taskdb import TaskID
 from work_timer.utils import fake_tasks
 from work_timer.utils.testing import TestCaseMixin
-
-# TODO: Consider refactoring this file to use .utils.fake_tasks
-
-
-class TaskTest(unittest.TestCase):
-
-    def test_repr(self):
-        new_task = taskdb.Task(title='Hello!', id=TaskID(42))
-        self.assertEqual(repr(new_task), '<Task#42: Hello! | new P2>')
-
-        new_task = taskdb.Task(title='Hello one two, ' * 30, id=TaskID(42))
-        self.assertEqual(
-                repr(new_task),
-                '<Task#42: Hello one two, Hello one two, Hello... | new P2>')
-
-
-class TaskDBTest(unittest.TestCase):
-
-    def setUp(self):
-        self.db = taskdb.TaskDB()
-
-    def test_add_task__then_get_it__check_the_title_stays_the_same(self):
-        new_task = taskdb.Task(title='Hello!')
-        new_task_id = self.db.add(new_task)
-
-        returned_task = self.db.get(new_task_id)
-        self.assertEqual(new_task.title, returned_task.title)
-
-    def test_trying_to_set_task_id_raises(self):
-        with self.assertRaises(ValueError):
-            self.db.add(taskdb.Task(title='I shall raise', id=TaskID(123)))
-
-    def test_changing_returned_task_doesnt_change_the_db(self):
-        new_task = taskdb.Task(title='Original Title')
-        new_task_id = self.db.add(new_task)
-
-        returned_task = self.db.get(new_task_id)
-        returned_task.title = 'New Title'
-
-        another_returned_task = self.db.get(new_task_id)
-        self.assertEqual(another_returned_task.title, 'Original Title')
-
-    def test_changing_task_after_adding_doesnt_change_the_db(self):
-        new_task = taskdb.Task(title='Original Title')
-        new_task_id = self.db.add(new_task)
-        new_task.title = 'Changed Title'
-
-        returned_task = self.db.get(new_task_id)
-        self.assertEqual(returned_task.title, 'Original Title')
-
-    def test_adding_with_invalid_parent_id_isnt_allowed(self):
-        with self.assertRaises(ValueError):
-            self.db.add(taskdb.Task(title='Task'), parent_id=TaskID(42))
-
-    def test_update(self):
-        new_task = taskdb.Task(title='Original Title')
-        new_task_id = self.db.add(new_task)
-        returned_task = self.db.get(new_task_id)
-        returned_task.title = 'Changed Title'
-        self.db.update(returned_task)
-
-        updated_task = self.db.get(new_task_id)
-        self.assertEqual(updated_task.title, 'Changed Title')
-
-    def test_update_missing_task_raises(self):
-        new_task = taskdb.Task(title='Original Title', id=TaskID(123))
-        with self.assertRaises(KeyError):
-            self.db.update(new_task)
-
-    def test_update_without_an_id_raises(self):
-        new_task = taskdb.Task(title='Original Title')
-        with self.assertRaises(ValueError):
-            self.db.update(new_task)
-
-    def test_update_with_invalid_parent_id_isnt_allowed(self):
-        task_id = self.db.add(taskdb.Task(title='Task A'))
-
-        with self.assertRaises(ValueError):
-            self.db.set_parent(task_id, TaskID(42))
-
-    def test_delete(self):
-        task = taskdb.Task(title='Original Title')
-        task_id = self.db.add(task)
-
-        self.db.delete(task_id)
-
-        with self.assertRaises(KeyError):
-            self.db.get(task_id)
-
-    def test_deleting_parents_isnt_allowed(self):
-        task_a = taskdb.Task(title='Task A')
-        id_a = self.db.add(task_a)
-        task_b = taskdb.Task(title='Task B')
-        self.db.add(task_b, parent_id=id_a)
-
-        with self.assertRaises(ValueError):
-            self.db.delete(id_a)
-
-    def test_get_all(self):
-        task_a = taskdb.Task(title='Task A')
-        task_b = taskdb.Task(title='Task B')
-        id_a = self.db.add(task_a)
-        id_b = self.db.add(task_b)
-
-        tasks = self.db.get_all()
-
-        self.assertCountEqual([id_a, id_b], tasks.keys())
-        self.assertCountEqual([task_a.title, task_b.title], [t.title for t in tasks.values()])
-
-    def test_get_children(self):
-        task_a = taskdb.Task(title='Task A')
-        id_a = self.db.add(task_a)
-        task_b = taskdb.Task(title='Task B')
-        self.db.add(task_b, parent_id=id_a)
-        task_c = taskdb.Task(title='Task C')
-        id_c = self.db.add(task_c, parent_id=id_a)
-        task_d = taskdb.Task(title='Task D')
-        self.db.add(task_d, parent_id=id_c)
-
-        children = self.db.get_children(parent_id=id_a)
-
-        self.assertCountEqual([task_b.title, task_c.title], [t.title for t in children])
 
 
 EXPECTED_DATA = {
