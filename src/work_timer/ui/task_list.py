@@ -344,4 +344,4 @@ _PRIO_TO_STYLE = {
 
 
 def _title_with_style(task: taskdb.Task) -> Text:
-    return Text(task.title, style=_PRIO_TO_STYLE[task.priority])
+    return Text.from_markup(task.title, style=_PRIO_TO_STYLE[task.priority])
