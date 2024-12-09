@@ -38,7 +38,8 @@ def _transform(metadata: Metadata, tasks: Tasks) -> tuple[Metadata, Tasks]:
     metadata['version'] = 2
 
     for t in tasks.values():
-        t['child_ids'] = []
+        if 'child_ids' not in t:
+            t['child_ids'] = []
         parent_id = t.pop('parent_id')
         if not pd.isna(parent_id):
             parent = tasks[parent_id]
