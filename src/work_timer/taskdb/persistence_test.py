@@ -7,6 +7,7 @@ import tempfile
 import unittest
 
 from work_timer import taskdb
+from work_timer.taskdb import Task
 from work_timer.utils import fake_tasks
 from work_timer.utils.testing import UnittestTestCaseMixin
 
@@ -53,6 +54,40 @@ class TaskDBMixin(UnittestTestCaseMixin):
         db = taskdb.PersistentTaskDB(repo_path=repo_path)
         self.addCleanup(db.close)
         return db
+
+
+class SimplePersistentTaskDBTest(unittest.TestCase, TaskDBMixin):
+    # Added while debugging PersistentTaskDBTest, which was adding
+    # quite a few tasks and failing with a weird conflict.
+
+    def test_saving_one_task(self):
+        d = self.init_task_db()
+        db = self.task_db(repo_path=d)
+
+        db.add(Task('Task A'))
+
+    def test_saving_two_tasks(self):
+        d = self.init_task_db()
+        db = self.task_db(repo_path=d)
+
+        db.add(Task('Task A'))
+        db.add(Task('Task B'))
+
+    def test_adding_a_child(self):
+        d = self.init_task_db()
+        db = self.task_db(repo_path=d)
+
+        id_a = db.add(Task('Task A'))
+        db.add(Task('Task B', parent_id=id_a))
+
+    def test_adding_two_children(self):
+        d = self.init_task_db()
+        db = self.task_db(repo_path=d)
+
+        id_a = db.add(Task('Task A'))
+        db.add(Task('Task B', parent_id=id_a))
+        # This need to update Task A, which was already updated when Task B was added.
+        db.add(Task('Task C', parent_id=id_a))
 
 
 class PersistentTaskDBTest(unittest.TestCase, TaskDBMixin):
@@ -103,6 +138,34 @@ class PersistentTaskDBTest(unittest.TestCase, TaskDBMixin):
 
         self.assertNotEqual(first_id, second_id)
         db.close()
+
+    def test_child_ids_are_set_after_loading(self):
+        d = self.init_task_db()
+
+        with contextlib.closing(self.task_db(repo_path=d)) as db:
+            id_a = db.add(Task('Task A'))
+            id_b = db.add(Task('Task B', parent_id=id_a))
+            id_c = db.add(Task('Task C', parent_id=id_a))
+        del db
+
+        db = self.task_db(repo_path=d)
+        task_a = db.get(id_a)
+        assert set(task_a.child_ids) == {id_b, id_c}
+
+    def test_parent_id_is_set_after_loading(self):
+        d = self.init_task_db()
+
+        with contextlib.closing(self.task_db(repo_path=d)) as db:
+            id_a = db.add(Task('Task A'))
+            id_b = db.add(Task('Task B', parent_id=id_a))
+            id_c = db.add(Task('Task C', parent_id=id_a))
+        del db
+
+        db = self.task_db(repo_path=d)
+        task_b = db.get(id_b)
+        assert task_b.parent_id == id_a
+        task_c = db.get(id_c)
+        assert task_c.parent_id == id_a
 
 
 class PersistentTaskDBParallelTest(unittest.TestCase, TaskDBMixin):

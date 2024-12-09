@@ -93,7 +93,16 @@ class PersistentTaskDB(TaskDB):
                                  f'On disk: {repo_head}, self._commit: {self._commit}.')
                     self._reload()
 
-    def update(self, task: Task) -> None:
+    def add(self, task: Task) -> TaskID:
+        # pylint: disable=protected-access
+        task_id = super().add(task)
+        new_repo_head = self._get_repo_head()
+        assert new_repo_head is not None
+        task._commit = new_repo_head
+        self._tasks[task_id]._commit = new_repo_head
+        return task_id
+
+    def update(self, task: Task, _update_relationships=True) -> None:
         """Detect possible editing conflicts when updating the `task`.
 
         Raises an `UpdateConflict` exception in that case.
@@ -126,11 +135,13 @@ class PersistentTaskDB(TaskDB):
                             f'Maybe conflict? {orig_task=}, {theirs_task=}, '
                             f'{orig_task == theirs_task=}')
                     if orig_task != theirs_task:
-                        logger.info(f'Conflict! {orig_task=} != {theirs_task=}.  Task: {asjson(task)}.')
+                        logger.info(f'Conflict! orig={asjson(orig_task)} != '
+                                    f'theirs={asjson(theirs_task)}. '
+                                    f'Task: {asjson(task)}.')
                         # The task was updated.
                         raise UpdateConflict(orig_task, theirs_task, task)
                 logger.trace('No conflict, updating.')
-                super().update(task)
+                super().update(task, _update_relationships)
                 new_repo_head = self._get_repo_head()
                 assert new_repo_head is not None
                 task._commit = new_repo_head
@@ -162,11 +173,14 @@ class PersistentTaskDB(TaskDB):
                 return {}, metadata['next_id']
 
             tasks = self._load_at(self._commit)
+            self._set_relationships(tasks)
             return tasks, metadata['next_id']
 
     def _load_at(self, commit: str) -> dict[TaskID, Task]:
         assert _is_repo_clean(self._repo_path)
         logger.debug(f'Reading the repo at {commit!r}')
+
+        assert commit
 
         data = subprocess.check_output(
                 f'git -C {self._repo_path} show {commit}:tasks.json',
@@ -175,16 +189,26 @@ class PersistentTaskDB(TaskDB):
         tasks = self._from_df(df, commit)
         return tasks
 
+    def _set_relationships(self, tasks: dict[TaskID, Task]) -> None:
+        for tid, task in tasks.items():
+            if task.parent_id:
+                parent = tasks[task.parent_id]
+                parent.child_ids.append(tid)
+
     def _persist(self, why: str) -> None:
         with self._file_lock:
             df = self.get_data_frame()
+            if not df.empty:
+                df = df.drop(columns=['child_ids'])
             df.to_json(self._tasks_path, orient='table', indent=2)
             with self._metadata_path.open('w') as f:
                 json.dump({'next_id': self._next_id, 'version': self.DB_VERSION}, f)
             subprocess.check_output(
                     ['git', '-C', self._repo_path, 'add', self._metadata_path, self._tasks_path])
-            subprocess.check_output(
+            subprocess.check_call(
                     ['git', '-C', self._repo_path, 'commit', '-m', why])
+            self._commit = self._get_repo_head()
+            assert self._commit is not None
 
     def _from_df(self, df: pd.DataFrame, read_at_commit: str) -> dict[TaskID, Task]:
         tasks = {d['id']: Task(**d) for d in df.reset_index().to_dict(orient='records')}

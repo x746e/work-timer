@@ -1,5 +1,5 @@
 """The Task class plus some special "internal" tasks are defined here."""
-import dataclasses
+from dataclasses import dataclass, field
 import enum
 import textwrap
 from typing import NewType
@@ -20,8 +20,8 @@ class LowerCaseStrEnum(enum.StrEnum):
         return name
 
 
-@dataclasses.dataclass
-class Task:
+@dataclass
+class Task:  # pylint: disable=too-many-instance-attributes
     """A single task."""
 
     class Status(enum.StrEnum):
@@ -39,7 +39,8 @@ class Task:
     parent_id: TaskID | None = None
     status: Status = Status.NEW
     priority: Priority = Priority.P2
-    _commit: str = dataclasses.field(default='', compare=False)
+    child_ids: list[TaskID] = field(default_factory=list, compare=False)
+    _commit: str = field(default='', compare=False)
 
     def __repr__(self):
         title = textwrap.shorten(self.title, width=40, placeholder='...')

@@ -128,6 +128,53 @@ class TaskDBTest(unittest.TestCase):
 
         self.assertCountEqual([task_b.title, task_c.title], [t.title for t in children])
 
+    def test_task_dot_child_ids(self):
+        task_a = taskdb.Task(title='Task A')
+        id_a = self.db.add(task_a)
+        task_b = taskdb.Task(title='Task B', parent_id=id_a)
+        id_b = self.db.add(task_b)
+        task_c = taskdb.Task(title='Task C', parent_id=id_a)
+        id_c = self.db.add(task_c)
+        task_d = taskdb.Task(title='Task D', parent_id=id_c)
+        self.db.add(task_d)
+
+        # .children doesn't get updated automatically.
+        assert task_a.child_ids == []  # pylint: disable=use-implicit-booleaness-not-comparison
+
+        # You need to get the task from the DB again.
+        # (While it possible to auto-update all the Task objects on a DB update,
+        # that doesn't seem like a great idea: that way you can't be sure if
+        # the object your are working with is being concurrently updated at any
+        # moment.)
+        task_a = self.db.get(id_a)
+        assert [id_b, id_c] == task_a.child_ids
+
+    def test_updating_child_ids(self):
+        task_a = taskdb.Task(title='Task A')
+        id_a = self.db.add(task_a)
+        task_b = taskdb.Task(title='Task B', parent_id=id_a)
+        id_b = self.db.add(task_b)
+        task_c = taskdb.Task(title='Task C', parent_id=id_a)
+        id_c = self.db.add(task_c)
+        task_d = taskdb.Task(title='Task D', parent_id=id_c)
+        id_d = self.db.add(task_d)
+
+        # Before the change: D is a child of C, and not B.
+        task_b = self.db.get(id_b)
+        assert task_b.child_ids == []
+        task_c = self.db.get(id_c)
+        assert task_c.child_ids == [id_d]
+
+        # Move D from C to B.
+        task_b.child_ids = [id_d]
+        self.db.update(task_b)
+
+        # After the change: D is a child of B, and not C.
+        task_b = self.db.get(id_b)
+        assert task_b.child_ids == [id_d]
+        task_c = self.db.get(id_c)
+        assert task_c.child_ids == []
+
 
 if __name__ == '__main__':
     unittest.main()
