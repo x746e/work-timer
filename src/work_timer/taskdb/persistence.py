@@ -39,7 +39,7 @@ class PersistentTaskDB(TaskDB):
     def __init__(self, repo_path: Path):
         self._repo_path = repo_path.expanduser()
         self._tasks_path = self._repo_path / 'tasks.json'
-        self._meta_path = self._repo_path / 'meta.json'
+        self._metadata_path = self._repo_path / 'metadata.json'
         self._commit = None
         self._file_lock = FileLock(self._repo_path / '.lock', thread_local=False)
 
@@ -52,15 +52,15 @@ class PersistentTaskDB(TaskDB):
     @staticmethod
     def init_repo(repo_path: Path):
         """Initialize a new PersistentTaskDB-backing git repo."""
-        meta_path = repo_path / 'meta.json'
-        assert not meta_path.exists()
+        metadata_path = repo_path / 'metadata.json'
+        assert not metadata_path.exists()
         subprocess.check_output(f'git -C {repo_path} init', shell=True)
-        with meta_path.open('w') as f:
+        with metadata_path.open('w') as f:
             json.dump({'next_id': 1}, f)
         with (repo_path / '.gitignore').open('w') as f:
             f.write('.lock\n')
         subprocess.check_output(
-                f'git -C {repo_path} add meta.json .gitignore', shell=True)
+                f'git -C {repo_path} add metadata.json .gitignore', shell=True)
         subprocess.check_output(
                 f'git -C {repo_path} commit -m "TaskDB initialization"', shell=True)
 
@@ -142,14 +142,14 @@ class PersistentTaskDB(TaskDB):
     # DataFrame, and serializing and writing them back to a file.
 
     def _load(self) -> tuple[dict[TaskID, Task], int]:
-        if not self._meta_path.exists():
+        if not self._metadata_path.exists():
             raise RuntimeError("The backing repo doesn't exist")
 
         with self._file_lock:
             self._commit = self._get_repo_head()
             assert self._commit is not None
 
-            with self._meta_path.open() as f:
+            with self._metadata_path.open() as f:
                 metadata = json.load(f)
 
             if not self._tasks_path.exists():
@@ -173,10 +173,10 @@ class PersistentTaskDB(TaskDB):
         with self._file_lock:
             df = self.get_data_frame()
             df.to_json(self._tasks_path, orient='table', indent=2)
-            with self._meta_path.open('w') as f:
+            with self._metadata_path.open('w') as f:
                 json.dump({'next_id': self._next_id}, f)
             subprocess.check_output(
-                    ['git', '-C', self._repo_path, 'add', self._meta_path, self._tasks_path])
+                    ['git', '-C', self._repo_path, 'add', self._metadata_path, self._tasks_path])
             subprocess.check_output(
                     ['git', '-C', self._repo_path, 'commit', '-m', why])
 
