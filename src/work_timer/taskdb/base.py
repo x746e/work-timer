@@ -41,9 +41,13 @@ class TaskDB:
         with self._lock:
             return copy.deepcopy(self._tasks[task_id])
 
-    def get_children(self, parent_id: TaskID) -> list[Task]:
+    # TODO: Add a root task, don't allow parent_id to be None?
+    def get_children(self, parent_id: TaskID | None) -> list[Task]:
         with self._lock:
-            return [task for task in self._tasks.values() if task.parent_id == parent_id]
+            if parent_id is None:
+                return [t for t in self._tasks.values() if t.parent_id is None]
+            parent = self.get(parent_id)
+            return [self.get(child_id) for child_id in parent.child_ids]
 
     def add(self, task: Task) -> TaskID:
         """Add a task to the DB."""

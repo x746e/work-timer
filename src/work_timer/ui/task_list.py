@@ -1,9 +1,9 @@
 """A widget to showing a list (or a tree) of tasks."""
-import collections
 from datetime import date, datetime, timedelta
 from typing import no_type_check
 
 from gcsa.event import Event
+from loguru import logger
 
 from rich.text import Text
 from textual import work
@@ -30,8 +30,12 @@ class TaskList(Widget):
         ('m', 'mark_done', 'Mark DONE'),
         ('c', 'create', 'New task'),  # with the cursor_node as a parent.
         ('s', 'start', 'Start the timer'),  # start the timer with the cursor_node.
-        ('-', 'dec_prio', 'Decrease priority'),
-        ('+', 'inc_prio', 'Increase priority'),
+        ('-', 'dec_prio', '--priority'),
+        ('+', 'inc_prio', '++priority'),
+        ('ctrl+up', 'reorder_up', 'Reorder up'),
+        ('ctrl+down', 'reorder_down', 'Reorder down'),
+        ('ctrl+left', 'reparent_up', 'Reparent up'),
+        ('ctrl+right', 'reparent_down', 'Reparent down'),
         ('q', 'quit', 'Quit'),
         ('j', 'cursor_down'),
         ('k', 'cursor_up'),
@@ -42,8 +46,6 @@ class TaskList(Widget):
         self._task_db = config.task_db
         self._time_log = config.time_log
 
-        self._tasks = list(self._task_db.get_all().values())
-        self._parent_to_task = self._group_tasks_by_parent_id(self._tasks)
         self._task_id_to_node_id = {}
 
         self._config = config
@@ -95,15 +97,19 @@ class TaskList(Widget):
         task.status = taskdb.Task.Status.DONE
         self._task_db.update(task)
 
-        # If deleting this node makes the parent "childless", then remove the
-        # expand/collapse triangular marker from the parent node.
-        if node.parent and not node.children:
-            if len(node.siblings) == 1:
-                node.parent.allow_expand = False
-
         # And remove it from the UI.
         if not node.children:
-            node.remove()
+            self._remove_node(node)
+
+    def _remove_node(self, node: TreeNode) -> None:
+        """Remove the node from the tree.
+
+        If it's the last displayed node of the parent, remove the expand/collapse
+        triangular marker from its parent node.
+        """
+        if node.parent and len(node.parent.children) == 1:
+            node.parent.allow_expand = False
+        node.remove()
 
     def action_dec_prio(self) -> None:
         """Decrease the Task's priority by one."""
@@ -137,6 +143,82 @@ class TaskList(Widget):
         node.set_label(_title_with_style(task))
         node.refresh()
 
+    def action_reorder_up(self) -> None:
+        """Move the focused task before its previous sibling."""
+        node = not_none(self._get_selected_task_node())
+        task = not_none(node.data)
+
+        if not task.parent_id:
+            return
+        if not node.previous_sibling:
+            return
+
+        parent = self._task_db.get(task.parent_id)
+        my_idx = parent.child_ids.index(task.id)
+        prev_idx = parent.child_ids.index(not_none(node.previous_sibling.data).id)
+        parent.child_ids.pop(my_idx)
+        parent.child_ids.insert(prev_idx, task.id)
+        self._task_db.update(parent)
+
+        self._remove_node(node)
+        self._add_task(task, focus=True)
+
+    def action_reorder_down(self) -> None:
+        """Move the focused task after its next sibling."""
+        node = not_none(self._get_selected_task_node())
+        task = not_none(node.data)
+
+        if not task.parent_id:
+            return
+        if not node.next_sibling:
+            return
+
+        parent = self._task_db.get(task.parent_id)
+        my_idx = parent.child_ids.index(task.id)
+        next_idx = parent.child_ids.index(not_none(node.next_sibling.data).id)
+        parent.child_ids.insert(next_idx + 1, task.id)
+        parent.child_ids.pop(my_idx)
+        self._task_db.update(parent)
+
+        self._remove_node(node)
+        self._add_task(task, focus=True)
+
+    def action_reparent_up(self) -> None:
+        """Set task's grandparent as its parent."""
+        node = not_none(self._get_selected_task_node())
+        task = not_none(node.data)
+        logger.debug(f'Reparent up {task}')
+
+        if not task.parent_id:
+            return
+        parent = self._task_db.get(task.parent_id)
+        if not parent.parent_id:
+            return
+        grandparent = self._task_db.get(parent.parent_id)
+        parent_idx = grandparent.child_ids.index(parent.id)
+        grandparent.child_ids.insert(parent_idx + 1, task.id)
+        self._task_db.update(grandparent)
+
+        self._remove_node(node)
+        self._add_task(task, focus=True)
+
+    def action_reparent_down(self) -> None:
+        """Set task's previous sibling as its parent."""
+        node = not_none(self._get_selected_task_node())
+        task = not_none(node.data)
+        logger.debug(f'Reparent down {task}')
+
+        if not node.previous_sibling:
+            return
+
+        prev_task = not_none(node.previous_sibling.data)
+        prev_task = self._task_db.get(prev_task.id)
+        prev_task.child_ids.append(task.id)
+        self._task_db.update(prev_task)
+
+        self._remove_node(node)
+        self._add_task(task, focus=True)
+
     @work
     async def action_edit(self) -> None:
         """Action to edit the currently selected task.
@@ -155,18 +237,15 @@ class TaskList(Widget):
             case TaskEditor.Changed(old_task, new_task):
                 if old_task.parent_id != new_task.parent_id:
                     # If reparented, remove the node, then readd it with its children.
-                    node.remove()
-                    new_node = self._add_task(new_task)
-                    # Not sure why, but it appears I need both these calls.
-                    self._get_tree().move_cursor(new_node)
-                    self._get_tree().select_node(new_node)
+                    self._remove_node(node)
+                    self._add_task(new_task, focus=True)
                 else:
                     node.set_label(_title_with_style(new_task))
                     node.data = new_task
                     node.refresh()
             case TaskEditor.Deleted():
                 assert not node.children
-                node.remove()
+                self._remove_node(node)
             case None:
                 pass
             case _:
@@ -191,7 +270,7 @@ class TaskList(Widget):
         new_task = taskdb.Task(title='', parent_id=parent_id)
         changed = await self.app.push_screen_wait(TaskEditor(self._task_db, new_task))
         if changed:
-            self._add_task(changed.new)
+            self._add_task(changed.new, focus=True)
 
     @work
     async def action_start(self) -> None:
@@ -289,15 +368,17 @@ class TaskList(Widget):
 
         tree = Tree[taskdb.Task]('')
 
-        for task in self._parent_to_task[None]:
+        for task in self._task_db.get_children(parent_id=None):
             if not self._whole_subtree_is_completed(task):
                 self._add_task(task, parent_node=tree.root)
 
         tree.root.expand_all()
         return tree
 
-    def _add_task(self, task: Task, parent_node: TreeNode | None = None) -> TreeNode:
+    def _add_task(self, task: Task, parent_node: TreeNode | None = None, focus=False) -> TreeNode:
         """Adds a `task`, with all its children, as a child of `parent_node`."""
+
+        # TODO: Check the task isn't added yet?
 
         def get_node_by_task_id(task_id: TaskID | None) -> TreeNode:
             if task_id is None:
@@ -305,13 +386,27 @@ class TaskList(Widget):
             node_id = self._task_id_to_node_id[task_id]
             return self._get_tree().get_node_by_id(node_id)
 
+        task = self._task_db.get(task.id)  # Refresh .parent_id / .child_ids
         if not parent_node:
             parent_node = get_node_by_task_id(task.parent_id)
 
-        node = parent_node.add(_title_with_style(task), data=task)
+        def insert_loc() -> dict[str, int]:
+            if not task.parent_id:
+                return {}
+            child_ids_added_so_far = [
+                    not_none(child_node.data).id for child_node in parent_node.children
+            ]
+            parent_task = self._task_db.get(task.parent_id)
+            index = parent_task.child_ids.index(task.id)
+            for prev_id in reversed(parent_task.child_ids[0:index]):
+                if prev_id in child_ids_added_so_far:
+                    return {'after': child_ids_added_so_far.index(prev_id)}
+            return {'before': 0}
+
+        node = parent_node.add(_title_with_style(task), data=task, **insert_loc())  # type: ignore
         parent_node.allow_expand = True
         self._task_id_to_node_id[task.id] = node.id
-        children = self._parent_to_task.get(task.id, [])
+        children = self._task_db.get_children(task.id)
         children_to_show = [c for c in children if not self._whole_subtree_is_completed(c)]
 
         for child_task in children_to_show:
@@ -320,20 +415,18 @@ class TaskList(Widget):
         if not children_to_show:
             node.allow_expand = False
 
+        if focus:
+            # Not sure why, but it appears I need both these calls.
+            self._get_tree().move_cursor(node)
+            self._get_tree().select_node(node)
+
         return node
 
     def _whole_subtree_is_completed(self, task: Task) -> bool:
         if task.status != Task.Status.DONE:
             return False
-        children = self._parent_to_task.get(task.id, [])
+        children = self._task_db.get_children(task.id)
         return all(self._whole_subtree_is_completed(child) for child in children)
-
-    def _group_tasks_by_parent_id(
-            self, tasks: list[taskdb.Task]) -> dict[None | taskdb.TaskID, list[taskdb.Task]]:
-        ret = collections.defaultdict(list)
-        for t in tasks:
-            ret[t.parent_id].append(t)
-        return dict(ret)
 
 
 _PRIO_TO_STYLE = {
