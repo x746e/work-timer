@@ -55,7 +55,7 @@ class TaskDBTest(unittest.TestCase):
 
     def test_adding_with_invalid_parent_id_isnt_allowed(self):
         with self.assertRaises(ValueError):
-            self.db.add(taskdb.Task(title='Task'), parent_id=TaskID(42))
+            self.db.add(taskdb.Task(title='Task', parent_id = TaskID(42)))
 
     def test_update(self):
         new_task = taskdb.Task(title='Original Title')
@@ -79,9 +79,11 @@ class TaskDBTest(unittest.TestCase):
 
     def test_update_with_invalid_parent_id_isnt_allowed(self):
         task_id = self.db.add(taskdb.Task(title='Task A'))
+        task = self.db.get(task_id)
 
+        task.parent_id = TaskID(42)
         with self.assertRaises(ValueError):
-            self.db.set_parent(task_id, TaskID(42))
+            self.db.update(task)
 
     def test_delete(self):
         task = taskdb.Task(title='Original Title')
@@ -95,8 +97,8 @@ class TaskDBTest(unittest.TestCase):
     def test_deleting_parents_isnt_allowed(self):
         task_a = taskdb.Task(title='Task A')
         id_a = self.db.add(task_a)
-        task_b = taskdb.Task(title='Task B')
-        self.db.add(task_b, parent_id=id_a)
+        task_b = taskdb.Task(title='Task B', parent_id=id_a)
+        self.db.add(task_b)
 
         with self.assertRaises(ValueError):
             self.db.delete(id_a)
@@ -115,12 +117,12 @@ class TaskDBTest(unittest.TestCase):
     def test_get_children(self):
         task_a = taskdb.Task(title='Task A')
         id_a = self.db.add(task_a)
-        task_b = taskdb.Task(title='Task B')
-        self.db.add(task_b, parent_id=id_a)
-        task_c = taskdb.Task(title='Task C')
-        id_c = self.db.add(task_c, parent_id=id_a)
-        task_d = taskdb.Task(title='Task D')
-        self.db.add(task_d, parent_id=id_c)
+        task_b = taskdb.Task(title='Task B', parent_id=id_a)
+        self.db.add(task_b)
+        task_c = taskdb.Task(title='Task C', parent_id=id_a)
+        id_c = self.db.add(task_c)
+        task_d = taskdb.Task(title='Task D', parent_id=id_c)
+        self.db.add(task_d)
 
         children = self.db.get_children(parent_id=id_a)
 

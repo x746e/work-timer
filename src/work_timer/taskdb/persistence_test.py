@@ -216,7 +216,7 @@ class PersistentTaskDBConflictTest(unittest.TestCase, TaskDBMixin):
 
         db_a.delete(parent_id)
         with self.assertRaises(ValueError):
-            db_b.add(taskdb.Task(title='Child task'), parent_id=parent_id)
+            db_b.add(taskdb.Task(title='Child task', parent_id=parent_id))
 
     def test_parallel_delete(self):
         d = self.init_task_db()

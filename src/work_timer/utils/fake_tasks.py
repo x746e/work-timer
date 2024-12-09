@@ -44,7 +44,7 @@ def add_fake_tasks(task_db: taskdb.TaskDB, tasks: Sequence[FakeTask] = FAKE_TASK
 
     def add_child(parent_id: taskdb.TaskID, child: FakeTask) -> None:
         t_id = task_db.add(
-                taskdb.Task(child.title, status=child.status), parent_id=parent_id)
+                taskdb.Task(child.title, status=child.status, parent_id=parent_id))
         for grandchild in child.kids:
             add_child(parent_id=t_id, child=grandchild)
 

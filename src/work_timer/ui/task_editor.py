@@ -1,6 +1,5 @@
 """A widget for editing a Task."""
 import copy
-import dataclasses
 
 from loguru import logger
 
@@ -90,21 +89,10 @@ class TaskEditorWidget(Widget):
             return
 
         if self._creating_new_task():
-            # TODO: Maybe have to dialogs, TaskEditor and TaskCreator?
-            task_id = self._task_db.add(updated_task, parent_id=updated_task.parent_id)
+            task_id = self._task_db.add(updated_task)
             message = self.Created(new=self._task_db.get(task_id))
         else:
-            # TODO: This logic doesn't belong here.
-            old = dataclasses.asdict(self._edited_task)
-            new = dataclasses.asdict(updated_task)
-            updated_fields = []
-            for k in old:
-                if old[k] != new[k]:
-                    updated_fields.append(k)
-            if 'parent_id' in updated_fields:
-                self._task_db.set_parent(updated_task.id, updated_task.parent_id)
-            if set(updated_fields) - {'parent_id', '_commit'}:
-                self._task_db.update(updated_task)
+            self._task_db.update(updated_task)
             message = self.Changed(old=self._edited_task, new=updated_task)
         self.post_message(message)
 
