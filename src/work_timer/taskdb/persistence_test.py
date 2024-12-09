@@ -14,29 +14,106 @@ from work_timer.utils.testing import UnittestTestCaseMixin
 
 EXPECTED_DATA = {
     'data': [
-        {'id': 1, 'parent_id': None, 'priority': 'P2',
-         'description': '', 'status': 'new', 'title': 'Write Work Time app'},
-        {'id': 2, 'parent_id': 1, 'priority': 'P2',
-         'description': '', 'status': 'new', 'title': 'Write a Textual TUI'},
-        {'id': 3, 'parent_id': 2, 'priority': 'P2',
-         'description': '', 'status': 'new', 'title': 'Task list'},
-        {'id': 4, 'parent_id': 2, 'priority': 'P2',
-         'description': '', 'status': 'new', 'title': 'Task create / edit'},
-        {'id': 5, 'parent_id': 2, 'priority': 'P2',
-         'description': '', 'status': 'done', 'title': 'Timer'},
-        {'id': 6, 'parent_id': 1, 'priority': 'P2',
-         'description': '', 'status': 'new', 'title': 'Calendar integration'}],
+        {
+            'child_ids': [
+                2,
+                6,
+            ],
+            'description': '',
+            'id': 1,
+            'priority': 'P2',
+            'status': 'new',
+            'title': 'Write Work Time app',
+        },
+        {
+            'child_ids': [
+                3,
+                4,
+                5,
+            ],
+            'description': '',
+            'id': 2,
+            'priority': 'P2',
+            'status': 'new',
+            'title': 'Write a Textual TUI',
+        },
+        {
+            'child_ids': [],
+            'description': '',
+            'id': 3,
+            'priority': 'P2',
+            'status': 'new',
+            'title': 'Task list',
+        },
+        {
+            'child_ids': [],
+            'description': '',
+            'id': 4,
+            'priority': 'P2',
+            'status': 'new',
+            'title': 'Task create / edit',
+        },
+        {
+            'child_ids': [],
+            'description': '',
+            'id': 5,
+            'priority': 'P2',
+            'status': 'done',
+            'title': 'Timer',
+        },
+        {
+            'child_ids': [],
+            'description': '',
+            'id': 6,
+            'priority': 'P2',
+            'status': 'new',
+            'title': 'Calendar integration',
+        },
+    ],
     'schema': {
         'fields': [
-            {'extDtype': 'Int64', 'name': 'id', 'type': 'integer'},
-            {'extDtype': 'string', 'name': 'title', 'type': 'any'},
-            {'extDtype': 'string', 'name': 'description', 'type': 'any'},
-            {'extDtype': 'Int64', 'name': 'parent_id', 'type': 'integer'},
-            {'constraints': {'enum': ['done', 'new']},
-             'name': 'status', 'ordered': False, 'type': 'any'},
-            {'extDtype': 'string', 'name': 'priority', 'type': 'any'},],
+            {
+                'extDtype': 'Int64',
+                'name': 'id',
+                'type': 'integer',
+            },
+            {
+                'extDtype': 'string',
+                'name': 'title',
+                'type': 'any',
+            },
+            {
+                'extDtype': 'string',
+                'name': 'description',
+                'type': 'any',
+            },
+            {
+                'constraints': {
+                    'enum': [
+                        'done',
+                        'new',
+                    ],
+                },
+                'name': 'status',
+                'ordered': False,
+                'type': 'any',
+            },
+            {
+                'extDtype': 'string',
+                'name': 'priority',
+                'type': 'any',
+            },
+            {
+                'name': 'child_ids',
+                'type': 'string',
+            },
+        ],
         'pandas_version': '1.4.0',
-        'primaryKey': ['id']}}
+        'primaryKey': [
+            'id',
+        ],
+    },
+}
 
 
 class TaskDBMixin(UnittestTestCaseMixin):

@@ -36,15 +36,20 @@ class Task:  # pylint: disable=too-many-instance-attributes
     title: str
     id: TaskID = UNSET_TASK_ID
     description: str = ''
-    parent_id: TaskID | None = None
+    parent_id: TaskID | None = field(default=None, compare=True)
     status: Status = Status.NEW
     priority: Priority = Priority.P2
-    child_ids: list[TaskID] = field(default_factory=list, compare=False)
-    _commit: str = field(default='', compare=False)
+    child_ids: list[TaskID] = field(default_factory=list)
+    _commit: str | None = field(default=None, compare=False)
 
     def __repr__(self):
         title = textwrap.shorten(self.title, width=40, placeholder='...')
-        return f'<Task#{self.id}: {title} | {self.status} {self.priority}>'
+        if self._commit:
+            commit = self._commit[:4]
+        else:
+            commit = 'uncommitted'
+        return (f'<Task#{self.id}: {title} | {self.status} {self.priority} '
+                f'{self.child_ids} @{commit}>')
 
 
 BREAK_TASK_ID = TaskID(-2)

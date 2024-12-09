@@ -358,7 +358,7 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
             ])
         ]
         got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
-        self.assertEqual(want_tasks, got_db_tasks)
+        assert want_tasks == got_db_tasks
         got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
         assert want_tasks == got_ui_tasks
 

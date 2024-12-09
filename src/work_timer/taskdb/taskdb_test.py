@@ -11,12 +11,12 @@ class TaskTest(unittest.TestCase):
 
     def test_repr(self):
         new_task = taskdb.Task(title='Hello!', id=TaskID(42))
-        self.assertEqual(repr(new_task), '<Task#42: Hello! | new P2>')
+        self.assertEqual(repr(new_task), '<Task#42: Hello! | new P2 [] @uncommitted>')
 
         new_task = taskdb.Task(title='Hello one two, ' * 30, id=TaskID(42))
         self.assertEqual(
                 repr(new_task),
-                '<Task#42: Hello one two, Hello one two, Hello... | new P2>')
+                '<Task#42: Hello one two, Hello one two, Hello... | new P2 [] @uncommitted>')
 
 
 class TaskDBTest(unittest.TestCase):

@@ -68,7 +68,7 @@ class TaskDB:
 
     def update(self, task: Task, _update_relationships=True) -> None:
         """Update the `task` in the DB."""
-        logger.debug(f'Updating {task.__dict__}')
+        logger.debug(f'Updating {task.__dict__}, {_update_relationships=}')
         with self._lock:
             if task.id == UNSET_TASK_ID:
                 raise ValueError(f"Can't update a Task with an unset id: {task}.  Add it first.")

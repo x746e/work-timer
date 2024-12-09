@@ -36,7 +36,7 @@ class PersistentTaskDB(TaskDB):
     change to disk.
     """
 
-    DB_VERSION = 1
+    DB_VERSION = 2
 
     def __init__(self, repo_path: Path):
         self._repo_path = repo_path.expanduser()
@@ -95,12 +95,11 @@ class PersistentTaskDB(TaskDB):
 
     def add(self, task: Task) -> TaskID:
         # pylint: disable=protected-access
-        task_id = super().add(task)
-        new_repo_head = self._get_repo_head()
-        assert new_repo_head is not None
-        task._commit = new_repo_head
-        self._tasks[task_id]._commit = new_repo_head
-        return task_id
+        with self._lock:
+            with self._file_lock:
+                task_id = super().add(task)
+                task._commit = self._commit
+                return task_id
 
     def update(self, task: Task, _update_relationships=True) -> None:
         """Detect possible editing conflicts when updating the `task`.
@@ -128,6 +127,7 @@ class PersistentTaskDB(TaskDB):
                         f'{self._commit=}, {repo_head=}')
                 if task._commit != self._commit:
                     # Possible conflict.
+                    assert task._commit
                     orig_tasks = self._load_at(task._commit)
                     orig_task = orig_tasks[task.id]
                     theirs_task = self.get(task.id)
@@ -142,9 +142,7 @@ class PersistentTaskDB(TaskDB):
                         raise UpdateConflict(orig_task, theirs_task, task)
                 logger.trace('No conflict, updating.')
                 super().update(task, _update_relationships)
-                new_repo_head = self._get_repo_head()
-                assert new_repo_head is not None
-                task._commit = new_repo_head
+                task._commit = self._commit
 
     def _get_repo_head(self) -> str | None:
         commit = subprocess.check_output(
@@ -191,31 +189,31 @@ class PersistentTaskDB(TaskDB):
 
     def _set_relationships(self, tasks: dict[TaskID, Task]) -> None:
         for tid, task in tasks.items():
-            if task.parent_id:
-                parent = tasks[task.parent_id]
-                parent.child_ids.append(tid)
+            for cid in task.child_ids:
+                child = tasks[cid]
+                child.parent_id = tid
 
     def _persist(self, why: str) -> None:
         with self._file_lock:
             df = self.get_data_frame()
             if not df.empty:
-                df = df.drop(columns=['child_ids'])
+                df = df.drop(columns=['parent_id'])
             df.to_json(self._tasks_path, orient='table', indent=2)
             with self._metadata_path.open('w') as f:
                 json.dump({'next_id': self._next_id, 'version': self.DB_VERSION}, f)
             subprocess.check_output(
                     ['git', '-C', self._repo_path, 'add', self._metadata_path, self._tasks_path])
-            subprocess.check_call(
+            subprocess.check_output(
                     ['git', '-C', self._repo_path, 'commit', '-m', why])
             self._commit = self._get_repo_head()
             assert self._commit is not None
+            for t in self._tasks.values():
+                t._commit = self._commit  # pylint: disable=protected-access
 
     def _from_df(self, df: pd.DataFrame, read_at_commit: str) -> dict[TaskID, Task]:
         tasks = {d['id']: Task(**d) for d in df.reset_index().to_dict(orient='records')}
         for t in tasks.values():
             t._commit = read_at_commit  # pylint: disable=protected-access
-            if pd.isna(t.parent_id):  # type: ignore
-                t.parent_id = None
         return tasks
 
 
