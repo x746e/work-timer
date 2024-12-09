@@ -36,6 +36,8 @@ class PersistentTaskDB(TaskDB):
     change to disk.
     """
 
+    DB_VERSION = 1
+
     def __init__(self, repo_path: Path):
         self._repo_path = repo_path.expanduser()
         self._tasks_path = self._repo_path / 'tasks.json'
@@ -49,14 +51,14 @@ class PersistentTaskDB(TaskDB):
         self._fs_observer.schedule(_FSEventHandler(self), str(self._repo_path))
         self._fs_observer.start()
 
-    @staticmethod
-    def init_repo(repo_path: Path):
+    @classmethod
+    def init_repo(cls, repo_path: Path):
         """Initialize a new PersistentTaskDB-backing git repo."""
         metadata_path = repo_path / 'metadata.json'
         assert not metadata_path.exists()
         subprocess.check_output(f'git -C {repo_path} init', shell=True)
         with metadata_path.open('w') as f:
-            json.dump({'next_id': 1}, f)
+            json.dump({'next_id': 1, 'version': cls.DB_VERSION}, f)
         with (repo_path / '.gitignore').open('w') as f:
             f.write('.lock\n')
         subprocess.check_output(
@@ -152,6 +154,10 @@ class PersistentTaskDB(TaskDB):
             with self._metadata_path.open() as f:
                 metadata = json.load(f)
 
+            if (db_version := metadata.get('version', 1)) != self.DB_VERSION:
+                raise IncompatibleDBVersionError(
+                    f'DB version: {db_version}; self.DB_VERSION: {self.DB_VERSION}')
+
             if not self._tasks_path.exists():
                 return {}, metadata['next_id']
 
@@ -174,7 +180,7 @@ class PersistentTaskDB(TaskDB):
             df = self.get_data_frame()
             df.to_json(self._tasks_path, orient='table', indent=2)
             with self._metadata_path.open('w') as f:
-                json.dump({'next_id': self._next_id}, f)
+                json.dump({'next_id': self._next_id, 'version': self.DB_VERSION}, f)
             subprocess.check_output(
                     ['git', '-C', self._repo_path, 'add', self._metadata_path, self._tasks_path])
             subprocess.check_output(
@@ -203,6 +209,10 @@ class UpdateConflict(Exception):
         self.task = task
         super().__init__(f'Conflict while trying to update {task}: it was '
                          f'already updated from {orig_task} to {theirs_task}.')
+
+
+class IncompatibleDBVersionError(Exception):
+    pass
 
 
 class _FSEventHandler(FileSystemEventHandler):
