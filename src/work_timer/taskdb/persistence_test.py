@@ -8,7 +8,7 @@ import unittest
 
 from work_timer import taskdb
 from work_timer.utils import fake_tasks
-from work_timer.utils.testing import TestCaseMixin
+from work_timer.utils.testing import UnittestTestCaseMixin
 
 
 EXPECTED_DATA = {
@@ -38,7 +38,7 @@ EXPECTED_DATA = {
         'primaryKey': ['id']}}
 
 
-class TaskDBMixin(TestCaseMixin):
+class TaskDBMixin(UnittestTestCaseMixin):
 
     """Helps creating PersistentTaskDBs and backing git repos."""
 

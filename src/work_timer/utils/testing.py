@@ -7,7 +7,7 @@ from work_timer.utils import clock
 from work_timer.utils.time import td
 
 
-class TestCaseMixin(Protocol):
+class UnittestTestCaseMixin(Protocol):
 
     def addCleanup(self, function: Callable) -> None: ...  # pylint: disable=invalid-name
 
