@@ -77,16 +77,16 @@ class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
                 ])
             ])
         ]
+        db = fake_tasks.get_task_db(tasks)
 
-        app = FakeApp(fake_tasks.get_task_db(tasks))
+        app = FakeApp(db)
         async with app.run_test():
             tree = app.query_one(Tree)
 
         want_displayed_tasks = [
                 FakeTask('a'),
         ]
-        self.assertEqual(want_displayed_tasks,
-                         fake_tasks.fake_tasks_from_tree(tree))
+        assert want_displayed_tasks == fake_tasks.fake_tasks_from_tree(tree)
 
     async def test_completed_tasks_with_active_children_are_shown(self):
         tasks = [
@@ -101,8 +101,7 @@ class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
         async with app.run_test():
             tree = app.query_one(Tree)
 
-        self.assertEqual(tasks,
-                         fake_tasks.fake_tasks_from_tree(tree))
+        assert tasks == fake_tasks.fake_tasks_from_tree(tree)
 
 
 # TODO: Consider testing using a PersistentTaskDB as well.
@@ -142,9 +141,7 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
             await pilot.press('down')
             await pilot.press('down')
 
-            tree = app.query_one(Tree)
-            node = not_none(tree.cursor_node)
-            self.assertEqual(not_none(node.data).title, 'task_b')
+            self.assertEqual(cursor_task(app).title, 'task_b')
 
     async def test_marking_done(self):
         initial_tasks = [
@@ -162,11 +159,9 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
             await pilot.press('down')
             await pilot.press('down')
             await pilot.press('down')
-            tree = app.query_one(Tree)
-            node = not_none(tree.cursor_node)
-            self.assertEqual(not_none(node.data).title, 'task_c')
-            node = not_none(tree.cursor_node)
+            self.assertEqual(cursor_task(app).title, 'task_c')
             await pilot.press('m')
+            tree = app.query_one(Tree)
 
         want_db_tasks = [
             FakeTask('task_a', kids=[
@@ -206,7 +201,7 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
             await pilot.press('down')
             await pilot.press('down')
             tree = app.query_one(Tree)
-            self.assertEqual(not_none(not_none(tree.cursor_node).data).title, 'task_c')
+            self.assertEqual(cursor_task(app).title, 'task_c')
             await pilot.press('e')
             # We should be in the TaskEdit now, focused on the title.
             await pilot.press(*list('!!!'))
@@ -243,7 +238,7 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
             await pilot.press('down')
             await pilot.press('down')
             tree = app.query_one(Tree)
-            self.assertEqual(not_none(not_none(tree.cursor_node).data).title, 'task_c')
+            self.assertEqual(cursor_task(app).title, 'task_c')
             await pilot.press('e')
             # We should be in the TaskEdit now.
             await pilot.press('ctrl+r')
@@ -277,7 +272,7 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
             await pilot.press('down')
             await pilot.press('down')
             tree = app.query_one(Tree)
-            self.assertEqual(not_none(not_none(tree.cursor_node).data).title, 'task_b')
+            self.assertEqual(cursor_task(app).title, 'task_b')
             await pilot.press('e')
             # We should be in the TaskEdit now.
             await pilot.press('ctrl+r')
@@ -301,10 +296,10 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
         async with app.run_test() as pilot:
             await pilot.press('down')
             await pilot.press('down')
+            self.assertEqual(cursor_task(app).title, 'task_b')
+            await pilot.press('+')
+            await pilot.press('+')
             tree = app.query_one(Tree)
-            self.assertEqual(not_none(not_none(tree.cursor_node).data).title, 'task_b')
-            await pilot.press('+')
-            await pilot.press('+')
 
         want_tasks = [
             FakeTask('task_a'),
@@ -333,7 +328,7 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
             await pilot.press('down')
             await pilot.press('down')
             tree = app.query_one(Tree)
-            self.assertEqual(not_none(not_none(tree.cursor_node).data).title, 'task_c')
+            self.assertEqual(cursor_task(app).title, 'task_c')
             await pilot.press('e')
             # We should be in the TaskEdit now, focused on the title.
             await pilot.press('tab')
@@ -376,8 +371,7 @@ class TestTimer(unittest.IsolatedAsyncioTestCase):
         async with app.run_test() as pilot:
             # Navigate to the task.
             await pilot.press('down')
-            tree = app.query_one(Tree)
-            self.assertEqual(not_none(not_none(tree.cursor_node).data).title, 'task_a')
+            self.assertEqual(cursor_task(app).title, 'task_a')
             # Go to the Timer view.
             await pilot.press('s')
             # Start the period.
@@ -387,6 +381,13 @@ class TestTimer(unittest.IsolatedAsyncioTestCase):
 
         # Check there's a entry in the TimeLog.
         self.assertEqual(len(time_log.get_periods()), 1)
+
+
+def cursor_task(app):
+    tree = app.query_one(Tree)
+    db = app._task_db  # pylint: disable=protected-access
+    task_id = not_none(not_none(tree.cursor_node).data)
+    return db.get(task_id)
 
 
 def run_test_app():

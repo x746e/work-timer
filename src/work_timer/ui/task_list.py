@@ -5,6 +5,8 @@ from typing import no_type_check
 from gcsa.event import Event
 from loguru import logger
 
+from rich.color import Color
+from rich.style import Style
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
@@ -79,11 +81,14 @@ class TaskList(Widget):
         if cursor_node.is_root:
             return None
         assert cursor_node.data is not None
-        assert isinstance(cursor_node.data, taskdb.Task)
         return cursor_node
 
     def _get_tree(self) -> Tree:
         return not_none(self.query_one(Tree))
+
+    def _get_task(self, node: TreeNode) -> Task:
+        task_id = not_none(node.data)
+        return self._task_db.get(task_id)
 
     def action_mark_done(self) -> None:
         """Mark the task as DONE.
@@ -93,7 +98,7 @@ class TaskList(Widget):
         node = not_none(self._get_selected_task_node())
 
         # Mark as done.
-        task = not_none(node.data)
+        task = self._get_task(node)
         task.status = taskdb.Task.Status.DONE
         self._task_db.update(task)
 
@@ -114,7 +119,7 @@ class TaskList(Widget):
     def action_dec_prio(self) -> None:
         """Decrease the Task's priority by one."""
         node = not_none(self._get_selected_task_node())
-        task = not_none(node.data)
+        task = self._get_task(node)
 
         all_priorities = list(taskdb.Task.Priority)
         idx = all_priorities.index(task.priority)
@@ -130,7 +135,7 @@ class TaskList(Widget):
     def action_inc_prio(self) -> None:
         """Increase the Task's priority by one."""
         node = not_none(self._get_selected_task_node())
-        task = not_none(node.data)
+        task = self._get_task(node)
 
         all_priorities = list(taskdb.Task.Priority)
         idx = all_priorities.index(task.priority)
@@ -146,7 +151,7 @@ class TaskList(Widget):
     def action_reorder_up(self) -> None:
         """Move the focused task before its previous sibling."""
         node = not_none(self._get_selected_task_node())
-        task = not_none(node.data)
+        task = self._get_task(node)
 
         if not task.parent_id:
             return
@@ -155,7 +160,7 @@ class TaskList(Widget):
 
         parent = self._task_db.get(task.parent_id)
         my_idx = parent.child_ids.index(task.id)
-        prev_idx = parent.child_ids.index(not_none(node.previous_sibling.data).id)
+        prev_idx = parent.child_ids.index(not_none(node.previous_sibling.data))
         parent.child_ids.pop(my_idx)
         parent.child_ids.insert(prev_idx, task.id)
         self._task_db.update(parent)
@@ -166,7 +171,7 @@ class TaskList(Widget):
     def action_reorder_down(self) -> None:
         """Move the focused task after its next sibling."""
         node = not_none(self._get_selected_task_node())
-        task = not_none(node.data)
+        task = self._get_task(node)
 
         if not task.parent_id:
             return
@@ -175,7 +180,7 @@ class TaskList(Widget):
 
         parent = self._task_db.get(task.parent_id)
         my_idx = parent.child_ids.index(task.id)
-        next_idx = parent.child_ids.index(not_none(node.next_sibling.data).id)
+        next_idx = parent.child_ids.index(not_none(node.next_sibling.data))
         parent.child_ids.insert(next_idx + 1, task.id)
         parent.child_ids.pop(my_idx)
         self._task_db.update(parent)
@@ -186,7 +191,7 @@ class TaskList(Widget):
     def action_reparent_up(self) -> None:
         """Set task's grandparent as its parent."""
         node = not_none(self._get_selected_task_node())
-        task = not_none(node.data)
+        task = self._get_task(node)
         logger.debug(f'Reparent up {task}')
 
         if not task.parent_id:
@@ -205,13 +210,13 @@ class TaskList(Widget):
     def action_reparent_down(self) -> None:
         """Set task's previous sibling as its parent."""
         node = not_none(self._get_selected_task_node())
-        task = not_none(node.data)
+        task = self._get_task(node)
         logger.debug(f'Reparent down {task}')
 
         if not node.previous_sibling:
             return
 
-        prev_task = not_none(node.previous_sibling.data)
+        prev_task = self._get_task(node.previous_sibling)
         prev_task = self._task_db.get(prev_task.id)
         prev_task.child_ids.append(task.id)
         self._task_db.update(prev_task)
@@ -231,7 +236,7 @@ class TaskList(Widget):
         if not node:
             return
 
-        task = not_none(node.data)
+        task = self._get_task(node)
         resp = await self.app.push_screen_wait(TaskEditor(self._task_db, task))
         match resp:
             case TaskEditor.Changed(old_task, new_task):
@@ -241,7 +246,7 @@ class TaskList(Widget):
                     self._add_task(new_task, focus=True)
                 else:
                     node.set_label(_title_with_style(new_task))
-                    node.data = new_task
+                    node.data = new_task.id
                     node.refresh()
             case TaskEditor.Deleted():
                 assert not node.children
@@ -265,7 +270,7 @@ class TaskList(Widget):
         parent_id = None
         parent_node = not_none(self._get_tree().cursor_node)
         if not parent_node.is_root:
-            parent_id = not_none(parent_node.data).id
+            parent_id = not_none(parent_node.data)
 
         new_task = taskdb.Task(title='', parent_id=parent_id)
         changed = await self.app.push_screen_wait(TaskEditor(self._task_db, new_task))
@@ -285,7 +290,7 @@ class TaskList(Widget):
 
         # TODO: All this logic doesn't really belong here.
 
-        task = not_none(node.data)
+        task = self._get_task(node)
 
         if self._config.calendar:
             self._config.calendar.add_event(
@@ -366,7 +371,7 @@ class TaskList(Widget):
     def _make_tree_with_tasks(self) -> Tree:
         """Returns a Tree widget populated with Tasks."""
 
-        tree = Tree[taskdb.Task]('')
+        tree = Tree[taskdb.TaskID]('')
 
         for task in self._task_db.get_children(parent_id=None):
             if not self._whole_subtree_is_completed(task):
@@ -394,7 +399,7 @@ class TaskList(Widget):
             if not task.parent_id:
                 return {}
             child_ids_added_so_far = [
-                    not_none(child_node.data).id for child_node in parent_node.children
+                    not_none(child_node.data) for child_node in parent_node.children
             ]
             parent_task = self._task_db.get(task.parent_id)
             index = parent_task.child_ids.index(task.id)
@@ -403,7 +408,7 @@ class TaskList(Widget):
                     return {'after': child_ids_added_so_far.index(prev_id)}
             return {'before': 0}
 
-        node = parent_node.add(_title_with_style(task), data=task, **insert_loc())  # type: ignore
+        node = parent_node.add(_title_with_style(task), data=task.id, **insert_loc())  # type: ignore
         parent_node.allow_expand = True
         self._task_id_to_node_id[task.id] = node.id
         children = self._task_db.get_children(task.id)
@@ -429,12 +434,15 @@ class TaskList(Widget):
         return all(self._whole_subtree_is_completed(child) for child in children)
 
 
-_PRIO_TO_STYLE = {
-    taskdb.Task.Priority.P0: 'bright_red',
-    taskdb.Task.Priority.P1: 'yellow',
-    taskdb.Task.Priority.P2: '',
+_PRIO_TO_COLOR = {
+    taskdb.Task.Priority.P0: Color.parse('bright_red'),
+    taskdb.Task.Priority.P1: Color.parse('yellow'),
+    taskdb.Task.Priority.P2: None,
 }
 
 
 def _title_with_style(task: taskdb.Task) -> Text:
-    return Text.from_markup(task.title, style=_PRIO_TO_STYLE[task.priority])
+    style = Style(color=_PRIO_TO_COLOR[task.priority])
+    if task.status == Task.Status.DONE:
+        style = style.combine([Style(strike=True)])
+    return Text.from_markup(task.title, style=style)
