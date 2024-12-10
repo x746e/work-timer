@@ -69,8 +69,13 @@ class TaskDB:
             self._persist(why=f'Adding {task}')
             return task.id
 
-    def update(self, task: Task, _update_relationships=True) -> None:
-        """Update the `task` in the DB."""
+    def update(self, task: Task, message: str = '', _update_relationships=True) -> None:
+        """Update the `task` in the DB.
+
+        Args:
+        - `task`: Task object to update.
+        - `message`: Optional message to include when persisting the change.
+        """
         logger.debug(f'Updating {task.__dict__}, {_update_relationships=}')
         with self._lock:
             if task.id == UNSET_TASK_ID:
@@ -87,7 +92,10 @@ class TaskDB:
 
             self._tasks[task.id] = copy.deepcopy(task)
             if _update_relationships:
-                self._persist(why=f'Updating {task}')
+                why = f'Updating {task}'
+                if message:
+                    why = f'{message}: {why}'
+                self._persist(why)
             # TODO: Can this run `self._conflict_check()` which subclasses can
             #       implement instead of overriding .update()?
 

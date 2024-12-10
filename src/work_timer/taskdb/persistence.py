@@ -101,7 +101,7 @@ class PersistentTaskDB(TaskDB):
                 task._commit = self._commit
                 return task_id
 
-    def update(self, task: Task, _update_relationships=True) -> None:
+    def update(self, task: Task, message: str = '', _update_relationships=True) -> None:
         """Detect possible editing conflicts when updating the `task`.
 
         Raises an `UpdateConflict` exception in that case.
@@ -141,7 +141,7 @@ class PersistentTaskDB(TaskDB):
                         # The task was updated.
                         raise UpdateConflict(orig_task, theirs_task, task)
                 logger.trace('No conflict, updating.')
-                super().update(task, _update_relationships)
+                super().update(task, message, _update_relationships)
                 task._commit = self._commit
 
     def _get_repo_head(self) -> str | None:

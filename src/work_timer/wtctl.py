@@ -1,5 +1,6 @@
 """A CLI for the work timer."""
 # ruff: noqa: F401, F841
+import argparse
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -7,12 +8,13 @@ from traitlets.config import Config
 from IPython import embed
 import pandas as pd
 
+from work_timer import config
 from work_timer import taskdb
 from work_timer import timelog
 from work_timer.utils.time import humanize_td
 
 
-def console():
+def console(args):
     """Pull in tasks and time log DataFrames, and switch to an IPython console."""
     # pylint: disable=unused-variable,possibly-unused-variable
 
@@ -20,8 +22,8 @@ def console():
     # task_db = taskdb.PersistentTaskDB(Path('~/dev-tasks/'))
     # time_log = timelog.PersistentTimeLog(Path('~/dev-timelog.json'))
 
-    task_db = taskdb.PersistentTaskDB(Path('~/tasks/'))
-    time_log = timelog.PersistentTimeLog(Path('~/timelog.json'))
+    task_db = taskdb.PersistentTaskDB(args.taskdb)
+    time_log = timelog.PersistentTimeLog(args.timelog)
 
     tasks = task_db.get_data_frame()
     logs = time_log.get_data_frame()
@@ -55,11 +57,11 @@ def console():
     # formatter = ip.display_formatter.formatters['text/plain']
     # formatter.for_type(pd.DataFrame, data_frame_formatter)
     c = Config()
-    c.PlainTextFormatter.type_printers = {pd.DataFrame: data_frame_formatter}
+    c.PlainTextFormatter.type_printers = {pd.DataFrame: _data_frame_formatter}
     embed(config=c)
 
 
-def data_frame_formatter(df, p, cycle):
+def _data_frame_formatter(df, p, cycle):
     assert not cycle
     timedelta_columns = [
             column
@@ -70,8 +72,38 @@ def data_frame_formatter(df, p, cycle):
     p.text(str(df))
 
 
+def edit_task(args) -> None:
+    db = taskdb.PersistentTaskDB(args.taskdb)
+    task = db.get(args.task_id)
+    task.status = args.status
+    db.update(task, message=args.message)
+
+
 def main():
-    console()
+    """The main entrypoint for the wtctl tool."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--taskdb', required=True, type=config.directory,
+                        help='Path to the directory to store the tasks data.')
+    parser.add_argument('--timelog', required=True, type=config.existing_file,
+                        help='Path to the file to store the time log.')
+
+    subparsers = parser.add_subparsers(required=True)
+
+    # wtctl console / wtctl cli
+    console_parser = subparsers.add_parser('console', aliases=['cli'])
+    console_parser.set_defaults(func=console)
+
+    # wtctl edit -t 123 --status done
+    edit_parser = subparsers.add_parser('edit-task', aliases=['edit'])
+    edit_parser.add_argument('-t', '--task-id', required=True, type=int,
+                             help='Task ID to edit.')
+    edit_parser.add_argument('-s', '--status', type=taskdb.Task.Status,
+                             choices=list(taskdb.Task.Status))
+    edit_parser.add_argument('-m', '--message')
+    edit_parser.set_defaults(func=edit_task)
+
+    args = parser.parse_args()
+    args.func(args)
 
 
 if __name__ == '__main__':
