@@ -10,7 +10,7 @@ import threading
 from loguru import logger
 import pandas as pd
 
-from work_timer.taskdb.task import Task, TaskID, UNSET_TASK_ID
+from work_timer.taskdb.task import Task, TaskID, UNSET_TASK_ID, ROOT_TASK_ID, _ROOT_TASK
 
 
 class TaskDB:
@@ -41,11 +41,8 @@ class TaskDB:
         with self._lock:
             return copy.deepcopy(self._tasks[task_id])
 
-    # TODO: Add a root task, don't allow parent_id to be None?
-    def get_children(self, parent_id: TaskID | None) -> list[Task]:
+    def get_children(self, parent_id: TaskID) -> list[Task]:
         with self._lock:
-            if parent_id is None:
-                return [t for t in self._tasks.values() if t.parent_id is None]
             parent = self.get(parent_id)
             return [self.get(child_id) for child_id in parent.child_ids]
 
@@ -59,6 +56,8 @@ class TaskDB:
                 raise ValueError("Directly setting Task.id is not supported")
             if task.parent_id and task.parent_id not in self._tasks:
                 raise ValueError(f"Can't add {task}, parent #{task.parent_id} doesn't exist.")
+            if not task.parent_id:
+                task.parent_id = ROOT_TASK_ID
             task.id = self._get_next_id()
             assert task.id not in self._tasks
             self._tasks[task.id] = task
@@ -80,9 +79,9 @@ class TaskDB:
                 raise KeyError(f"No task with id {task.id} to update.")
             if task.parent_id and task.parent_id not in self._tasks:
                 raise ValueError(f"Can't update {task}, parent #{task.parent_id} doesn't exist.")
-            if task.child_ids and not all(cid in self._tasks for cid in task.child_ids):
-                missing_ids = [cid for cid in task.child_ids if cid not in self._tasks]
-                raise ValueError(f"Can't update {task}, these child IDs doesn't exist: {missing_ids}")
+            if missing_children := self._missing_children(task):
+                raise ValueError(f"Can't update {task}, these child IDs don't exist: "
+                                 f"{missing_children!r}.")
             if _update_relationships:
                 self._update_relationships(task)
 
@@ -91,6 +90,9 @@ class TaskDB:
                 self._persist(why=f'Updating {task}')
             # TODO: Can this run `self._conflict_check()` which subclasses can
             #       implement instead of overriding .update()?
+
+    def _missing_children(self, task: Task) -> list[TaskID]:
+        return [cid for cid in task.child_ids if cid not in self._tasks]
 
     def _update_relationships(self, task: Task) -> None:
         orig = self.get(task.id)
@@ -113,9 +115,8 @@ class TaskDB:
             removed_ids = set(orig.child_ids) - set(task.child_ids)
             for removed_child_id in removed_ids:
                 removed_child = self.get(removed_child_id)
-                # - Set their .parent_id to None
-                removed_child.parent_id = None
-                # TODO: Maybe update ROOT task's child_ids.
+                # - Set their .parent_id to ROOT_TASK_ID
+                removed_child.parent_id = ROOT_TASK_ID
                 self.update(removed_child, _update_relationships=False)
 
         # On .parent_id update:
@@ -158,7 +159,7 @@ class TaskDB:
     # Methods for overriding in subclasses.
 
     def _load(self) -> tuple[dict[TaskID, Task], int]:
-        return {}, 1
+        return {ROOT_TASK_ID: _ROOT_TASK}, 1
 
     def _persist(self, why: str) -> None:
         pass

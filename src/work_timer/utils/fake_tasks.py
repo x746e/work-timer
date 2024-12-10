@@ -97,4 +97,4 @@ def fake_tasks_from_db(task_db: taskdb.TaskDB) -> list[FakeTask]:
                 priority=task.priority,
                 kids=[make_task(t) for t in task_db.get_children(task.id)])
 
-    return [make_task(t) for t in task_db.get_children(None)]
+    return [make_task(t) for t in task_db.get_children(taskdb.ROOT_TASK_ID)]

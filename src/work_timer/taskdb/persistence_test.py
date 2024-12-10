@@ -15,6 +15,14 @@ from work_timer.utils.testing import UnittestTestCaseMixin
 EXPECTED_DATA = {
     'data': [
         {
+            'child_ids': [1],
+            'description': '',
+            'id': -10,
+            'priority': 'P2',
+            'status': 'new',
+            'title': 'Root task',
+        },
+        {
             'child_ids': [
                 2,
                 6,

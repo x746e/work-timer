@@ -16,7 +16,7 @@ from textual.widgets.tree import TreeNode
 
 from work_timer import taskdb
 from work_timer.config import Config
-from work_timer.taskdb import TaskID, Task
+from work_timer.taskdb import TaskID, Task, ROOT_TASK_ID
 from work_timer.ui.timer import TimerScreen
 from work_timer.ui.task_editor import TaskEditor
 from work_timer.utils.typing import not_none
@@ -267,10 +267,8 @@ class TaskList(Widget):
         adding the task to the DB.  This function then adds the task using the
         information on the returned `TaskEditor.Changed` message.
         """
-        parent_id = None
         parent_node = not_none(self._get_tree().cursor_node)
-        if not parent_node.is_root:
-            parent_id = not_none(parent_node.data)
+        parent_id = not_none(parent_node.data)
 
         new_task = taskdb.Task(title='', parent_id=parent_id)
         changed = await self.app.push_screen_wait(TaskEditor(self._task_db, new_task))
@@ -371,9 +369,10 @@ class TaskList(Widget):
     def _make_tree_with_tasks(self) -> Tree:
         """Returns a Tree widget populated with Tasks."""
 
-        tree = Tree[taskdb.TaskID]('')
+        tree = Tree[taskdb.TaskID](label='/', data=ROOT_TASK_ID)
+        self._task_id_to_node_id[ROOT_TASK_ID] = tree.root.id
 
-        for task in self._task_db.get_children(parent_id=None):
+        for task in self._task_db.get_children(parent_id=ROOT_TASK_ID):
             if not self._whole_subtree_is_completed(task):
                 self._add_task(task, parent_node=tree.root)
 

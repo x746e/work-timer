@@ -36,20 +36,22 @@ class PersistentTaskDB(TaskDB):
     change to disk.
     """
 
-    DB_VERSION = 2
+    DB_VERSION = 3
 
-    def __init__(self, repo_path: Path):
+    def __init__(self, repo_path: Path, _initializing: bool = False):
         self._repo_path = repo_path.expanduser()
         self._tasks_path = self._repo_path / 'tasks.json'
         self._metadata_path = self._repo_path / 'metadata.json'
         self._commit = None
+        self._initializing = _initializing
         self._file_lock = FileLock(self._repo_path / '.lock', thread_local=False)
 
         super().__init__()
 
         self._fs_observer = Observer()
         self._fs_observer.schedule(_FSEventHandler(self), str(self._repo_path))
-        self._fs_observer.start()
+        if not _initializing:
+            self._fs_observer.start()
 
     @classmethod
     def init_repo(cls, repo_path: Path):
@@ -57,14 +59,12 @@ class PersistentTaskDB(TaskDB):
         metadata_path = repo_path / 'metadata.json'
         assert not metadata_path.exists()
         subprocess.check_output(f'git -C {repo_path} init', shell=True)
-        with metadata_path.open('w') as f:
-            json.dump({'next_id': 1, 'version': cls.DB_VERSION}, f)
         with (repo_path / '.gitignore').open('w') as f:
             f.write('.lock\n')
         subprocess.check_output(
-                f'git -C {repo_path} add metadata.json .gitignore', shell=True)
-        subprocess.check_output(
-                f'git -C {repo_path} commit -m "TaskDB initialization"', shell=True)
+                f'git -C {repo_path} add .gitignore', shell=True)
+        db = cls(repo_path, _initializing=True)
+        db._persist(why='TaskDB initialization')
 
     # Methods for concurrent update support.
 
@@ -153,6 +153,9 @@ class PersistentTaskDB(TaskDB):
     # DataFrame, and serializing and writing them back to a file.
 
     def _load(self) -> tuple[dict[TaskID, Task], int]:
+        if self._initializing:
+            return super()._load()
+
         if not self._metadata_path.exists():
             raise RuntimeError("The backing repo doesn't exist")
 
@@ -171,7 +174,6 @@ class PersistentTaskDB(TaskDB):
                 return {}, metadata['next_id']
 
             tasks = self._load_at(self._commit)
-            self._set_relationships(tasks)
             return tasks, metadata['next_id']
 
     def _load_at(self, commit: str) -> dict[TaskID, Task]:
@@ -185,6 +187,7 @@ class PersistentTaskDB(TaskDB):
                 text=True, shell=True)
         df = pd.read_json(io.StringIO(data), orient='table')
         tasks = self._from_df(df, commit)
+        self._set_relationships(tasks)
         return tasks
 
     def _set_relationships(self, tasks: dict[TaskID, Task]) -> None:

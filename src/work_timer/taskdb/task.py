@@ -20,6 +20,9 @@ class LowerCaseStrEnum(enum.StrEnum):
         return name
 
 
+ROOT_TASK_ID = TaskID(-10)
+
+
 @dataclass
 class Task:  # pylint: disable=too-many-instance-attributes
     """A single task."""
@@ -36,7 +39,7 @@ class Task:  # pylint: disable=too-many-instance-attributes
     title: str
     id: TaskID = UNSET_TASK_ID
     description: str = ''
-    parent_id: TaskID | None = field(default=None, compare=True)
+    parent_id: TaskID = ROOT_TASK_ID
     status: Status = Status.NEW
     priority: Priority = Priority.P2
     child_ids: list[TaskID] = field(default_factory=list)
@@ -52,7 +55,9 @@ class Task:  # pylint: disable=too-many-instance-attributes
                 f'{self.child_ids} @{commit}>')
 
 
-BREAK_TASK_ID = TaskID(-2)
+_ROOT_TASK = Task('Root task', id=ROOT_TASK_ID)
 
+
+BREAK_TASK_ID = TaskID(-2)
 BREAK = Task('Not really a task -- a break!', id=BREAK_TASK_ID,
              priority=Task.Priority.P0)
