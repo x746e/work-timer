@@ -445,4 +445,7 @@ def _title_with_style(task: taskdb.Task) -> Text:
     style = Style(color=_PRIO_TO_COLOR[task.priority])
     if task.status == Task.Status.DONE:
         style = style.combine([Style(strike=True)])
-    return Text.from_markup(task.title, style=style)
+    title = task.title
+    if task.description:
+        title += ' :memo:'
+    return Text.from_markup(title, style=style)
