@@ -7,6 +7,7 @@ if TYPE_CHECKING:
     from textual.widgets import Tree
 
 from work_timer import taskdb  # pylint: disable=wrong-import-position
+from work_timer.taskdb import TaskID  # pylint: disable=wrong-import-position
 
 
 Status = taskdb.Task.Status
@@ -38,19 +39,27 @@ def get_task_db(fake_tasks: Sequence[FakeTask] = FAKE_TASKS) -> taskdb.TaskDB:
     return task_db
 
 
-def add_fake_tasks(task_db: taskdb.TaskDB, tasks: Sequence[FakeTask] = FAKE_TASKS) -> None:
-    """Add some fake `tasks` to the supplied `task_db`."""
+def add_fake_tasks(task_db: taskdb.TaskDB, tasks: Sequence[FakeTask] = FAKE_TASKS) -> dict[str, TaskID]:
+    """Add some fake `tasks` to the supplied `task_db`.
+
+    Returns a map from the title to the task ID.
+    """
+    ret = {}
 
     def add_child(parent_id: taskdb.TaskID, child: FakeTask) -> None:
         t_id = task_db.add(
                 taskdb.Task(child.title, status=child.status, parent_id=parent_id))
+        ret[child.title] = t_id
         for grandchild in child.kids:
             add_child(parent_id=t_id, child=grandchild)
 
     for top_level in tasks:
         t_id = task_db.add(taskdb.Task(top_level.title, status=top_level.status))
+        ret[top_level.title] = t_id
         for child in top_level.kids:
             add_child(parent_id=t_id, child=child)
+
+    return ret
 
 
 def fake_tasks_from_tree(tree: 'Tree') -> list[FakeTask]:

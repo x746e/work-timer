@@ -310,7 +310,7 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
         got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
         self.assertEqual(want_tasks, got_db_tasks)
 
-    async def test_reparenting(self):
+    async def test_reparenting_from_the_editor(self):
         initial_tasks = [
             FakeTask('task_a', kids=[
                 FakeTask('task_b', kids=[
@@ -319,8 +319,8 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
                 ])
             ])
         ]
-        task_db = fake_tasks.get_task_db(initial_tasks)
-        (task_d_id,) = [id for (id, task) in task_db.get_all().items() if task.title == 'task_d']
+        task_db = taskdb.TaskDB()
+        ids = fake_tasks.add_fake_tasks(task_db, initial_tasks)
         app = FakeApp(task_db)
 
         async with app.run_test() as pilot:
@@ -339,7 +339,7 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
             await pilot.press('ctrl+a')
             await pilot.press('ctrl+k')
             # Type in the id of the new parent.
-            await pilot.press(*list(str(task_d_id)))
+            await pilot.press(*list(str(ids['task_d'])))
             await pilot.press('ctrl+s')
 
         want_tasks = [
@@ -350,6 +350,80 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
                         FakeTask('task_c'),
                     ]),
                 ])
+            ])
+        ]
+        got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
+        assert want_tasks == got_db_tasks
+        got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
+        assert want_tasks == got_ui_tasks
+
+    async def test_reordering(self):
+        initial_tasks = [
+            FakeTask('task_a', kids=[
+                    FakeTask('task_b'),
+                    FakeTask('task_c'),
+                    FakeTask('task_d'),
+            ])
+        ]
+        task_db = fake_tasks.get_task_db(initial_tasks)
+        app = FakeApp(task_db)
+
+        async with app.run_test() as pilot:
+            await pilot.press('down')
+            await pilot.press('down')
+            await pilot.press('down')
+            self.assertEqual(cursor_task(app).title, 'task_c')
+            await pilot.press('ctrl+up')
+            await pilot.press('down')
+            self.assertEqual(cursor_task(app).title, 'task_b')
+            await pilot.press('ctrl+down')
+            tree = app.query_one(Tree)
+
+        want_tasks = [
+            FakeTask('task_a', kids=[
+                    FakeTask('task_c'),
+                    FakeTask('task_d'),
+                    FakeTask('task_b'),
+            ])
+        ]
+        got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
+        assert want_tasks == got_db_tasks
+        got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
+        assert want_tasks == got_ui_tasks
+
+    async def test_reparenting(self):
+        initial_tasks = [
+            FakeTask('task_a', kids=[
+                FakeTask('task_b', kids=[
+                    FakeTask('task_c'),
+                    FakeTask('task_d'),
+                ]),
+                FakeTask('task_e'),
+            ])
+        ]
+        task_db = fake_tasks.get_task_db(initial_tasks)
+        app = FakeApp(task_db)
+
+        async with app.run_test() as pilot:
+            await pilot.press('down')
+            await pilot.press('down')
+            await pilot.press('down')
+            await pilot.press('down')
+            self.assertEqual(cursor_task(app).title, 'task_d')
+            await pilot.press('ctrl+left')
+            await pilot.press('down')
+            self.assertEqual(cursor_task(app).title, 'task_e')
+            await pilot.press('ctrl+right')
+            tree = app.query_one(Tree)
+
+        want_tasks = [
+            FakeTask('task_a', kids=[
+                FakeTask('task_b', kids=[
+                    FakeTask('task_c'),
+                ]),
+                FakeTask('task_d', kids=[
+                    FakeTask('task_e'),
+                ]),
             ])
         ]
         got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
