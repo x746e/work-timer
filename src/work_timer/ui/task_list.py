@@ -2,6 +2,7 @@
 from datetime import date, datetime, timedelta
 from typing import no_type_check
 
+from desktop_notifier import Urgency
 from gcsa.event import Event
 from loguru import logger
 
@@ -70,7 +71,7 @@ class TaskList(Widget):
         if self._config.notifier:
             await self._config.notifier.send(
                     title='The timer is not ticking!', message='Go do some work!',
-                    icon='document-open-recent')
+                    urgency=Urgency.Critical, icon='document-open-recent')
         self._bugged_last_at = datetime.now()
 
     def compose(self) -> ComposeResult:
@@ -301,10 +302,14 @@ class TaskList(Widget):
                                                     self._time_log, start=True))
         self._is_timer_ticking = False
         self._not_ticking_since = datetime.now()
+        # TODO: Move this into a work_timer.notifications.Notifier.
+        #       NoopNotifier if disabled.
+        #       Make Deps, self._config.deps.notifier?
         if self._config.notifier:
             await self._config.notifier.send(
                     title='Work period ended', message=task.title,
-                    icon='document-open-recent', sound='complete')  # type: ignore
+                    urgency=Urgency.Critical, icon='document-open-recent',
+                    sound='complete')  # type: ignore
 
         def should_rest() -> bool:
             # TODO: Do we always rest?  If the period ended on its own, not when it was
@@ -341,7 +346,8 @@ class TaskList(Widget):
                     TimerScreen(taskdb.BREAK, rest_length, self._time_log, start=True))
             if self._config.notifier:
                 await self._config.notifier.send(
-                        title='Break ended', message=str(rest_length), icon='document-open-recent',
+                        title='Break ended', message=str(rest_length),
+                        urgency=Urgency.Critical, icon='document-open-recent',
                         sound='dialog-error')  # type: ignore
 
     def action_cursor_up(self):
