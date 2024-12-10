@@ -33,7 +33,7 @@ class WorkTimerApp(App):
 def main():
     """The app entrypoint."""
     logger.remove()
-    log_dir = platformdirs.user_state_path('wtx')
+    log_dir = platformdirs.user_state_path('work_timer')
     process_name = os.path.basename(sys.argv[0])
     pid = os.getpid()
     now = datetime.now().replace(microsecond=0).isoformat()

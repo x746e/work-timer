@@ -79,7 +79,7 @@ def get_config_from_args() -> Config:
     if args.calendar_id:
         config['calendar'] = GoogleCalendar(args.calendar_id)
     if args.enable_notifications:
-        config['notifier'] = DesktopNotifier(app_name='wtx')
+        config['notifier'] = DesktopNotifier(app_name='Work Timer')
 
     config['work_period_duration'] = args.work_period_duration
     config['break_duration'] = args.break_duration
