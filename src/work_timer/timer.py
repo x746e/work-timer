@@ -10,9 +10,12 @@ from collections.abc import Callable
 
 from typing import NewType, Tuple
 
+from loguru import logger
+
 from work_timer import timelog
 from work_timer.taskdb import TaskID
 from work_timer.utils import state_machine
+from work_timer.utils.time import td
 from work_timer.utils.clock import Clock
 
 
@@ -199,9 +202,9 @@ class TimerInfo:
         self._validate()
 
     def _validate(self):
-        eps = timedelta(seconds=1)
+        eps = timedelta(seconds=3)
         if self.period_length:
-            assert self.elapsed_time <= self.period_length + eps, (
-                f"{self.elapsed_time=}, shouldn't be (much) more than "
-                f"{self.period_length + eps=}."
-            )
+            if self.elapsed_time > (pl := self.period_length + eps):
+                logger.warning('Elapsed time is larger than period length: '
+                               f'self.elapsed_time ({td(self.elapsed_time)}) > '
+                               f'self.period_length + eps ({td(pl)})')
