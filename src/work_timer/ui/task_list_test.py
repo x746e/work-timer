@@ -160,7 +160,7 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
             await pilot.press('down')
             await pilot.press('down')
             self.assertEqual(cursor_task(app).title, 'task_c')
-            await pilot.press('m')
+            await pilot.press('d')
             tree = app.query_one(Tree)
 
         want_db_tasks = [

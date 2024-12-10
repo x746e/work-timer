@@ -30,7 +30,7 @@ class TaskList(Widget):
 
     BINDINGS = [
         ('e', 'edit', 'Edit'),
-        ('m', 'mark_done', 'Mark DONE'),
+        ('d', 'mark_done', 'Mark as done'),
         ('c', 'create', 'New task'),  # with the cursor_node as a parent.
         ('s', 'start', 'Start the timer'),  # start the timer with the cursor_node.
         ('-', 'dec_prio', '--priority'),
