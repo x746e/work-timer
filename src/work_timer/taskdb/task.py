@@ -35,6 +35,7 @@ class Task:  # pylint: disable=too-many-instance-attributes
         P0 = enum.auto()
         P1 = enum.auto()
         P2 = enum.auto()
+        P3 = enum.auto()
 
     title: str
     id: TaskID = UNSET_TASK_ID

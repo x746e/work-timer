@@ -440,16 +440,17 @@ class TaskList(Widget):
 
 
 _PRIO_TO_COLOR = {
-    taskdb.Task.Priority.P0: Color.parse('bright_red'),
-    taskdb.Task.Priority.P1: Color.parse('yellow'),
-    taskdb.Task.Priority.P2: None,
+    Task.Priority.P0: Color.parse('bright_red'),
+    Task.Priority.P1: Color.parse('yellow'),
+    Task.Priority.P2: None,
+    Task.Priority.P3: Color.parse('grey50'),
 }
 
 
 def _title_with_style(task: taskdb.Task) -> Text:
     style = Style(color=_PRIO_TO_COLOR[task.priority])
     if task.status == Task.Status.DONE:
-        style = style.combine([Style(strike=True)])
+        style = style.combine([style, Style(strike=True)])
     title = task.title
     if task.description:
         title += ' :memo:'
