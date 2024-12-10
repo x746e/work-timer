@@ -37,12 +37,25 @@ class Task:  # pylint: disable=too-many-instance-attributes
         P2 = enum.auto()
         P3 = enum.auto()
 
+    class Type(LowerCaseStrEnum):  # pylint: disable=missing-class-docstring
+        REGULAR = enum.auto()
+        BUG = enum.auto()
+        PROJECT = enum.auto()
+        MOONSHOT = enum.auto()
+        EPIC = enum.auto()
+        WORKFLOW = enum.auto()
+        REFACTORING = enum.auto()
+        IMPROVEMENT = enum.auto()
+        IDEA = enum.auto()
+        FEATURE = enum.auto()
+
     title: str
     id: TaskID = UNSET_TASK_ID
     description: str = ''
     parent_id: TaskID = ROOT_TASK_ID
     status: Status = Status.NEW
     priority: Priority = Priority.P2
+    type: Type = Type.REGULAR
     child_ids: list[TaskID] = field(default_factory=list)
     _commit: str | None = field(default=None, compare=False)
 
@@ -54,6 +67,19 @@ class Task:  # pylint: disable=too-many-instance-attributes
             commit = 'uncommitted'
         return (f'<Task#{self.id}: {title} | {self.status} {self.priority} '
                 f'{self.child_ids} @{commit}>')
+
+
+TYPE_SYMBOLS = {
+    Task.Type.BUG: '🐞',
+    Task.Type.PROJECT: '🚀',
+    Task.Type.MOONSHOT: '🌕🚀',
+    Task.Type.EPIC: '🧭',
+    Task.Type.WORKFLOW: '⚙️',
+    Task.Type.REFACTORING: '🛠️',
+    Task.Type.IMPROVEMENT: '✨',
+    Task.Type.IDEA: '💡',
+    Task.Type.FEATURE: '🎁',
+}
 
 
 _ROOT_TASK = Task('Root task', id=ROOT_TASK_ID)

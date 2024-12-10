@@ -21,6 +21,7 @@ EXPECTED_DATA = {
             'priority': 'P2',
             'status': 'new',
             'title': 'Root task',
+            'type': 'REGULAR',
         },
         {
             'child_ids': [
@@ -32,6 +33,7 @@ EXPECTED_DATA = {
             'priority': 'P2',
             'status': 'new',
             'title': 'Write Work Time app',
+            'type': 'REGULAR',
         },
         {
             'child_ids': [
@@ -44,6 +46,7 @@ EXPECTED_DATA = {
             'priority': 'P2',
             'status': 'new',
             'title': 'Write a Textual TUI',
+            'type': 'REGULAR',
         },
         {
             'child_ids': [],
@@ -52,6 +55,7 @@ EXPECTED_DATA = {
             'priority': 'P2',
             'status': 'new',
             'title': 'Task list',
+            'type': 'REGULAR',
         },
         {
             'child_ids': [],
@@ -60,6 +64,7 @@ EXPECTED_DATA = {
             'priority': 'P2',
             'status': 'new',
             'title': 'Task create / edit',
+            'type': 'REGULAR',
         },
         {
             'child_ids': [],
@@ -68,6 +73,7 @@ EXPECTED_DATA = {
             'priority': 'P2',
             'status': 'done',
             'title': 'Timer',
+            'type': 'REGULAR',
         },
         {
             'child_ids': [],
@@ -76,6 +82,7 @@ EXPECTED_DATA = {
             'priority': 'P2',
             'status': 'new',
             'title': 'Calendar integration',
+            'type': 'REGULAR',
         },
     ],
     'schema': {
@@ -120,6 +127,26 @@ EXPECTED_DATA = {
                 'type': 'any',
             },
             {
+                'constraints': {
+                    'enum': [
+                        'REGULAR',
+                        'BUG',
+                        'PROJECT',
+                        'MOONSHOT',
+                        'EPIC',
+                        'WORKFLOW',
+                        'REFACTORING',
+                        'IMPROVEMENT',
+                        'IDEA',
+                        'FEATURE',
+                    ],
+                },
+                'name': 'type',
+                'ordered': False,
+                'type': 'any',
+            },
+            {
+
                 'name': 'child_ids',
                 'type': 'string',
             },

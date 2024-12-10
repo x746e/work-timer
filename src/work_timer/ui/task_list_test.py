@@ -334,6 +334,7 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
             await pilot.press('tab')
             await pilot.press('tab')
             await pilot.press('tab')
+            await pilot.press('tab')
             # Should be now focused on Parent ID field.
             # Remove the current value.
             await pilot.press('ctrl+a')

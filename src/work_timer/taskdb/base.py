@@ -36,6 +36,7 @@ class TaskDB:
         df = df.set_index('id')
         df.status = pd.Categorical(df.status, categories=list(Task.Status))
         df.priority = pd.Categorical(df.priority, categories=list(Task.Priority), ordered=True)
+        df.type = pd.Categorical(df.type, categories=list(Task.Type))
         return df
 
     def get(self, task_id: TaskID) -> Task:

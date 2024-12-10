@@ -106,6 +106,8 @@ class TaskEditorWidget(Widget):
         updated_task.status = status_select.value  # type: ignore
         priority_select = self.query_one('#priority', Select)
         updated_task.priority = priority_select.value  # type: ignore
+        type_select = self.query_one('#type', Select)
+        updated_task.type = type_select.value  # type: ignore
         parent_id_input = self.query_one('#parent_id', Input)
         updated_task.parent_id = (
                 None if not parent_id_input.value else int(parent_id_input.value))  # type: ignore
@@ -157,6 +159,11 @@ class TaskEditorWidget(Widget):
             yield Select(
                     options=[(priority.name, priority.value) for priority in taskdb.Task.Priority],
                     allow_blank=False, value=self._edited_task.priority, id='priority')
+
+            yield Label('Type:')
+            yield Select(
+                    options=[(t.name, t.value) for t in taskdb.Task.Type],
+                    allow_blank=False, value=self._edited_task.type, id='type')
 
             yield Label('Parent ID:')
             parent_id = '' if not self._edited_task.parent_id else str(self._edited_task.parent_id)

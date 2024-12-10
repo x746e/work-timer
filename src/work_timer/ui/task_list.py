@@ -18,6 +18,7 @@ from textual.widgets.tree import TreeNode
 from work_timer import taskdb
 from work_timer.config import Config
 from work_timer.taskdb import TaskID, Task, ROOT_TASK_ID
+from work_timer.taskdb.task import TYPE_SYMBOLS
 from work_timer.ui.timer import TimerScreen
 from work_timer.ui.task_editor import TaskEditor
 from work_timer.utils.typing import not_none
@@ -452,6 +453,8 @@ def _title_with_style(task: taskdb.Task) -> Text:
     if task.status == Task.Status.DONE:
         style = style.combine([style, Style(strike=True)])
     title = task.title
+    if task.type != Task.Type.REGULAR:
+        title = f'{TYPE_SYMBOLS[task.type]} {title}'
     if task.description:
         title += ' :memo:'
     return Text.from_markup(title, style=style)
