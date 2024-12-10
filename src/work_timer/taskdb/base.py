@@ -34,7 +34,8 @@ class TaskDB:
         df = df.convert_dtypes()
         df = df.drop(columns=['_commit'])
         df = df.set_index('id')
-        df.status = df.status.astype('category')
+        df.status = pd.Categorical(df.status, categories=list(Task.Status))
+        df.priority = pd.Categorical(df.priority, categories=list(Task.Priority), ordered=True)
         return df
 
     def get(self, task_id: TaskID) -> Task:

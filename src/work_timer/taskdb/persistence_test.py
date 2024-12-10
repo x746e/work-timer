@@ -98,8 +98,8 @@ EXPECTED_DATA = {
             {
                 'constraints': {
                     'enum': [
-                        'done',
                         'new',
+                        'done',
                     ],
                 },
                 'name': 'status',
@@ -107,8 +107,15 @@ EXPECTED_DATA = {
                 'type': 'any',
             },
             {
-                'extDtype': 'string',
+                'constraints': {
+                    'enum': [
+                        'P0',
+                        'P1',
+                        'P2',
+                    ],
+                },
                 'name': 'priority',
+                'ordered': True,
                 'type': 'any',
             },
             {
