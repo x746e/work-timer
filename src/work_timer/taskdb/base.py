@@ -10,7 +10,8 @@ import threading
 from loguru import logger
 import pandas as pd
 
-from work_timer.taskdb.task import Task, TaskID, UNSET_TASK_ID, ROOT_TASK_ID, _ROOT_TASK
+from work_timer.taskdb.task import (Task, TaskID, UNSET_TASK_ID, ROOT_TASK_ID,
+                                    INTERNAL_TASKS)
 
 
 class TaskDB:
@@ -61,7 +62,9 @@ class TaskDB:
             if not task.parent_id:
                 task.parent_id = ROOT_TASK_ID
             task.id = self._get_next_id()
-            assert task.id not in self._tasks
+            assert task.id not in self._tasks, (
+                    f"While trying to add {task}: there's already a task "
+                    f"with id={task.id}: {self._tasks[task.id]}")
             self._tasks[task.id] = task
             # Add itself to the parent's .child_ids
             if task.parent_id:
@@ -169,7 +172,7 @@ class TaskDB:
     # Methods for overriding in subclasses.
 
     def _load(self) -> tuple[dict[TaskID, Task], int]:
-        return {ROOT_TASK_ID: _ROOT_TASK}, 1
+        return copy.deepcopy(INTERNAL_TASKS), 1
 
     def _persist(self, why: str) -> None:
         pass

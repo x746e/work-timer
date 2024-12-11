@@ -36,7 +36,7 @@ class PersistentTaskDB(TaskDB):
     change to disk.
     """
 
-    DB_VERSION = 3
+    DB_VERSION = 4
 
     def __init__(self, repo_path: Path, _initializing: bool = False):
         self._repo_path = repo_path.expanduser()

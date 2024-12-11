@@ -1,6 +1,6 @@
-"""Migrate the TaskDB from v2 to v3.
+"""Migrate the TaskDB from v3 to v4.
 
-v3 adds a root task, parent to all top-level tasks.
+v4 adds an internal "break" task.
 """
 # pylint: disable=duplicate-code
 import json
@@ -15,7 +15,7 @@ type Metadata = dict
 type Tasks = dict[int, dict]
 
 
-def migrate_2_to_3(repo_path: Path) -> None:
+def migrate_3_to_4(repo_path: Path) -> None:
     metadata, tasks = _read(repo_path)
     metadata, tasks = _transform(metadata, tasks)
     _write(repo_path, metadata, tasks)
@@ -26,7 +26,7 @@ def _read(repo_path: Path) -> tuple[Metadata, Tasks]:
     tasks_path = repo_path / 'tasks.json'
     with metadata_path.open() as f:
         metadata = json.load(f)
-    assert metadata['version'] == 2
+    assert metadata['version'] == 3
 
     df = pd.read_json(tasks_path, orient='table')
     tasks = {d['id']: d for d in df.reset_index().to_dict(orient='records')}
@@ -35,22 +35,21 @@ def _read(repo_path: Path) -> tuple[Metadata, Tasks]:
 
 
 def _transform(metadata: Metadata, tasks: Tasks) -> tuple[Metadata, Tasks]:
-    metadata['version'] = 3
+    metadata['version'] = 4
 
-    all_ids = {t['id'] for t in tasks.values()}
-
-    someones_kids = sum([t['child_ids'] for t in tasks.values()], [])
-    orphans = all_ids - set(someones_kids)
-    root = {
-        'id': -10,
-        'title': 'Root task',
+    break_id = -2
+    assert break_id not in tasks
+    break_ = {
+        'id': break_id,
+        'title': 'Not really a task -- a break!',
         'description': '',
         'status': 'new',
-        'priority': 'P2',
-        'child_ids': list(orphans),
+        'priority': 'P0',
+        'type': 'REGULAR',
+        'child_ids': [],
     }
 
-    return metadata, {-10: root} | tasks
+    return metadata, {break_id: break_} | tasks
 
 
 def _write(repo_path: Path, metadata: Metadata, tasks: Tasks) -> None:
@@ -63,7 +62,11 @@ def _write(repo_path: Path, metadata: Metadata, tasks: Tasks) -> None:
     df = pd.DataFrame(tasks.values())
     df = df.convert_dtypes()
     df = df.set_index('id')
-    df.status = df.status.astype('category')
+    df.status = pd.Categorical(df.status, categories=['new', 'done'])
+    df.priority = pd.Categorical(df.priority, categories=['P0', 'P1', 'P2', 'P3'], ordered=True)
+    df.type = pd.Categorical(df.type, categories=[
+        'REGULAR', 'BUG', 'PROJECT', 'MOONSHOT', 'EPIC', 'WORKFLOW',
+        'REFACTORING', 'IMPROVEMENT', 'IDEA', 'FEATURE'])
 
     df.to_json(tasks_path, orient='table', indent=2)
 
@@ -72,4 +75,4 @@ def _write(repo_path: Path, metadata: Metadata, tasks: Tasks) -> None:
 
 
 if __name__ == '__main__':
-    migrate_2_to_3(Path(sys.argv[1]))
+    migrate_3_to_4(Path(sys.argv[1]))

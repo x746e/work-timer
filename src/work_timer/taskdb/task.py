@@ -88,3 +88,8 @@ _ROOT_TASK = Task('Root task', id=ROOT_TASK_ID)
 BREAK_TASK_ID = TaskID(-2)
 BREAK = Task('Not really a task -- a break!', id=BREAK_TASK_ID,
              priority=Task.Priority.P0)
+
+INTERNAL_TASKS = {
+    ROOT_TASK_ID: _ROOT_TASK,
+    BREAK_TASK_ID: BREAK,
+}

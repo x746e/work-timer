@@ -24,6 +24,15 @@ EXPECTED_DATA = {
             'type': 'REGULAR',
         },
         {
+            'child_ids': [],
+            'description': '',
+            'id': -2,
+            'priority': 'P0',
+            'status': 'new',
+            'title': 'Not really a task -- a break!',
+            'type': 'REGULAR',
+        },
+        {
             'child_ids': [
                 2,
                 6,

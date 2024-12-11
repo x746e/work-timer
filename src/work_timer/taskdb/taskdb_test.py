@@ -2,7 +2,7 @@
 import unittest
 
 from work_timer import taskdb
-from work_timer.taskdb.task import TaskID, ROOT_TASK_ID, _ROOT_TASK
+from work_timer.taskdb.task import TaskID, INTERNAL_TASKS
 
 # TODO: Consider refactoring this file to use .utils.fake_tasks
 
@@ -111,8 +111,9 @@ class TaskDBTest(unittest.TestCase):
 
         tasks = self.db.get_all()
 
-        assert {id_a, id_b, ROOT_TASK_ID} == set(tasks.keys())
-        assert {task_a.title, task_b.title, _ROOT_TASK.title} == {t.title for t in tasks.values()}
+        assert ({id_a, id_b} | set(INTERNAL_TASKS)) == set(tasks.keys())
+        assert ({task_a.title, task_b.title} | {t.title for t in INTERNAL_TASKS.values()}
+                == {t.title for t in tasks.values()})
 
     def test_get_children(self):
         task_a = taskdb.Task(title='Task A')
