@@ -73,9 +73,17 @@ def _data_frame_formatter(df, p, cycle):
 
 
 def edit_task(args) -> None:
+    """CLI command to edit a Task."""
     db = taskdb.PersistentTaskDB(args.taskdb)
     task = db.get(args.task_id)
-    task.status = args.status
+
+    assert args.status or args.priority, (
+        'No `wtctl edit` action is specified.')
+
+    if args.status:
+        task.status = args.status
+    if args.priority:
+        task.priority = args.priority
     db.update(task, message=args.message)
 
 
@@ -99,8 +107,16 @@ def main():
                              help='Task ID to edit.')
     edit_parser.add_argument('-s', '--status', type=taskdb.Task.Status,
                              choices=list(taskdb.Task.Status))
+    edit_parser.add_argument('-p', '--priority', type=taskdb.Task.Priority,
+                             choices=list(taskdb.Task.Priority))
     edit_parser.add_argument('-m', '--message')
     edit_parser.set_defaults(func=edit_task)
+
+    # TODO: Do parser.error() when no task edit action is specified.  E.g.:
+    #
+    #   edit_parser.set_defaults(validate=validate_edit_args)
+    #   args.validate(args)
+    #
 
     args = parser.parse_args()
     args.func(args)

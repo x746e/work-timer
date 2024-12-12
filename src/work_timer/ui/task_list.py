@@ -43,6 +43,7 @@ class TaskList(Widget):
         ('q', 'quit', 'Quit'),
         ('j', 'cursor_down'),
         ('k', 'cursor_up'),
+        ('R', 'refresh', 'Refresh tasks'),
     ]
 
     def __init__(self, config: Config):
@@ -359,6 +360,10 @@ class TaskList(Widget):
 
     def action_quit(self):
         self.app.exit()
+
+    async def action_refresh(self):
+        await self.recompose()
+        self._get_tree().focus()
 
     def check_action(
         self, action: str, parameters: tuple[object, ...]
