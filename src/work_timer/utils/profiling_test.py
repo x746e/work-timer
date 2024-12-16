@@ -6,6 +6,7 @@ import typing
 import unittest
 
 from work_timer.utils import profiling
+from work_timer.utils.profiling import TimeFunctionCalls
 
 
 class approx:  # pylint: disable=invalid-name
@@ -32,7 +33,7 @@ class TestTimeFunctionCalls(unittest.TestCase):
         def bar():
             pass
 
-        with profiling.TimeFunctionCalls('bar') as t:
+        with TimeFunctionCalls('bar') as t:
             bar()
 
         self.assertEqual(
@@ -53,7 +54,7 @@ class TestTimeFunctionCalls(unittest.TestCase):
         def outer():
             foo(2)
 
-        with profiling.TimeFunctionCalls('foo') as t:
+        with TimeFunctionCalls('foo') as t:
             outer()
             bar()
             foo(1)
@@ -67,7 +68,7 @@ class TestTimeFunctionCalls(unittest.TestCase):
         )
 
     def test_c_calls(self):
-        with profiling.TimeFunctionCalls('sleep') as t:
+        with TimeFunctionCalls('sleep') as t:
             time.sleep(0)
             time.sleep(0.001)
         self.assertEqual(
@@ -89,6 +90,22 @@ class TestResovleCallArg(unittest.TestCase):
         self.assertEqual(profiling._resolve_call_arg(num, f), 42)
         s = ast.parse('"42"').body[0].value
         self.assertEqual(profiling._resolve_call_arg(s, f), "42")
+
+
+class LogCallTests:
+
+    def type_error_is_preserved(self):
+        """
+        >>> from work_timer.utils.profiling import log_call
+        >>> @log_call
+        ... def f_with_two_args(a, b):
+        ...     pass
+        ...
+        >>> f_with_two_args(1, 2, 3)
+        Traceback (most recent call last):
+            ...
+        TypeError: f_with_two_args() takes 2 positional arguments but 3 were given
+        """
 
 
 if __name__ == '__main__':

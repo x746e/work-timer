@@ -201,8 +201,9 @@ def log_call(f):
 
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
-        bound_args = sig.bind(*args, **kwargs)
         ret = f(*args, **kwargs)
+
+        bound_args = sig.bind(*args, **kwargs)
 
         is_method = False
         obj = None
