@@ -40,24 +40,6 @@ class TimerWidget(Widget):
         ("S", "stop", "Stop"),
     ]
 
-    # TODO: Don't have any non-started timers around.
-    # Maybe "RunningTimer" subclass, with the logic that doesn't need to check
-    # for self._timer is not None?
-    #
-    # From the app, create the timer in already started state.
-    #
-    # Do I want to open the overall app with the last task?
-    # Do I want to switch to the task list after a break?
-    #   - In some cases, and initially, it's probably a good idea: I'm prone to
-    #     doing interesting work for too long, and not leaving enough time for
-    #     important but unpleasant work.
-    #     Getting back to the list tasks will make it a bit harder.
-    #   - But in some cases switching back to the task list can get me out of the
-    #     flow state.  If that's what I'm going to see in practice, I may want to:
-    #       - Give the TimerWidget a "non-started" state.
-    #       # TODO: Actually why isn't Timer created with task/period already in paused state?
-    #           Why does anything has to be None?
-
     class PeriodEnded(Message):
         pass
 
@@ -71,10 +53,12 @@ class TimerWidget(Widget):
                  timed_task: taskdb.Task,
                  period_length: timedelta):
         super().__init__()
-        self._ticker = self.set_interval(.05, self._tick, pause=True)
+        self._ticker = self.set_interval(.05, self._tick)
         self._timed_task = timed_task
         self._period_length = period_length
         self._wt_timer = wt_timer
+        self._wt_timer.start()
+        self._wt_timer.set_on_period_end_callback(self._on_period_end)
         if timed_task.id == taskdb.BREAK_TASK_ID:
             self.classes = 'break'
 
@@ -85,15 +69,6 @@ class TimerWidget(Widget):
         progress_bar.update(progress=0, total=self._period_length.total_seconds())
         yield progress_bar
         self.refresh_bindings()  # TODO: Is this needed?
-
-    def on_mount(self) -> None:
-        self.action_start()
-
-    def action_start(self) -> None:
-        self._wt_timer.start()
-        self._wt_timer.set_on_period_end_callback(self._on_period_end)
-        self._ticker.resume()
-        self.refresh_bindings()
 
     def _on_period_end(self, info: timer.TimerInfo) -> None:
         del info
