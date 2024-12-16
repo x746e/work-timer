@@ -27,8 +27,8 @@ class FakeApp(App):  # pylint: disable=missing-class-docstring
 
     def compose(self) -> ComposeResult:
         time_log = TimeLog()
-        wt_timer = Timer(self.timed_task.id, self.period_length, time_log)
-        yield TimerWidget(wt_timer, self.task_db)
+        timer = Timer(self.timed_task.id, self.period_length, time_log)
+        yield TimerWidget(timer, self.task_db)
         yield Footer(show_command_palette=False)
 
 

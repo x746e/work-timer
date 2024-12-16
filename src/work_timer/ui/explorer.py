@@ -128,8 +128,8 @@ def get_timer():
     task = list(db.get_all().values())[0]
     period_length = timedelta(seconds=5)
     time_log = TimeLog()
-    wt_timer = Timer(task.id, period_length, time_log)
-    return TimerWidget(wt_timer, db)
+    timer = Timer(task.id, period_length, time_log)
+    return TimerWidget(timer, db)
 
 
 def get_task_editor():

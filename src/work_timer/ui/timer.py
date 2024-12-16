@@ -10,8 +10,8 @@ from textual.timer import Timer as TextualTimer
 from textual.widget import Widget
 from textual.widgets import Digits, Footer, Label, ProgressBar
 
-from work_timer import timer
 from work_timer import taskdb
+from work_timer.timer import Timer, TimerInfo
 from work_timer.timelog import TimeLog
 
 
@@ -45,19 +45,19 @@ class TimerWidget(Widget):
     can_focus = True
 
     _ticker: TextualTimer
-    _wt_timer: timer.Timer
+    _timer: Timer
 
     def __init__(self,
-                 wt_timer: timer.Timer,
+                 timer: Timer,
                  task_db: taskdb.TaskDB):
         super().__init__()
         self._ticker = self.set_interval(.05, self._tick)
         self._task_db = task_db
-        self._wt_timer = wt_timer
-        self._wt_timer.set_on_period_end_callback(self._on_period_end)
+        self._timer = timer
+        self._timer.set_on_period_end_callback(self._on_period_end)
 
     def compose(self) -> ComposeResult:
-        ti = self._wt_timer.get_info()
+        ti = self._timer.get_info()
 
         self._update_classes(ti)
 
@@ -67,7 +67,7 @@ class TimerWidget(Widget):
         progress_bar = ProgressBar(show_percentage=False, show_eta=False)
         yield self._update_progress_bar(ti, progress_bar)
 
-    def _on_period_end(self, info: timer.TimerInfo) -> None:
+    def _on_period_end(self, info: TimerInfo) -> None:
         del info
         self.post_message(TimerWidget.PeriodEnded())
 
@@ -79,44 +79,44 @@ class TimerWidget(Widget):
         self.refresh_bindings()
 
     def action_pause(self) -> None:
-        self._wt_timer.pause()
+        self._timer.pause()
         self.refresh_bindings()
 
     def action_resume(self) -> None:
-        self._wt_timer.resume()
+        self._timer.resume()
         self.refresh_bindings()
 
     def action_stop(self) -> None:
-        self._wt_timer.stop()
+        self._timer.stop()
 
     def check_action(  # pylint: disable=too-many-return-statements
         self, action: str, parameters: tuple[object, ...]
     ) -> bool | None:
-        match (action, self._wt_timer.get_info().state):
-            case ('pause', timer.Timer.State.RUNNING):
+        match (action, self._timer.get_info().state):
+            case ('pause', Timer.State.RUNNING):
                 return True
-            case ('resume', timer.Timer.State.PAUSED):
+            case ('resume', Timer.State.PAUSED):
                 return True
-            case ('stop', timer.Timer.State.RUNNING):
+            case ('stop', Timer.State.RUNNING):
                 return True
-            case ('stop', timer.Timer.State.PAUSED):
+            case ('stop', Timer.State.PAUSED):
                 return True
             case _:
                 return False
 
     def _tick(self) -> None:
-        ti = self._wt_timer.get_info()
+        ti = self._timer.get_info()
         self._update_progress_bar(ti, self.query_one(ProgressBar))
         self._update_time_display(ti, self.query_one(TimeDisplay))
         self._update_title(ti, self.query_one('#title', Label))
         self._update_classes(ti)
 
-    def _update_title(self, ti: timer.TimerInfo, title: Label) -> Label:
+    def _update_title(self, ti: TimerInfo, title: Label) -> Label:
         task = self._task_db.get(ti.task_id)
         title.update(task.title)
         return title
 
-    def _update_time_display(self, ti: timer.TimerInfo, disp: TimeDisplay) -> TimeDisplay:
+    def _update_time_display(self, ti: TimerInfo, disp: TimeDisplay) -> TimeDisplay:
         seconds_left = ti.period_length.total_seconds() - ti.elapsed_time.total_seconds()
         disp.seconds_left = max(0, seconds_left)
         return disp
@@ -126,7 +126,7 @@ class TimerWidget(Widget):
                   progress=ti.elapsed_time.total_seconds())
         return pb
 
-    def _update_classes(self, ti: timer.TimerInfo) -> None:
+    def _update_classes(self, ti: TimerInfo) -> None:
         if ti.task_id == taskdb.BREAK_TASK_ID:
             self.classes = 'break'
 
@@ -144,10 +144,10 @@ class TimerScreen(Screen):
         self._timed_task = timed_task
         self._period_length = period_length
         self._time_log = time_log
-        self._wt_timer = timer.Timer(self._timed_task.id, self._period_length, time_log)
+        self._timer = Timer(self._timed_task.id, self._period_length, time_log)
 
     def compose(self) -> ComposeResult:
-        yield TimerWidget(self._wt_timer, self._task_db)
+        yield TimerWidget(self._timer, self._task_db)
         yield Footer()
 
     @on(TimerWidget.PeriodEnded)
@@ -169,8 +169,8 @@ def main() -> None:
             task = list(db.get_all().values())[0]
             period_length = timedelta(seconds=4)
             time_log = TimeLog()
-            wt_timer = timer.Timer(task.id, period_length, time_log)
-            yield TimerWidget(wt_timer, db)
+            timer = Timer(task.id, period_length, time_log)
+            yield TimerWidget(timer, db)
             yield Footer()
 
     app = TimerApp()
