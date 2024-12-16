@@ -80,6 +80,7 @@ class _SingleTaskTimer(state_machine.StateMachine):
             state=self.get_state(),
             elapsed_time=timedelta(seconds=elapsed_seconds),
             period_length=self._tk.get_period_length(),
+            task_id=self._task_id,
         )
 
     def set_on_period_end_callback(self, callback: Callable[['TimerInfo'], None]):
@@ -168,6 +169,9 @@ class Timer:
 class TimerInfo:
     """Information about the current Timer state."""
     state: Timer.State
+    # `task_id` isn't used by anything in this module, it's to make it easier
+    # for callers to keep track of which Task is timed by this Timer.
+    task_id: TaskID
     period_length: timedelta
     elapsed_time: timedelta = timedelta(0)
 

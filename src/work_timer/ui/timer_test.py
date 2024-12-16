@@ -13,20 +13,22 @@ from work_timer import taskdb
 from work_timer.timer import Timer
 from work_timer.timelog import TimeLog
 from work_timer.ui.timer import TimerWidget, TimeDisplay
+from work_timer.utils import fake_tasks
 
 
 class FakeApp(App):  # pylint: disable=missing-class-docstring
 
-    def __init__(self, period_length: timedelta, timed_task: taskdb.Task) -> None:
+    def __init__(self, period_length: timedelta, task_db: taskdb.TaskDB,
+                 timed_task: taskdb.Task) -> None:
         super().__init__()
         self.period_length = period_length
+        self.task_db = task_db
         self.timed_task = timed_task
 
     def compose(self) -> ComposeResult:
         time_log = TimeLog()
         wt_timer = Timer(self.timed_task.id, self.period_length, time_log)
-        yield TimerWidget(wt_timer, timed_task=self.timed_task,
-                          period_length=self.period_length)
+        yield TimerWidget(wt_timer, self.task_db)
         yield Footer(show_command_palette=False)
 
 
@@ -41,9 +43,10 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
     """
 
     def setUp(self):
+        self.task_db = fake_tasks.get_task_db()
+        self.task = list(self.task_db.get_all().values())[0]
         self.period_length = timedelta(seconds=4)
-        self.task = taskdb.Task(title='Test task', id=taskdb.TaskID(42))
-        self.app = FakeApp(self.period_length, self.task)
+        self.app = FakeApp(self.period_length, self.task_db, self.task)
 
     async def test_it(self):
         async with self.app.run_test() as pilot:
@@ -129,8 +132,9 @@ def get_binding(pilot: Pilot) -> list[str]:
 
 def run_test_app():
     period_length = timedelta(seconds=5)
-    timed_task = taskdb.Task(title='Test task', id=taskdb.TaskID(42))
-    app = FakeApp(period_length, timed_task)
+    task_db = fake_tasks.get_task_db()
+    task = list(task_db.get_all().values())[0]
+    app = FakeApp(period_length, task_db, task)
     app.run()
 
 

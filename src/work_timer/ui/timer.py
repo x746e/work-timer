@@ -49,24 +49,23 @@ class TimerWidget(Widget):
 
     def __init__(self,
                  wt_timer: timer.Timer,
-                 timed_task: taskdb.Task,
-                 period_length: timedelta):
+                 task_db: taskdb.TaskDB):
         super().__init__()
         self._ticker = self.set_interval(.05, self._tick)
-        self._timed_task = timed_task
-        self._period_length = period_length
+        self._task_db = task_db
         self._wt_timer = wt_timer
         self._wt_timer.set_on_period_end_callback(self._on_period_end)
-        if timed_task.id == taskdb.BREAK_TASK_ID:
-            self.classes = 'break'
 
     def compose(self) -> ComposeResult:
-        yield Label(self._timed_task.title, id='title')
-        yield TimeDisplay(self._period_length.seconds)
+        ti = self._wt_timer.get_info()
+
+        self._update_classes(ti)
+
+        title = Label('', id='title')
+        yield self._update_title(ti, title)
+        yield self._update_time_display(ti, TimeDisplay(42))
         progress_bar = ProgressBar(show_percentage=False, show_eta=False)
-        progress_bar.update(progress=0, total=self._period_length.total_seconds())
-        yield progress_bar
-        self.refresh_bindings()  # TODO: Is this needed?
+        yield self._update_progress_bar(ti, progress_bar)
 
     def _on_period_end(self, info: timer.TimerInfo) -> None:
         del info
@@ -107,10 +106,29 @@ class TimerWidget(Widget):
 
     def _tick(self) -> None:
         ti = self._wt_timer.get_info()
+        self._update_progress_bar(ti, self.query_one(ProgressBar))
+        self._update_time_display(ti, self.query_one(TimeDisplay))
+        self._update_title(ti, self.query_one('#title', Label))
+        self._update_classes(ti)
+
+    def _update_title(self, ti: timer.TimerInfo, title: Label) -> Label:
+        task = self._task_db.get(ti.task_id)
+        title.update(task.title)
+        return title
+
+    def _update_time_display(self, ti: timer.TimerInfo, disp: TimeDisplay) -> TimeDisplay:
         seconds_left = ti.period_length.total_seconds() - ti.elapsed_time.total_seconds()
-        self.query_one(TimeDisplay).seconds_left = max(0, seconds_left)
-        self.query_one(ProgressBar).update(total=ti.period_length.total_seconds(),
-                                           progress=ti.elapsed_time.total_seconds())
+        disp.seconds_left = max(0, seconds_left)
+        return disp
+
+    def _update_progress_bar(self, ti, pb: ProgressBar) -> ProgressBar:
+        pb.update(total=ti.period_length.total_seconds(),
+                  progress=ti.elapsed_time.total_seconds())
+        return pb
+
+    def _update_classes(self, ti: timer.TimerInfo) -> None:
+        if ti.task_id == taskdb.BREAK_TASK_ID:
+            self.classes = 'break'
 
 
 class TimerScreen(Screen):
@@ -119,15 +137,17 @@ class TimerScreen(Screen):
 
     CSS_PATH = 'timer.tcss'
 
-    def __init__(self, timed_task: taskdb.Task, period_length: timedelta, time_log: TimeLog):
+    def __init__(self, task_db: taskdb.TaskDB, timed_task: taskdb.Task,
+                 period_length: timedelta, time_log: TimeLog):
         super().__init__()
+        self._task_db = task_db
         self._timed_task = timed_task
         self._period_length = period_length
         self._time_log = time_log
         self._wt_timer = timer.Timer(self._timed_task.id, self._period_length, time_log)
 
     def compose(self) -> ComposeResult:
-        yield TimerWidget(self._wt_timer, self._timed_task, self._period_length)
+        yield TimerWidget(self._wt_timer, self._task_db)
         yield Footer()
 
     @on(TimerWidget.PeriodEnded)
@@ -138,18 +158,19 @@ class TimerScreen(Screen):
 def main() -> None:
     """A way to exercise the widget in isolation, useful for development."""
 
+    from work_timer.utils import fake_tasks  # pylint: disable=import-outside-toplevel
+
     class TimerApp(App):  # pylint: disable=missing-class-docstring
 
         CSS_PATH = 'timer.tcss'
 
         def compose(self) -> ComposeResult:
-            timed_task = taskdb.Task(title='Test', id=taskdb.TaskID(42))
+            db = fake_tasks.get_task_db()
+            task = list(db.get_all().values())[0]
             period_length = timedelta(seconds=4)
             time_log = TimeLog()
-            wt_timer = timer.Timer(timed_task.id, period_length, time_log)
-            yield TimerWidget(wt_timer = wt_timer,
-                        timed_task = timed_task,
-                        period_length = period_length)
+            wt_timer = timer.Timer(task.id, period_length, time_log)
+            yield TimerWidget(wt_timer, db)
             yield Footer()
 
     app = TimerApp()
