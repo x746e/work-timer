@@ -71,14 +71,14 @@ class Timer(Widget):
     def __init__(self,
                  timed_task: taskdb.Task,
                  period_length: timedelta,
-                 time_log: TimeLog,
-                 start = False):
+                 time_log: TimeLog):
         super().__init__()
         self._ticker = self.set_interval(.05, self._tick, pause=True)
         self._timed_task = timed_task
         self._period_length = period_length
+        # TODO: The idea is to have the Timer be global, passed into the
+        # constructor.
         self._wt_timer = timer.Timer(self._timed_task.id, self._period_length, time_log)
-        self._start = start
         if timed_task.id == taskdb.BREAK_TASK_ID:
             self.classes = 'break'
 
@@ -91,8 +91,7 @@ class Timer(Widget):
         self.refresh_bindings()  # TODO: Is this needed?
 
     def on_mount(self) -> None:
-        if self._start:
-            self.action_start()
+        self.action_start()
 
     def action_start(self) -> None:
         self._wt_timer.start()
@@ -153,16 +152,14 @@ class TimerScreen(Screen):
 
     CSS_PATH = 'timer.tcss'
 
-    def __init__(self, timed_task: taskdb.Task, period_length: timedelta, time_log: TimeLog,
-                 start=False):
+    def __init__(self, timed_task: taskdb.Task, period_length: timedelta, time_log: TimeLog):
         super().__init__()
         self._timed_task = timed_task
         self._period_length = period_length
         self._time_log = time_log
-        self._start = start
 
     def compose(self) -> ComposeResult:
-        yield Timer(self._timed_task, self._period_length, self._time_log, start=self._start)
+        yield Timer(self._timed_task, self._period_length, self._time_log)
         yield Footer()
 
     @on(Timer.PeriodEnded)

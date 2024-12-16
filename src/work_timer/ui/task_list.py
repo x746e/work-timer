@@ -302,8 +302,8 @@ class TaskList(Widget):
                     start=datetime.now(), end=datetime.now() + self._config.work_period_duration))
 
         self._is_timer_ticking = True
-        await self.app.push_screen_wait(TimerScreen(task, self._config.work_period_duration,
-                                                    self._time_log, start=True))
+        await self.app.push_screen_wait(
+                TimerScreen(task, self._config.work_period_duration, self._time_log))
         self._is_timer_ticking = False
         self._not_ticking_since = datetime.now()
         # TODO: Move this into a work_timer.notifications.Notifier.
@@ -349,7 +349,7 @@ class TaskList(Widget):
         if should_rest():
             rest_length = get_rest_length()
             await self.app.push_screen_wait(
-                    TimerScreen(taskdb.BREAK, rest_length, self._time_log, start=True))
+                    TimerScreen(taskdb.BREAK, rest_length, self._time_log))
             if self._config.notifier:
                 break_ended_icon = Icon(name='document-open-recent')
                 break_ended_sound = Sound(name='dialog-error')

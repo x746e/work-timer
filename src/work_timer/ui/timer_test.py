@@ -44,10 +44,10 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
     async def test_it(self):
         async with self.app.run_test() as pilot:
 
+            # Should be started in the running state.
             self.check_initial_state(pilot)
 
-            # Start, wait 1 second, check the running state.
-            await pilot.press('space')
+            # Wait 1 second, check again.
             await asyncio.sleep(1)
             self.check_running_state(pilot)
 
@@ -68,13 +68,13 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(display.value, '00:00:04')
         # The task title is shown.
         assert pilot.app.query_exactly_one('#title', Label).renderable == self.task.title
-        # Progress is on zero.
+        # Progress is about zero.
         progress_bar = pilot.app.query_exactly_one(ProgressBar)
         self.assertEqual(progress_bar.total, self.period_length.total_seconds())
-        self.assertEqual(progress_bar.progress, 0)
-        # The footer says "Start".
+        self.assertEqual(math.floor(progress_bar.progress), 0)
+        # The footer says "Pause" and "Stop".
         self.assertEqual(
-            ['space Start'],
+            ['space Pause', 'S Stop'],
             get_binding(pilot),
         )
 
