@@ -34,7 +34,6 @@ class TimerWidget(Widget):
     """Timer interface widget."""
 
     BINDINGS = [
-        ("space", "start", "Start"),
         ("space", "pause", "Pause"),
         ("space", "resume", "Resume"),
         ("S", "stop", "Stop"),
@@ -96,8 +95,6 @@ class TimerWidget(Widget):
         self, action: str, parameters: tuple[object, ...]
     ) -> bool | None:
         match (action, self._wt_timer.get_info().state):
-            case ('start', timer.Timer.State.STOPPED):
-                return True
             case ('pause', timer.Timer.State.RUNNING):
                 return True
             case ('resume', timer.Timer.State.PAUSED):
