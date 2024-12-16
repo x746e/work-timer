@@ -22,65 +22,6 @@ from work_timer.utils.clock import Clock
 Seconds = NewType('Seconds', int)
 
 
-class _TimeKeeper:
-
-    # TODO: Consider start the Timer in a Started state, in which case this
-    # wouldn't ever be None.
-    # TODO: And disallow STOPPED -> STARTED transition.
-    _started_at: float | None
-    _elapsed_seconds: float
-    _period_left: float
-    _period_length: float
-
-    def __init__(self, period_length: float):
-        self._started_at = None
-        # `self.elapsed_seconds` and `self.period_left` are updated when the
-        # Timer isn't ticking (when changing into STOPPED or PAUSED from RUNNING).
-        # How much time from the current period has already passed.
-        self._elapsed_seconds = 0
-        # How much time from the current period is still left, in seconds.
-        self._period_left = period_length
-        self._period_length = period_length
-
-    def __repr__(self) -> str:
-        return (f'<{self.__class__.__name__}: '
-                f'_started_at={self._started_at!r}, '
-                f'_elapsed_seconds={self._elapsed_seconds!r}, '
-                f'_period_left={self._period_left!r}, '
-                f'_period_length={self._period_length!r}>')
-
-    # TODO: Do I need to pass timestamps into it?  Maybe just give the class a clock?
-    def pause(self, ts_now: float) -> Tuple[float, float]:  # pylint: disable=missing-function-docstring
-        assert self._started_at is not None
-        elapsed_seconds = ts_now - self._started_at
-        if elapsed_seconds > self._period_left:
-            # That's a very late tick, but that can happen.
-            self._elapsed_seconds += self._period_left
-            self._period_left = 0
-        else:
-            self._elapsed_seconds += elapsed_seconds
-            self._period_left -= elapsed_seconds
-        return (self._started_at, elapsed_seconds)
-
-    def start(self, ts_now: float) -> None:
-        self._started_at = ts_now
-
-    def get_elapsed_seconds(self) -> float:
-        return self._elapsed_seconds
-
-    def get_started_at(self) -> float:
-        assert self._started_at is not None
-        return self._started_at
-
-    def get_period_left(self) -> float:
-        return self._period_left
-
-    def get_period_length(self) -> timedelta:
-        return timedelta(seconds=self._period_length)
-
-    # TODO: Replace `int` with datetime classes for internal usage.
-
-
 class Timer(state_machine.StateMachine):
     """The timer."""
 
@@ -208,3 +149,62 @@ class TimerInfo:
                 logger.warning('Elapsed time is larger than period length: '
                                f'self.elapsed_time ({td(self.elapsed_time)}) > '
                                f'self.period_length + eps ({td(pl)})')
+
+
+class _TimeKeeper:
+
+    # TODO: Consider start the Timer in a Started state, in which case this
+    # wouldn't ever be None.
+    # TODO: And disallow STOPPED -> STARTED transition.
+    _started_at: float | None
+    _elapsed_seconds: float
+    _period_left: float
+    _period_length: float
+
+    def __init__(self, period_length: float):
+        self._started_at = None
+        # `self.elapsed_seconds` and `self.period_left` are updated when the
+        # Timer isn't ticking (when changing into STOPPED or PAUSED from RUNNING).
+        # How much time from the current period has already passed.
+        self._elapsed_seconds = 0
+        # How much time from the current period is still left, in seconds.
+        self._period_left = period_length
+        self._period_length = period_length
+
+    def __repr__(self) -> str:
+        return (f'<{self.__class__.__name__}: '
+                f'_started_at={self._started_at!r}, '
+                f'_elapsed_seconds={self._elapsed_seconds!r}, '
+                f'_period_left={self._period_left!r}, '
+                f'_period_length={self._period_length!r}>')
+
+    # TODO: Do I need to pass timestamps into it?  Maybe just give the class a clock?
+    def pause(self, ts_now: float) -> Tuple[float, float]:  # pylint: disable=missing-function-docstring
+        assert self._started_at is not None
+        elapsed_seconds = ts_now - self._started_at
+        if elapsed_seconds > self._period_left:
+            # That's a very late tick, but that can happen.
+            self._elapsed_seconds += self._period_left
+            self._period_left = 0
+        else:
+            self._elapsed_seconds += elapsed_seconds
+            self._period_left -= elapsed_seconds
+        return (self._started_at, elapsed_seconds)
+
+    def start(self, ts_now: float) -> None:
+        self._started_at = ts_now
+
+    def get_elapsed_seconds(self) -> float:
+        return self._elapsed_seconds
+
+    def get_started_at(self) -> float:
+        assert self._started_at is not None
+        return self._started_at
+
+    def get_period_left(self) -> float:
+        return self._period_left
+
+    def get_period_length(self) -> timedelta:
+        return timedelta(seconds=self._period_length)
+
+    # TODO: Replace `int` with datetime classes for internal usage.
