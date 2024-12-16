@@ -8,7 +8,7 @@ import unittest
 
 from work_timer import taskdb
 from work_timer.taskdb import Task
-from work_timer.utils import fake_tasks
+from work_timer.utils.fake_tasks import add_fake_tasks, extract, FAKE_TASKS
 from work_timer.utils.testing import UnittestTestCaseMixin
 
 
@@ -225,7 +225,7 @@ class PersistentTaskDBTest(unittest.TestCase, TaskDBMixin):
         d = self.init_task_db()
         db = self.task_db(repo_path=d)
 
-        fake_tasks.add_fake_tasks(db)
+        add_fake_tasks(db)
 
         f = d / 'tasks.json'
         with f.open() as f:
@@ -242,7 +242,7 @@ class PersistentTaskDBTest(unittest.TestCase, TaskDBMixin):
 
         db = self.task_db(d)
 
-        assert list(fake_tasks.FAKE_TASKS) == fake_tasks.fake_tasks_from_db(db)
+        assert list(FAKE_TASKS) == extract.fake_tasks_from_db(db)
 
     def test_empty_db_persistence(self):
         d = self.init_task_db()
