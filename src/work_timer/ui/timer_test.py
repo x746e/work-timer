@@ -10,9 +10,9 @@ from textual.widgets import Footer, Label, ProgressBar
 from textual.widgets._footer import FooterKey
 
 from work_timer import taskdb
-from work_timer.timer import Timer as WtTimer
+from work_timer.timer import Timer
 from work_timer.timelog import TimeLog
-from work_timer.ui.timer import Timer, TimeDisplay
+from work_timer.ui.timer import TimerWidget, TimeDisplay
 
 
 class FakeApp(App):  # pylint: disable=missing-class-docstring
@@ -24,9 +24,9 @@ class FakeApp(App):  # pylint: disable=missing-class-docstring
 
     def compose(self) -> ComposeResult:
         time_log = TimeLog()
-        wt_timer = WtTimer(self.timed_task.id, self.period_length, time_log)
-        yield Timer(wt_timer, timed_task=self.timed_task,
-                    period_length=self.period_length)
+        wt_timer = Timer(self.timed_task.id, self.period_length, time_log)
+        yield TimerWidget(wt_timer, timed_task=self.timed_task,
+                          period_length=self.period_length)
         yield Footer(show_command_palette=False)
 
 

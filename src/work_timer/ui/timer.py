@@ -30,7 +30,7 @@ class TimeDisplay(Digits):
         self.update(f"{hours:02,.0f}:{minutes:02.0f}:{seconds:02.0f}")
 
 
-class Timer(Widget):
+class TimerWidget(Widget):
     """Timer interface widget."""
 
     BINDINGS = [
@@ -57,8 +57,6 @@ class Timer(Widget):
     #       - Give the TimerWidget a "non-started" state.
     #       # TODO: Actually why isn't Timer created with task/period already in paused state?
     #           Why does anything has to be None?
-    #
-    # TODO: Maybe rename it to TimerWidget?  Too many Timer classes.
 
     class PeriodEnded(Message):
         pass
@@ -99,7 +97,7 @@ class Timer(Widget):
 
     def _on_period_end(self, info: timer.TimerInfo) -> None:
         del info
-        self.post_message(Timer.PeriodEnded())
+        self.post_message(TimerWidget.PeriodEnded())
 
     @on(PeriodEnded)
     async def on_period_end(self) -> None:
@@ -158,10 +156,10 @@ class TimerScreen(Screen):
         self._wt_timer = timer.Timer(self._timed_task.id, self._period_length, time_log)
 
     def compose(self) -> ComposeResult:
-        yield Timer(self._wt_timer, self._timed_task, self._period_length)
+        yield TimerWidget(self._wt_timer, self._timed_task, self._period_length)
         yield Footer()
 
-    @on(Timer.PeriodEnded)
+    @on(TimerWidget.PeriodEnded)
     async def on_period_end(self) -> None:
         self.dismiss()
 
@@ -178,7 +176,7 @@ def main() -> None:
             period_length = timedelta(seconds=4)
             time_log = TimeLog()
             wt_timer = timer.Timer(timed_task.id, period_length, time_log)
-            yield Timer(wt_timer = wt_timer,
+            yield TimerWidget(wt_timer = wt_timer,
                         timed_task = timed_task,
                         period_length = period_length)
             yield Footer()
