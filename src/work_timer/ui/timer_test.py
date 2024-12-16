@@ -10,11 +10,12 @@ from textual.widgets import Footer, Label, ProgressBar
 from textual.widgets._footer import FooterKey
 
 from work_timer import taskdb
+from work_timer.timer import Timer as WtTimer
 from work_timer.timelog import TimeLog
 from work_timer.ui.timer import Timer, TimeDisplay
 
 
-class FakeApp(App):
+class FakeApp(App):  # pylint: disable=missing-class-docstring
 
     def __init__(self, period_length: timedelta, timed_task: taskdb.Task) -> None:
         super().__init__()
@@ -22,7 +23,10 @@ class FakeApp(App):
         self.timed_task = timed_task
 
     def compose(self) -> ComposeResult:
-        yield Timer(timed_task=self.timed_task, period_length=self.period_length, time_log=TimeLog())
+        time_log = TimeLog()
+        wt_timer = WtTimer(self.timed_task.id, self.period_length, time_log)
+        yield Timer(wt_timer, timed_task=self.timed_task,
+                    period_length=self.period_length)
         yield Footer(show_command_palette=False)
 
 

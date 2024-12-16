@@ -69,16 +69,14 @@ class Timer(Widget):
     _wt_timer: timer.Timer
 
     def __init__(self,
+                 wt_timer: timer.Timer,
                  timed_task: taskdb.Task,
-                 period_length: timedelta,
-                 time_log: TimeLog):
+                 period_length: timedelta):
         super().__init__()
         self._ticker = self.set_interval(.05, self._tick, pause=True)
         self._timed_task = timed_task
         self._period_length = period_length
-        # TODO: The idea is to have the Timer be global, passed into the
-        # constructor.
-        self._wt_timer = timer.Timer(self._timed_task.id, self._period_length, time_log)
+        self._wt_timer = wt_timer
         if timed_task.id == taskdb.BREAK_TASK_ID:
             self.classes = 'break'
 
@@ -157,9 +155,10 @@ class TimerScreen(Screen):
         self._timed_task = timed_task
         self._period_length = period_length
         self._time_log = time_log
+        self._wt_timer = timer.Timer(self._timed_task.id, self._period_length, time_log)
 
     def compose(self) -> ComposeResult:
-        yield Timer(self._timed_task, self._period_length, self._time_log)
+        yield Timer(self._wt_timer, self._timed_task, self._period_length)
         yield Footer()
 
     @on(Timer.PeriodEnded)
@@ -170,13 +169,18 @@ class TimerScreen(Screen):
 def main() -> None:
     """A way to exercise the widget in isolation, useful for development."""
 
-    class TimerApp(App):
+    class TimerApp(App):  # pylint: disable=missing-class-docstring
 
         CSS_PATH = 'timer.tcss'
 
         def compose(self) -> ComposeResult:
-            yield Timer(timed_task = taskdb.Task(title='Test', id=taskdb.TaskID(42)),
-                        period_length = timedelta(seconds=4), time_log=TimeLog())
+            timed_task = taskdb.Task(title='Test', id=taskdb.TaskID(42))
+            period_length = timedelta(seconds=4)
+            time_log = TimeLog()
+            wt_timer = timer.Timer(timed_task.id, period_length, time_log)
+            yield Timer(wt_timer = wt_timer,
+                        timed_task = timed_task,
+                        period_length = period_length)
             yield Footer()
 
     app = TimerApp()

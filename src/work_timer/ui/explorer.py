@@ -19,6 +19,7 @@ from textual.widgets import Static, ProgressBar, Tree, Footer
 from textual.widgets import tree as tree_widget
 
 from work_timer import taskdb
+from work_timer.timer import Timer as WtTimer
 from work_timer.timelog import TimeLog
 from work_timer.ui.task_editor import TaskEditorWidget
 from work_timer.ui.timer import Timer
@@ -124,8 +125,11 @@ class Playground(Widget):
 
 
 def get_timer():
-    return Timer(timed_task=taskdb.Task(title='Make the Timer pretty!', id=taskdb.TaskID(42)),
-                 period_length=timedelta(seconds=5), time_log=TimeLog())
+    timed_task = taskdb.Task(title='Make the Timer pretty!', id=taskdb.TaskID(42))
+    period_length = timedelta(seconds=5)
+    time_log = TimeLog()
+    wt_timer = WtTimer(timed_task.id, period_length, time_log)
+    return Timer(wt_timer, timed_task, period_length)
 
 
 def get_task_editor():
