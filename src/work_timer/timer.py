@@ -29,9 +29,9 @@ class _SingleTaskTimer(state_machine.StateMachine):
     # pylint: disable=too-many-instance-attributes
 
     class State(enum.Enum):
-        STOPPED = enum.auto()
         RUNNING = enum.auto()
         PAUSED = enum.auto()
+        STOPPED = enum.auto()
 
     def __init__(
             self,
@@ -45,18 +45,16 @@ class _SingleTaskTimer(state_machine.StateMachine):
 
         self._task_id = task_id
 
-        self._tk = _TimeKeeper(period_length.total_seconds())
-
         # TODO: Can I group these arguments together into a class?
         self._scheduler = sched.scheduler(self._clock.time, self._clock.sleep)
         self._thread = None
         self._evt_id = None
         self._on_period_end_callback = None
 
-    # Public API of the class.
-    def start(self):
-        self.transition_to(self.State.RUNNING)
+        self._tk = _TimeKeeper(period_length.total_seconds(), self._clock.time())
+        self._schedule_period_end()
 
+    # Public API of the class.
     def stop(self):
         self.transition_to(self.State.STOPPED)
 
@@ -88,10 +86,9 @@ class _SingleTaskTimer(state_machine.StateMachine):
         self._on_period_end_callback = callback
 
     # State transition handlers.
-    @state_machine.handler(State.STOPPED, State.RUNNING)
     @state_machine.handler(State.PAUSED, State.RUNNING)
     def _when_timer_starts_ticking(self):
-        self._tk.start(self._clock.time())
+        self._tk.resume(self._clock.time())
         self._schedule_period_end()
 
     @state_machine.handler(State.RUNNING, State.STOPPED)
@@ -151,9 +148,6 @@ class Timer:
         self._single_task_timer = _SingleTaskTimer(
             task_id, period_length, time_log, clock)
 
-    def start(self):
-        self._single_task_timer.start()
-
     def stop(self):
         self._single_task_timer.stop()
 
@@ -191,16 +185,13 @@ class TimerInfo:
 
 class _TimeKeeper:
 
-    # TODO: Consider start the Timer in a Started state, in which case this
-    # wouldn't ever be None.
-    # TODO: And disallow STOPPED -> STARTED transition.
-    _started_at: float | None
+    _started_at: float
     _elapsed_seconds: float
     _period_left: float
     _period_length: float
 
-    def __init__(self, period_length: float):
-        self._started_at = None
+    def __init__(self, period_length: float, ts_now: float):
+        self._started_at = ts_now
         # `self.elapsed_seconds` and `self.period_left` are updated when the
         # Timer isn't ticking (when changing into STOPPED or PAUSED from RUNNING).
         # How much time from the current period has already passed.
@@ -229,7 +220,7 @@ class _TimeKeeper:
             self._period_left -= elapsed_seconds
         return (self._started_at, elapsed_seconds)
 
-    def start(self, ts_now: float) -> None:
+    def resume(self, ts_now: float) -> None:
         self._started_at = ts_now
 
     def get_elapsed_seconds(self) -> float:

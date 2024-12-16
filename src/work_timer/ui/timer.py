@@ -56,7 +56,6 @@ class TimerWidget(Widget):
         self._timed_task = timed_task
         self._period_length = period_length
         self._wt_timer = wt_timer
-        self._wt_timer.start()
         self._wt_timer.set_on_period_end_callback(self._on_period_end)
         if timed_task.id == taskdb.BREAK_TASK_ID:
             self.classes = 'break'
