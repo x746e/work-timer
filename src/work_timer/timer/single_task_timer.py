@@ -48,7 +48,7 @@ class SingleTaskTimer(state_machine.StateMachine):
         self._evt_id = None
 
         self._on_period_end_callback = None
-        self._on_next_chunk_callback = None
+        self._on_next_sub_period_callback = None
 
         self._tk = _TimeKeeper(period_length.total_seconds(), self._clock.time())
         self._schedule_period_end()
@@ -85,8 +85,10 @@ class SingleTaskTimer(state_machine.StateMachine):
     def set_on_period_end_callback(self, callback: Callable[['TimerInfo'], None]):
         self._on_period_end_callback = callback
 
-    def set_on_next_chunk_callback(self, callback: 'OnNextChunkCallback'):
-        self._on_next_chunk_callback = callback
+    # "Sub" is here to signify that it can be less that the whole work period
+    # in case the timer was paused.
+    def set_on_next_sub_period_callback(self, callback: 'OnNextSubPeriodCallback'):
+        self._on_next_sub_period_callback = callback
 
     # State transition handlers.
     @state_machine.handler(State.PAUSED, State.RUNNING)
@@ -99,8 +101,8 @@ class SingleTaskTimer(state_machine.StateMachine):
     def _when_timer_stops_ticking(self):
         started_at, elapsed_seconds = self._tk.pause(self._clock.time())
         self._cancel_period_end()
-        if self._on_next_chunk_callback:
-            self._on_next_chunk_callback(
+        if self._on_next_sub_period_callback:
+            self._on_next_sub_period_callback(
                 task_id=self._task_id,
                 started_at=datetime.fromtimestamp(started_at),
                 duration=timedelta(seconds=elapsed_seconds))
@@ -155,7 +157,7 @@ class TimerInfo:
                                f'self.period_length + eps ({td(pl)})')
 
 
-class OnNextChunkCallback(Protocol):
+class OnNextSubPeriodCallback(Protocol):
     def __call__(self, task_id: TaskID, started_at: datetime,
                  duration: timedelta) -> None: ...
 

@@ -3,7 +3,6 @@ from datetime import date, datetime, timedelta
 from typing import no_type_check
 
 from desktop_notifier import Urgency, Icon, Sound
-from gcsa.event import Event
 from loguru import logger
 
 from rich.color import Color
@@ -295,12 +294,6 @@ class TaskList(Widget):
         # TODO: All this logic doesn't really belong here.
 
         task = self._get_task(node)
-
-        if self._config.calendar:
-            self._config.calendar.add_event(
-                Event(
-                    task.title,
-                    start=datetime.now(), end=datetime.now() + self._config.work_period_duration))
 
         self._is_timer_ticking = True
         timer = Timer(self._config)

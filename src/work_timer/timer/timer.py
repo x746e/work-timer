@@ -2,6 +2,8 @@
 from datetime import datetime, timedelta
 import time
 
+from gcsa.event import Event
+
 from work_timer.config import Config
 from work_timer.taskdb import TaskID, BREAK_TASK_ID
 from work_timer.timer.single_task_timer import SingleTaskTimer, TimerInfo
@@ -32,7 +34,7 @@ class Timer:
         if task_id == BREAK_TASK_ID:
             return
 
-        self._single_task_timer.set_on_next_chunk_callback(self._on_next_chunk)
+        self._single_task_timer.set_on_next_sub_period_callback(self._on_next_sub_period)
 
     def stop(self) -> None:
         assert self._single_task_timer is not None
@@ -51,10 +53,19 @@ class Timer:
             return NoActiveTimer()
         return self._single_task_timer.get_info()
 
-    def _on_next_chunk(self, task_id: TaskID, started_at: datetime,
-                       duration: timedelta) -> None:
+    def _on_next_sub_period(self, task_id: TaskID, started_at: datetime,
+                            duration: timedelta) -> None:
         self._time_log.add_period(
                 task_id=task_id, start=started_at, duration=duration)
+
+        task = self._config.task_db.get(task_id)
+
+        if self._config.calendar:
+            self._config.calendar.add_event(
+                Event(
+                    task.title,
+                    start=started_at,
+                    end=started_at + duration))
 
 
 class NoActiveTimer:
