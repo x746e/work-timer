@@ -2,7 +2,7 @@
 from datetime import date, datetime, timedelta
 from typing import no_type_check
 
-from desktop_notifier import Urgency
+from desktop_notifier import Urgency, Icon, Sound
 from gcsa.event import Event
 from loguru import logger
 
@@ -71,9 +71,11 @@ class TaskList(Widget):
                 datetime.now() - self._bugged_last_at < not_none(self._config.bug_every)):
             return
         if self._config.notifier:
+            not_ticking_icon = Icon(name='document-open-recent')
+            # TODO: Add a sound as well.
             await self._config.notifier.send(
                     title='The timer is not ticking!', message='Go do some work!',
-                    urgency=Urgency.Critical, icon='document-open-recent')
+                    urgency=Urgency.Critical, icon=not_ticking_icon)
         self._bugged_last_at = datetime.now()
 
     def compose(self) -> ComposeResult:
@@ -308,10 +310,12 @@ class TaskList(Widget):
         #       NoopNotifier if disabled.
         #       Make Deps, self._config.deps.notifier?
         if self._config.notifier:
+            period_ended_icon = Icon(name='document-open-recent')
+            period_ended_sound = Sound(name='complete')
             await self._config.notifier.send(
                     title='Work period ended', message=task.title,
-                    urgency=Urgency.Critical, icon='document-open-recent',
-                    sound='complete')  # type: ignore
+                    urgency=Urgency.Critical, icon=period_ended_icon,
+                    sound=period_ended_sound)
 
         def should_rest() -> bool:
             # TODO: Do we always rest?  If the period ended on its own, not when it was
@@ -347,10 +351,12 @@ class TaskList(Widget):
             await self.app.push_screen_wait(
                     TimerScreen(taskdb.BREAK, rest_length, self._time_log, start=True))
             if self._config.notifier:
+                break_ended_icon = Icon(name='document-open-recent')
+                break_ended_sound = Sound(name='dialog-error')
                 await self._config.notifier.send(
                         title='Break ended', message=str(rest_length),
-                        urgency=Urgency.Critical, icon='document-open-recent',
-                        sound='dialog-error')  # type: ignore
+                        urgency=Urgency.Critical, icon=break_ended_icon,
+                        sound=break_ended_sound)
 
     def action_cursor_up(self):
         self._get_tree().action_cursor_up()
