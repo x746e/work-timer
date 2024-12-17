@@ -6,9 +6,6 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from flaky import flaky
-
-from work_timer import timer
 from work_timer.taskdb import TaskID
 from work_timer.timelog import TimeLog, PersistentTimeLog, Period
 from work_timer.utils.testing import FakeClock, td
@@ -20,18 +17,14 @@ class TimeLogTest(unittest.TestCase):
         self._clock = FakeClock()
         self.addCleanup(self._clock.stop)
 
-    @flaky
-    def test_it(self):
+    def test_add_period__then__get_periods(self):
         log = TimeLog()
-        start_dt = datetime.fromtimestamp(self._clock.time())
-        _ = timer.Timer(task_id=TaskID(42), period_length=td('5m'),
-                        clock=self._clock, time_log=log)
+        period = Period(task_id=TaskID(42), start=datetime.now(), duration=td('5m'))
 
-        self._clock.advance('5m')
+        log.add_period(**dataclasses.asdict(period))
 
-        self.assertEqual(
-                log.get_periods(),
-                [Period(task_id=TaskID(42), start=start_dt, duration=td('5m'))])
+        assert [period] == log.get_periods()
+
 
 
 EXPECTED_DATA = {
