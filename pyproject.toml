@@ -10,18 +10,8 @@ dependencies = [
     "gcsa>=2.5.1",
     "ipython>=8.29.0",
     "loguru>=0.7.2",
-    "mypy>=1.13.0",
     "pandas>=2.2.3",
     "platformdirs>=4.3.6",
-    "pylint>=3.3.1",
-    "pyright>=1.1.389",
-    "pytest-asyncio>=0.24.0",
-    "pytest-profiling>=1.8.1",
-    "pytest-textual-snapshot>=1.0.0",
-    "pytest-xdist[psutil]>=3.6.1",
-    "pytest>=8.3.3",
-    "ruff>=0.7.4",
-    "textual-dev>=1.7.0",
     "textual>=0.86.3",
     "watchdog>=6.0.0",
 ]
@@ -29,6 +19,27 @@ requires-python = ">=3.13"
 readme = "README.md"
 license = {text = "MIT"}
 dynamic = ["version"]
+
+[dependency-groups]
+dev = [
+    "textual-dev>=1.7.0",
+]
+
+lint = [
+    "mypy>=1.13.0",
+    "pylint>=3.3.1",
+    "pyright>=1.1.389",
+    "ruff>=0.7.4",
+]
+
+test = [
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.24.0",
+    "pytest-profiling>=1.8.1",
+    "pytest-textual-snapshot>=1.0.0",
+    "pytest-xdist[psutil]>=3.6.1",
+    "pytest>=8.3.3",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -587,5 +598,3 @@ ignored-argument-names = "_.*|^ignored_|^unused_"
 # List of qualified module names which can have objects that can redefine
 # builtins.
 redefining-builtins-modules = ["six.moves", "past.builtins", "future.builtins", "builtins", "io"]
-
-
