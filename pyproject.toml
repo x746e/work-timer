@@ -60,7 +60,7 @@ default-groups = ['dev', 'lint', 'test']
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-addopts = "--doctest-modules --durations 3"
+addopts = "--doctest-modules --durations 3 --no-success-flaky-report"
 
 [tool.pyright]
 include = ["src"]
