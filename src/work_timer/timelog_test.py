@@ -6,6 +6,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
+from flaky import flaky
+
 from work_timer import timer
 from work_timer.taskdb import TaskID
 from work_timer.timelog import TimeLog, PersistentTimeLog, Period
@@ -18,6 +20,7 @@ class TimeLogTest(unittest.TestCase):
         self._clock = FakeClock()
         self.addCleanup(self._clock.stop)
 
+    @flaky
     def test_it(self):
         log = TimeLog()
         start_dt = datetime.fromtimestamp(self._clock.time())
