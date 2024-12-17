@@ -22,7 +22,7 @@ from work_timer.utils.clock import Clock
 Seconds = NewType('Seconds', int)
 
 
-class _SingleTaskTimer(state_machine.StateMachine):
+class SingleTaskTimer(state_machine.StateMachine):
     """The timer."""
 
     # TODO: Try removing it, now with _TimeKeeper we can we OK.
@@ -69,7 +69,7 @@ class _SingleTaskTimer(state_machine.StateMachine):
         with self._state_transition_lock:
             return self._get_info(state=self.get_state())
 
-    def _get_info(self, state: 'Timer.State') -> 'TimerInfo':
+    def _get_info(self, state: 'SingleTaskTimer.State') -> 'TimerInfo':
         elapsed_seconds = self._tk.get_elapsed_seconds()
 
         if state == self.State.RUNNING:
@@ -130,45 +130,10 @@ class _SingleTaskTimer(state_machine.StateMachine):
             self._evt_id = None
 
 
-class Timer:
-
-    """The timer.
-
-    For now just forwards everything to the underlying _SingleTaskTimer.  The
-    plan is to move all the timing logic from ui.timer into this class.
-    """
-
-    State = _SingleTaskTimer.State
-
-    def __init__(
-            self,
-            task_id: TaskID,
-            period_length: timedelta,
-            time_log: timelog.TimeLog,
-            clock: Clock = time):
-        self._single_task_timer = _SingleTaskTimer(
-            task_id, period_length, time_log, clock)
-
-    def stop(self):
-        self._single_task_timer.stop()
-
-    def pause(self):
-        self._single_task_timer.pause()
-
-    def resume(self):
-        self._single_task_timer.resume()
-
-    def get_info(self) -> 'TimerInfo':
-        return self._single_task_timer.get_info()
-
-    def set_on_period_end_callback(self, callback: Callable[['TimerInfo'], None]):
-        self._single_task_timer.set_on_period_end_callback(callback)
-
-
 @dataclass(frozen=True)
 class TimerInfo:
     """Information about the current Timer state."""
-    state: Timer.State
+    state: SingleTaskTimer.State
     # `task_id` isn't used by anything in this module, it's to make it easier
     # for callers to keep track of which Task is timed by this Timer.
     task_id: TaskID

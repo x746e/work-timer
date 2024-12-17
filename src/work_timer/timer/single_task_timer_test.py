@@ -6,12 +6,12 @@ import time
 import unittest
 
 from work_timer import timelog
-from work_timer.timer import Timer, TimerInfo
+from work_timer.timer.single_task_timer import SingleTaskTimer as STTimer, TimerInfo
 from work_timer.taskdb import TaskID
 from work_timer.utils.testing import FakeClock, td
 
 
-State = Timer.State
+State = STTimer.State
 
 
 class TestStateChanges(unittest.TestCase):
@@ -19,35 +19,35 @@ class TestStateChanges(unittest.TestCase):
     def setUp(self):
         self._clock = FakeClock()
         self.addCleanup(self._clock.stop)
-        self.Timer = functools.partial(Timer, clock=self._clock,  # pylint: disable=invalid-name
-                                       time_log=timelog.TimeLog())
+        self.STTimer = functools.partial(  # pylint: disable=invalid-name
+                STTimer, clock=self._clock, time_log=timelog.TimeLog())
 
     def test_not_started_timer_state(self):
-        t = self.Timer(task_id=TaskID(42), period_length=td('5m'))
+        t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
         self.assertEqual(t.get_info().state, State.RUNNING)
 
     def test_started_timer_state(self):
-        t = self.Timer(task_id=TaskID(42), period_length=td('5m'))
+        t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
         self.assertEqual(t.get_info().state, State.RUNNING)
 
     def test_stopped_timer_state(self):
-        t = self.Timer(task_id=TaskID(42), period_length=td('5m'))
+        t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
         t.stop()
         self.assertEqual(t.get_info().state, State.STOPPED)
 
     def test_paused_state(self):
-        t = self.Timer(task_id=TaskID(42), period_length=td('5m'))
+        t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
         t.pause()
         self.assertEqual(t.get_info().state, State.PAUSED)
 
     def test_state_after_resume(self):
-        t = self.Timer(task_id=TaskID(42), period_length=td('5m'))
+        t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
         t.pause()
         t.resume()
         self.assertEqual(t.get_info().state, State.RUNNING)
 
     def test_stop_after_pause(self):
-        t = self.Timer(task_id=TaskID(42), period_length=td('5m'))
+        t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
         t.pause()
         t.stop()
         self.assertEqual(t.get_info().state, State.STOPPED)
@@ -58,11 +58,11 @@ class TestTimePassage(unittest.TestCase):
     def setUp(self):
         self._clock = FakeClock()
         self.addCleanup(self._clock.stop)
-        self.Timer = functools.partial(Timer, clock=self._clock,  # pylint: disable=invalid-name
-                                       time_log=timelog.TimeLog())
+        self.STTimer = functools.partial(  # pylint: disable=invalid-name
+                STTimer, clock=self._clock, time_log=timelog.TimeLog())
 
     def test_elapsed_time(self):
-        t = self.Timer(task_id=TaskID(42), period_length=td('5m'))
+        t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
 
         self._clock.advance('1m')
         state = t.get_info()
@@ -70,7 +70,7 @@ class TestTimePassage(unittest.TestCase):
         self.assertEqual(state.elapsed_time, td('1m'))
 
     def test_elapsed_time_doesnt_increase_after_calling_stop(self):
-        t = self.Timer(task_id=TaskID(42), period_length=td('5m'))
+        t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
 
         self._clock.advance('1m')
         t.stop()
@@ -79,7 +79,7 @@ class TestTimePassage(unittest.TestCase):
         self.assertEqual(t.get_info().elapsed_time, td('1m'))
 
     def test_elapsed_time_doesnt_increase_after_calling_pause(self):
-        t = self.Timer(task_id=TaskID(42), period_length=td('5m'))
+        t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
 
         self._clock.advance('1m')
         t.pause()
@@ -88,7 +88,7 @@ class TestTimePassage(unittest.TestCase):
         self.assertEqual(t.get_info().elapsed_time, td('1m'))
 
     def test_elapsed_time_increases_after_resume(self):
-        t = self.Timer(task_id=TaskID(42), period_length=td('5m'))
+        t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
 
         self._clock.advance('1m')
         t.pause()
@@ -99,7 +99,7 @@ class TestTimePassage(unittest.TestCase):
         self.assertEqual(t.get_info().elapsed_time, td('2m'))
 
     def test_stop_after_pause(self):
-        t = self.Timer(task_id=TaskID(42), period_length=td('5m'))
+        t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
 
         self._clock.advance('1m')
         t.pause()
@@ -115,18 +115,18 @@ class TestScheduledEnding(unittest.TestCase):
     def setUp(self):
         self._clock = FakeClock()
         self.addCleanup(self._clock.stop)
-        self.Timer = functools.partial(Timer, clock=self._clock,  # pylint: disable=invalid-name
-                                       time_log=timelog.TimeLog())
+        self.STTimer = functools.partial(  # pylint: disable=invalid-name
+                STTimer, clock=self._clock, time_log=timelog.TimeLog())
 
     def test_it_stops_itself_after_period_end(self):
-        t = self.Timer(task_id=TaskID(42), period_length=td('5m'))
+        t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
 
         self._clock.advance('5m')
 
         self.assertEqual(t.get_info().state, State.STOPPED)
 
     def test_it_stops_after_resume_as_well(self):
-        t = self.Timer(task_id=TaskID(42), period_length=td('5m'))
+        t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
 
         t.pause()
         t.resume()
@@ -135,7 +135,7 @@ class TestScheduledEnding(unittest.TestCase):
         self.assertEqual(t.get_info().state, State.STOPPED)
 
     def test_elapsed_time_after_pause_resume_is_right(self):
-        t = self.Timer(task_id=TaskID(42), period_length=td('5m'))
+        t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
 
         self._clock.advance('1m')
         t.pause()
@@ -151,11 +151,11 @@ class CallbackTest(unittest.TestCase):
     def setUp(self):
         self._clock = FakeClock()
         self.addCleanup(self._clock.stop)
-        self.Timer = functools.partial(Timer, clock=self._clock,  # pylint: disable=invalid-name
-                                       time_log=timelog.TimeLog())
+        self.STTimer = functools.partial(  # pylint: disable=invalid-name
+                STTimer, clock=self._clock, time_log=timelog.TimeLog())
 
     def test_callback_gets_called_on_scheduled_end(self):
-        t = self.Timer(task_id=TaskID(42), period_length=td('5m'))
+        t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
         callback_called = False
         def callback(unused_s: TimerInfo):
             nonlocal callback_called
@@ -168,7 +168,7 @@ class CallbackTest(unittest.TestCase):
         self.assertTrue(callback_called)
 
     def test_callback_gets_called_on_explicit_stop(self):
-        t = self.Timer(task_id=TaskID(42), period_length=td('5m'))
+        t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
         callback_called = False
         def callback(unused_s: TimerInfo):
             nonlocal callback_called
@@ -181,7 +181,7 @@ class CallbackTest(unittest.TestCase):
         self.assertTrue(callback_called)
 
     def test_callback_gets_called_when_stopping_a_paused_timer(self):
-        t = self.Timer(task_id=TaskID(42), period_length=td('5m'))
+        t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
         callback_called = False
         def callback(unused_s: TimerInfo):
             nonlocal callback_called
@@ -268,8 +268,8 @@ class SemiRandomTest(unittest.TestCase):
             total = period_length.total_seconds()
             # print(f'{total=}')
 
-            t = Timer(task_id=TaskID(42), period_length=period_length,
-                      clock=self._clock, time_log=timelog.TimeLog())
+            t = STTimer(task_id=TaskID(42), period_length=period_length,
+                        clock=self._clock, time_log=timelog.TimeLog())
 
             done = False
             for action in plan:
