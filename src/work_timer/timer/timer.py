@@ -1,9 +1,9 @@
 """The Timer."""
-from collections.abc import Callable
+from datetime import datetime, timedelta
 import time
 
 from work_timer.config import Config
-from work_timer.taskdb import TaskID
+from work_timer.taskdb import TaskID, BREAK_TASK_ID
 from work_timer.timer.single_task_timer import SingleTaskTimer, TimerInfo
 from work_timer.utils.clock import Clock
 
@@ -20,23 +20,29 @@ class Timer:
 
     def __init__(self, config: Config, clock: Clock = time) -> None:
         self._config = config
+        self._time_log = config.time_log
         self._clock = clock
         self._single_task_timer = None
 
     def start(self, task_id: TaskID) -> None:
         self._single_task_timer = SingleTaskTimer(
                 task_id, period_length=self._config.work_period_duration,
-                time_log=self._config.time_log, clock=self._clock)
+                clock=self._clock)
 
-    def stop(self):
+        if task_id == BREAK_TASK_ID:
+            return
+
+        self._single_task_timer.set_on_next_chunk_callback(self._on_next_chunk)
+
+    def stop(self) -> None:
         assert self._single_task_timer is not None
         self._single_task_timer.stop()
 
-    def pause(self):
+    def pause(self) -> None:
         assert self._single_task_timer is not None
         self._single_task_timer.pause()
 
-    def resume(self):
+    def resume(self) -> None:
         assert self._single_task_timer is not None
         self._single_task_timer.resume()
 
@@ -45,9 +51,10 @@ class Timer:
             return NoActiveTimer()
         return self._single_task_timer.get_info()
 
-    def set_on_period_end_callback(self, callback: Callable[['TimerInfo'], None]):
-        assert self._single_task_timer is not None
-        self._single_task_timer.set_on_period_end_callback(callback)
+    def _on_next_chunk(self, task_id: TaskID, started_at: datetime,
+                       duration: timedelta) -> None:
+        self._time_log.add_period(
+                task_id=task_id, start=started_at, duration=duration)
 
 
 class NoActiveTimer:

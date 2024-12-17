@@ -8,11 +8,10 @@ import threading
 import weakref
 from collections.abc import Callable
 
-from typing import NewType, Tuple
+from typing import NewType, Tuple, Protocol
 
 from loguru import logger
 
-from work_timer import timelog
 from work_timer.taskdb import TaskID
 from work_timer.utils import state_machine
 from work_timer.utils.time import td
@@ -37,11 +36,9 @@ class SingleTaskTimer(state_machine.StateMachine):
             self,
             task_id: TaskID,
             period_length: timedelta,
-            time_log: timelog.TimeLog,
             clock: Clock = time):
         super().__init__()
         self._clock = clock
-        self._time_log = time_log
 
         self._task_id = task_id
 
@@ -49,7 +46,9 @@ class SingleTaskTimer(state_machine.StateMachine):
         self._scheduler = sched.scheduler(self._clock.time, self._clock.sleep)
         self._thread = None
         self._evt_id = None
+
         self._on_period_end_callback = None
+        self._on_next_chunk_callback = None
 
         self._tk = _TimeKeeper(period_length.total_seconds(), self._clock.time())
         self._schedule_period_end()
@@ -86,6 +85,9 @@ class SingleTaskTimer(state_machine.StateMachine):
     def set_on_period_end_callback(self, callback: Callable[['TimerInfo'], None]):
         self._on_period_end_callback = callback
 
+    def set_on_next_chunk_callback(self, callback: 'OnNextChunkCallback'):
+        self._on_next_chunk_callback = callback
+
     # State transition handlers.
     @state_machine.handler(State.PAUSED, State.RUNNING)
     def _when_timer_starts_ticking(self):
@@ -97,9 +99,10 @@ class SingleTaskTimer(state_machine.StateMachine):
     def _when_timer_stops_ticking(self):
         started_at, elapsed_seconds = self._tk.pause(self._clock.time())
         self._cancel_period_end()
-        self._time_log.add_period(
+        if self._on_next_chunk_callback:
+            self._on_next_chunk_callback(
                 task_id=self._task_id,
-                start=datetime.fromtimestamp(started_at),
+                started_at=datetime.fromtimestamp(started_at),
                 duration=timedelta(seconds=elapsed_seconds))
 
     @state_machine.handler(State.PAUSED, State.STOPPED)
@@ -150,6 +153,11 @@ class TimerInfo:
                 logger.warning('Elapsed time is larger than period length: '
                                f'self.elapsed_time ({td(self.elapsed_time)}) > '
                                f'self.period_length + eps ({td(pl)})')
+
+
+class OnNextChunkCallback(Protocol):
+    def __call__(self, task_id: TaskID, started_at: datetime,
+                 duration: timedelta) -> None: ...
 
 
 class _TimeKeeper:

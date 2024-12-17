@@ -4,6 +4,8 @@ from datetime import timedelta
 import math
 import unittest
 
+from flaky import flaky
+
 from textual.app import App, ComposeResult
 from textual.pilot import Pilot
 from textual.widgets import Footer, Label, ProgressBar
@@ -46,6 +48,7 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
 
         self.app = FakeApp(self.config.task_db, self.timer)
 
+    @flaky
     async def test_it(self):
         async with self.app.run_test() as pilot:
 

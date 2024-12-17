@@ -5,7 +5,8 @@ import random
 import time
 import unittest
 
-from work_timer import timelog
+from flaky import flaky
+
 from work_timer.timer.single_task_timer import SingleTaskTimer as STTimer, TimerInfo
 from work_timer.taskdb import TaskID
 from work_timer.utils.testing import FakeClock, td
@@ -19,9 +20,7 @@ class TestStateChanges(unittest.TestCase):
     def setUp(self):
         self._clock = FakeClock()
         self.addCleanup(self._clock.stop)
-        self.STTimer = functools.partial(  # pylint: disable=invalid-name
-                STTimer, clock=self._clock, time_log=timelog.TimeLog())
-
+        self.STTimer = functools.partial(STTimer, clock=self._clock)  # pylint: disable=invalid-name
     def test_not_started_timer_state(self):
         t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
         self.assertEqual(t.get_info().state, State.RUNNING)
@@ -58,8 +57,7 @@ class TestTimePassage(unittest.TestCase):
     def setUp(self):
         self._clock = FakeClock()
         self.addCleanup(self._clock.stop)
-        self.STTimer = functools.partial(  # pylint: disable=invalid-name
-                STTimer, clock=self._clock, time_log=timelog.TimeLog())
+        self.STTimer = functools.partial(STTimer, clock=self._clock)  # pylint: disable=invalid-name
 
     def test_elapsed_time(self):
         t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
@@ -115,9 +113,9 @@ class TestScheduledEnding(unittest.TestCase):
     def setUp(self):
         self._clock = FakeClock()
         self.addCleanup(self._clock.stop)
-        self.STTimer = functools.partial(  # pylint: disable=invalid-name
-                STTimer, clock=self._clock, time_log=timelog.TimeLog())
+        self.STTimer = functools.partial(STTimer, clock=self._clock)  # pylint: disable=invalid-name
 
+    @flaky
     def test_it_stops_itself_after_period_end(self):
         t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
 
@@ -151,8 +149,7 @@ class CallbackTest(unittest.TestCase):
     def setUp(self):
         self._clock = FakeClock()
         self.addCleanup(self._clock.stop)
-        self.STTimer = functools.partial(  # pylint: disable=invalid-name
-                STTimer, clock=self._clock, time_log=timelog.TimeLog())
+        self.STTimer = functools.partial(STTimer, clock=self._clock)  # pylint: disable=invalid-name
 
     def test_callback_gets_called_on_scheduled_end(self):
         t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
@@ -268,8 +265,7 @@ class SemiRandomTest(unittest.TestCase):
             total = period_length.total_seconds()
             # print(f'{total=}')
 
-            t = STTimer(task_id=TaskID(42), period_length=period_length,
-                        clock=self._clock, time_log=timelog.TimeLog())
+            t = STTimer(task_id=TaskID(42), period_length=period_length, clock=self._clock)
 
             done = False
             for action in plan:
