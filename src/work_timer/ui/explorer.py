@@ -20,7 +20,7 @@ from textual.widgets import tree as tree_widget
 from work_timer.config import get_test_config
 from work_timer.timer import Timer
 from work_timer.ui.task_editor import TaskEditorWidget
-from work_timer.ui.timer import TimerWidget
+from work_timer.ui.timer_widget import TimerWidget
 from work_timer.utils import fake_tasks
 
 # Make all the linters to shut up about unused symbols.

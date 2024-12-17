@@ -20,7 +20,7 @@ from work_timer.config import Config
 from work_timer.taskdb import TaskID, Task, ROOT_TASK_ID
 from work_timer.taskdb.task import TYPE_SYMBOLS
 from work_timer.timer import Timer
-from work_timer.ui.timer import TimerScreen
+from work_timer.ui.timer_widget import TimerScreen
 from work_timer.ui.task_editor import TaskEditor
 from work_timer.utils.typing import not_none
 

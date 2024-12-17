@@ -1,4 +1,4 @@
-"""Tests for work_timer.ui.timer."""
+"""Tests for work_timer.ui.timer_widget."""
 import asyncio
 from datetime import timedelta
 import math
@@ -14,7 +14,7 @@ from textual.widgets._footer import FooterKey
 from work_timer.config import get_test_config
 from work_timer.taskdb import TaskDB
 from work_timer.timer import Timer
-from work_timer.ui.timer import TimerWidget, TimeDisplay
+from work_timer.ui.timer_widget import TimerWidget, TimeDisplay
 
 
 class FakeApp(App):  # pylint: disable=missing-class-docstring
