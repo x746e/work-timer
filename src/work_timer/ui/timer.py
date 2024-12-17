@@ -137,14 +137,10 @@ class TimerScreen(Screen):
 
     CSS_PATH = 'timer.tcss'
 
-    def __init__(self, task_db: taskdb.TaskDB, timed_task: taskdb.Task,
-                 period_length: timedelta, time_log: TimeLog):
+    def __init__(self, task_db: taskdb.TaskDB, timer: Timer) -> None:
         super().__init__()
         self._task_db = task_db
-        self._timed_task = timed_task
-        self._period_length = period_length
-        self._time_log = time_log
-        self._timer = Timer(self._timed_task.id, self._period_length, time_log)
+        self._timer = timer
 
     def compose(self) -> ComposeResult:
         yield TimerWidget(self._timer, self._task_db)

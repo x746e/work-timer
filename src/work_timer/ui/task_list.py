@@ -19,6 +19,7 @@ from work_timer import taskdb
 from work_timer.config import Config
 from work_timer.taskdb import TaskID, Task, ROOT_TASK_ID
 from work_timer.taskdb.task import TYPE_SYMBOLS
+from work_timer.timer import Timer
 from work_timer.ui.timer import TimerScreen
 from work_timer.ui.task_editor import TaskEditor
 from work_timer.utils.typing import not_none
@@ -302,9 +303,8 @@ class TaskList(Widget):
                     start=datetime.now(), end=datetime.now() + self._config.work_period_duration))
 
         self._is_timer_ticking = True
-        await self.app.push_screen_wait(
-                TimerScreen(self._task_db, task, self._config.work_period_duration,
-                            self._time_log))
+        timer = Timer(task.id, self._config.work_period_duration, self._time_log)
+        await self.app.push_screen_wait(TimerScreen(self._task_db, timer))
         self._is_timer_ticking = False
         self._not_ticking_since = datetime.now()
         # TODO: Move this into a work_timer.notifications.Notifier.
@@ -349,8 +349,8 @@ class TaskList(Widget):
 
         if should_rest():
             rest_length = get_rest_length()
-            await self.app.push_screen_wait(
-                    TimerScreen(self._task_db, taskdb.BREAK, rest_length, self._time_log))
+            timer = Timer(taskdb.BREAK_TASK_ID, rest_length, self._time_log)
+            await self.app.push_screen_wait(TimerScreen(self._task_db, timer))
             if self._config.notifier:
                 break_ended_icon = Icon(name='document-open-recent')
                 break_ended_sound = Sound(name='dialog-error')
