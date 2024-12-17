@@ -1,6 +1,4 @@
 """Timer interface."""
-from datetime import timedelta
-
 from textual import on
 from textual.app import App, ComposeResult
 from textual.message import Message
@@ -12,7 +10,6 @@ from textual.widgets import Digits, Footer, Label, ProgressBar
 
 from work_timer import taskdb
 from work_timer.timer import Timer, TimerInfo
-from work_timer.timelog import TimeLog
 
 
 class TimeDisplay(Digits):
@@ -56,15 +53,20 @@ class TimerWidget(Widget):
         self._timer = timer
 
     def compose(self) -> ComposeResult:
-        ti = self._timer.get_info()
-
-        self._update_classes(ti)
-
-        title = Label('', id='title')
-        yield self._update_title(ti, title)
-        yield self._update_time_display(ti, TimeDisplay(42))
+        title = Label('NOT RUNNING', id='title')
+        time_display = TimeDisplay(0)
         progress_bar = ProgressBar(show_percentage=False, show_eta=False)
-        yield self._update_progress_bar(ti, progress_bar)
+
+        ti = self._timer.get_info()
+        if isinstance(ti, TimerInfo):
+            self._update_classes(ti)
+            self._update_title(ti, title)
+            self._update_time_display(ti, time_display)
+            self._update_progress_bar(ti, progress_bar)
+
+        yield title
+        yield time_display
+        yield progress_bar
 
     @on(TimerStopped)
     async def on_timer_stopped(self) -> None:
@@ -84,7 +86,10 @@ class TimerWidget(Widget):
     def check_action(  # pylint: disable=too-many-return-statements
         self, action: str, parameters: tuple[object, ...]
     ) -> bool | None:
-        match (action, self._timer.get_info().state):
+        ti = self._timer.get_info()
+        if not isinstance(ti, TimerInfo):
+            return False
+        match (action, ti.state):
             case ('pause', Timer.State.RUNNING):
                 return True
             case ('resume', Timer.State.PAUSED):
@@ -98,6 +103,8 @@ class TimerWidget(Widget):
 
     def _tick(self) -> None:
         ti = self._timer.get_info()
+        if not isinstance(ti, TimerInfo):
+            return
 
         self._update_progress_bar(ti, self.query_one(ProgressBar))
         self._update_time_display(ti, self.query_one(TimeDisplay))
@@ -151,19 +158,18 @@ class TimerScreen(Screen):
 def main() -> None:
     """A way to exercise the widget in isolation, useful for development."""
 
-    from work_timer.utils import fake_tasks  # pylint: disable=import-outside-toplevel
+    from work_timer.config import get_test_config  # pylint: disable=import-outside-toplevel
 
     class TimerApp(App):  # pylint: disable=missing-class-docstring
 
         CSS_PATH = 'timer.tcss'
 
         def compose(self) -> ComposeResult:
-            db = fake_tasks.get_task_db()
-            task = list(db.get_all().values())[0]
-            period_length = timedelta(seconds=4)
-            time_log = TimeLog()
-            timer = Timer(task.id, period_length, time_log)
-            yield TimerWidget(timer, db)
+            config = get_test_config()
+            timer = Timer(config)
+            task = list(config.task_db.get_all().values())[0]
+            timer.start(task.id)
+            yield TimerWidget(timer, config.task_db)
             yield Footer()
 
     app = TimerApp()

@@ -1,4 +1,4 @@
-"""Tests for work_timer.ui.task_list."""
+"""Tests for work_timer.ui.timer."""
 import asyncio
 from datetime import timedelta
 import math
@@ -9,26 +9,21 @@ from textual.pilot import Pilot
 from textual.widgets import Footer, Label, ProgressBar
 from textual.widgets._footer import FooterKey
 
-from work_timer import taskdb
+from work_timer.config import get_test_config
+from work_timer.taskdb import TaskDB
 from work_timer.timer import Timer
-from work_timer.timelog import TimeLog
 from work_timer.ui.timer import TimerWidget, TimeDisplay
-from work_timer.utils import fake_tasks
 
 
 class FakeApp(App):  # pylint: disable=missing-class-docstring
 
-    def __init__(self, period_length: timedelta, task_db: taskdb.TaskDB,
-                 timed_task: taskdb.Task) -> None:
+    def __init__(self, task_db: TaskDB, timer: Timer) -> None:
         super().__init__()
-        self.period_length = period_length
-        self.task_db = task_db
-        self.timed_task = timed_task
+        self._timer = timer
+        self._task_db = task_db
 
     def compose(self) -> ComposeResult:
-        time_log = TimeLog()
-        timer = Timer(self.timed_task.id, self.period_length, time_log)
-        yield TimerWidget(timer, self.task_db)
+        yield TimerWidget(self._timer, self._task_db)
         yield Footer(show_command_palette=False)
 
 
@@ -43,10 +38,13 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
     """
 
     def setUp(self):
-        self.task_db = fake_tasks.get_task_db()
-        self.task = list(self.task_db.get_all().values())[0]
         self.period_length = timedelta(seconds=4)
-        self.app = FakeApp(self.period_length, self.task_db, self.task)
+        self.config = get_test_config(work_period_duration=self.period_length)
+        self.timer = Timer(self.config)
+        self.task = list(self.config.task_db.get_all().values())[0]
+        self.timer.start(self.task.id)
+
+        self.app = FakeApp(self.config.task_db, self.timer)
 
     async def test_it(self):
         async with self.app.run_test() as pilot:
@@ -65,7 +63,7 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
 
             # Get it run toward completion, check stopped state.
             await pilot.press('space')
-            await asyncio.sleep(10)
+            await asyncio.sleep(self.period_length.total_seconds())
             self.check_stopped_state(pilot)
 
     def check_initial_state(self, pilot: Pilot) -> None:
@@ -131,10 +129,11 @@ def get_binding(pilot: Pilot) -> list[str]:
 
 
 def run_test_app():
-    period_length = timedelta(seconds=5)
-    task_db = fake_tasks.get_task_db()
-    task = list(task_db.get_all().values())[0]
-    app = FakeApp(period_length, task_db, task)
+    config = get_test_config()
+    task = list(config.task_db.get_all().values())[0]
+    timer = Timer(config)
+    timer.start(task.id)
+    app = FakeApp(config.task_db, timer)
     app.run()
 
 

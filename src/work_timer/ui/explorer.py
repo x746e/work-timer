@@ -6,7 +6,6 @@ browsers.
 import re
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import timedelta
 from typing import Sequence
 
 from textual import events
@@ -18,8 +17,8 @@ from textual.widget import Widget
 from textual.widgets import Static, ProgressBar, Tree, Footer
 from textual.widgets import tree as tree_widget
 
+from work_timer.config import get_test_config
 from work_timer.timer import Timer
-from work_timer.timelog import TimeLog
 from work_timer.ui.task_editor import TaskEditorWidget
 from work_timer.ui.timer import TimerWidget
 from work_timer.utils import fake_tasks
@@ -124,12 +123,11 @@ class Playground(Widget):
 
 
 def get_timer():
-    db = fake_tasks.get_task_db()
-    task = list(db.get_all().values())[0]
-    period_length = timedelta(seconds=5)
-    time_log = TimeLog()
-    timer = Timer(task.id, period_length, time_log)
-    return TimerWidget(timer, db)
+    config = get_test_config()
+    task = list(config.task_db.get_all().values())[0]
+    timer = Timer(config)
+    timer.start(task.id)
+    return TimerWidget(timer, config.task_db)
 
 
 def get_task_editor():

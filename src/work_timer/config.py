@@ -104,3 +104,20 @@ def existing_file(p: str) -> Path:
     if not path.is_file():
         raise argparse.ArgumentTypeError(f'{path} is not a file')
     return path
+
+
+def get_test_config(**overrides) -> Config:
+    """Generate a Config suitable for use for tests and development."""
+    from work_timer.utils import fake_tasks  # pylint: disable=import-outside-toplevel
+    task_db = fake_tasks.get_task_db()
+    conf = {
+        'task_db': task_db,
+        'time_log': timelog.TimeLog(),
+        'work_period_duration': td('10s'),
+        'break_duration': td('5s'),
+        'long_break_duration': td('20s'),
+        'long_break_after': td('20s')
+    }
+    conf.update(overrides)
+    config = Config(**conf)
+    return config

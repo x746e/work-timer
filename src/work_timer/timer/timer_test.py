@@ -4,10 +4,11 @@ import unittest
 
 from flaky import flaky
 
-from work_timer import timer
+from work_timer.config import get_test_config
 from work_timer.taskdb import TaskID
-from work_timer.timelog import TimeLog, Period
-from work_timer.utils.testing import FakeClock, td
+from work_timer.timelog import Period
+from work_timer.timer import Timer
+from work_timer.utils.testing import FakeClock
 
 
 class TestLoggingToTimeLog(unittest.TestCase):
@@ -18,13 +19,13 @@ class TestLoggingToTimeLog(unittest.TestCase):
 
     @flaky
     def test_it(self):
-        log = TimeLog()
+        config = get_test_config()
         start_dt = datetime.fromtimestamp(self._clock.time())
-        _ = timer.Timer(task_id=TaskID(42), period_length=td('5m'),
-                        clock=self._clock, time_log=log)
+        timer = Timer(config, clock=self._clock)
 
-        self._clock.advance('5m')
+        timer.start(TaskID(42))
+        self._clock.advance(config.work_period_duration)
 
         self.assertEqual(
-                log.get_periods(),
-                [Period(task_id=TaskID(42), start=start_dt, duration=td('5m'))])
+                config.time_log.get_periods(),
+                [Period(task_id=TaskID(42), start=start_dt, duration=config.work_period_duration)])

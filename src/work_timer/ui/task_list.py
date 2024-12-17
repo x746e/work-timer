@@ -303,7 +303,8 @@ class TaskList(Widget):
                     start=datetime.now(), end=datetime.now() + self._config.work_period_duration))
 
         self._is_timer_ticking = True
-        timer = Timer(task.id, self._config.work_period_duration, self._time_log)
+        timer = Timer(self._config)
+        timer.start(task.id)
         await self.app.push_screen_wait(TimerScreen(self._task_db, timer))
         self._is_timer_ticking = False
         self._not_ticking_since = datetime.now()
@@ -349,7 +350,7 @@ class TaskList(Widget):
 
         if should_rest():
             rest_length = get_rest_length()
-            timer = Timer(taskdb.BREAK_TASK_ID, rest_length, self._time_log)
+            timer.start(taskdb.BREAK_TASK_ID)
             await self.app.push_screen_wait(TimerScreen(self._task_db, timer))
             if self._config.notifier:
                 break_ended_icon = Icon(name='document-open-recent')
