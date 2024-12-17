@@ -39,7 +39,7 @@ class TimerWidget(Widget):
         ("S", "stop", "Stop"),
     ]
 
-    class PeriodEnded(Message):
+    class TimerStopped(Message):
         pass
 
     can_focus = True
@@ -54,7 +54,6 @@ class TimerWidget(Widget):
         self._ticker = self.set_interval(.05, self._tick)
         self._task_db = task_db
         self._timer = timer
-        self._timer.set_on_period_end_callback(self._on_period_end)
 
     def compose(self) -> ComposeResult:
         ti = self._timer.get_info()
@@ -67,15 +66,8 @@ class TimerWidget(Widget):
         progress_bar = ProgressBar(show_percentage=False, show_eta=False)
         yield self._update_progress_bar(ti, progress_bar)
 
-    def _on_period_end(self, info: TimerInfo) -> None:
-        del info
-        self.post_message(TimerWidget.PeriodEnded())
-
-    @on(PeriodEnded)
-    async def on_period_end(self) -> None:
-        self._ticker.stop()
-        self._tick()
-        self.disabled = True
+    @on(TimerStopped)
+    async def on_timer_stopped(self) -> None:
         self.refresh_bindings()
 
     def action_pause(self) -> None:
@@ -106,10 +98,15 @@ class TimerWidget(Widget):
 
     def _tick(self) -> None:
         ti = self._timer.get_info()
+
         self._update_progress_bar(ti, self.query_one(ProgressBar))
         self._update_time_display(ti, self.query_one(TimeDisplay))
         self._update_title(ti, self.query_one('#title', Label))
+
         self._update_classes(ti)
+
+        if ti.state == Timer.State.STOPPED:
+            self.post_message(TimerWidget.TimerStopped())
 
     def _update_title(self, ti: TimerInfo, title: Label) -> Label:
         task = self._task_db.get(ti.task_id)
@@ -146,7 +143,7 @@ class TimerScreen(Screen):
         yield TimerWidget(self._timer, self._task_db)
         yield Footer()
 
-    @on(TimerWidget.PeriodEnded)
+    @on(TimerWidget.TimerStopped)
     async def on_period_end(self) -> None:
         self.dismiss()
 
