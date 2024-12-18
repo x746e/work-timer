@@ -37,13 +37,11 @@ class Timer:
             period_length = self._config.work_period_duration
         self._single_task_timer = SingleTaskTimer(task_id, period_length, clock=self._clock)
 
+        self._single_task_timer.set_on_next_sub_period_callback(self._on_next_sub_period)
         if task_id == BREAK_TASK_ID:
             self._single_task_timer.set_on_period_end_callback(self._on_break_end)
-            return
-
-        self._single_task_timer.set_on_period_end_callback(self._on_work_period_end)
-        self._single_task_timer.set_on_next_sub_period_callback(
-                self._on_next_sub_period)
+        else:
+            self._single_task_timer.set_on_period_end_callback(self._on_work_period_end)
 
     def stop(self) -> None:
         assert self._single_task_timer is not None
@@ -69,8 +67,7 @@ class Timer:
 
         task = self._config.task_db.get(task_id)
 
-        if self._config.calendar:
-            # TODO: Test it.
+        if self._config.calendar and task_id != BREAK_TASK_ID:
             self._config.calendar.add_event(
                 Event(
                     task.title,
