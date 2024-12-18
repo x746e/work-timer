@@ -24,10 +24,18 @@ class FakeClock(clock.Clock):
         self._stopped = False
 
     def advance(self, delta: timedelta | str, ticks=30):
-        inc = td(delta).seconds / ticks
+        """Move the fake time by `delta`."""
+        delta_sec = td(delta).total_seconds()
+        # `(float_num / ticks) * ticks` isn't necessarily equals `float_num`,
+        # so let's calculate what the time should be at the end, so set this
+        # explicitly.
+        advance_to = self._time + delta_sec
+        inc = delta_sec / ticks
         for _ in range(ticks):
             self._time += inc
             time.sleep(0)
+        if self._time < advance_to:  # pylint: disable=consider-using-max-builtin
+            self._time = advance_to
         time.sleep(0.001)
 
     def time(self) -> float:
