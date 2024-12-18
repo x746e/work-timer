@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 import time
 
+from desktop_notifier import Urgency, Icon, Sound
 from gcsa.event import Event
 
 from work_timer.config import Config
@@ -26,15 +27,23 @@ class Timer:
         self._clock = clock
         self._single_task_timer = None
 
-    def start(self, task_id: TaskID) -> None:
-        self._single_task_timer = SingleTaskTimer(
-                task_id, period_length=self._config.work_period_duration,
-                clock=self._clock)
+    def start(self, task_id: TaskID, period_length: timedelta | None = None) -> None:
+        """Starts a new period for `task_id`.
+
+        If `period_length` is specified, use that.  If not, use the default
+        duration from the Config.
+        """
+        if period_length is None:
+            period_length = self._config.work_period_duration
+        self._single_task_timer = SingleTaskTimer(task_id, period_length, clock=self._clock)
 
         if task_id == BREAK_TASK_ID:
+            self._single_task_timer.set_on_period_end_callback(self._on_break_end)
             return
 
-        self._single_task_timer.set_on_next_sub_period_callback(self._on_next_sub_period)
+        self._single_task_timer.set_on_period_end_callback(self._on_work_period_end)
+        self._single_task_timer.set_on_next_sub_period_callback(
+                self._on_next_sub_period)
 
     def stop(self) -> None:
         assert self._single_task_timer is not None
@@ -61,11 +70,41 @@ class Timer:
         task = self._config.task_db.get(task_id)
 
         if self._config.calendar:
+            # TODO: Test it.
             self._config.calendar.add_event(
                 Event(
                     task.title,
                     start=started_at,
                     end=started_at + duration))
+
+    def _on_break_end(self, info: TimerInfo) -> None:
+        assert info.task_id == BREAK_TASK_ID
+        if self._config.notifier:
+            self._config.notifier.send(
+                    # TODO: "Long break ended" for long breaks.
+                    title='Break ended', message=str(info.period_length),
+                    urgency=Urgency.Critical, icon=_NOTIF['break_ended_icon'],
+                    sound=_NOTIF['break_ended_sound'])
+
+    def _on_work_period_end(self, info: TimerInfo) -> None:
+        if self._config.notifier:
+            task = self._config.task_db.get(info.task_id)
+            self._config.notifier.send(
+                    title='Work period ended', message=task.title,
+                    urgency=Urgency.Critical, icon=_NOTIF['period_ended_icon'],
+                    sound=_NOTIF['period_ended_sound'])
+
+
+_NOTIF = _NOTIFICATION_RESOURCES = {
+    'period_ended_icon': Icon(name='document-open-recent'),
+    'period_ended_sound': Sound(name='complete'),
+    'break_ended_icon': Icon(name='document-open-recent'),
+    'break_ended_sound': Sound(name='dialog-error'),
+}
+
+
+# TODO: BreakManager: to decide how long is it time to rest (or not).
+# TODO: Bugger: to bug when the timer is not ticking.
 
 
 class NoActiveTimer:

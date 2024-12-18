@@ -1,24 +1,27 @@
 """Tests for work_timer.timer.timer_test."""
 from datetime import datetime
 import unittest
+from unittest.mock import Mock
 
 from flaky import flaky
 
-from work_timer.config import get_test_config
+from work_timer import config
+from work_timer.taskdb import BREAK_TASK_ID
 from work_timer.timelog import Period
 from work_timer.timer import Timer
 from work_timer.utils.testing import FakeClock
+from work_timer.utils.time import td
 
 
+@flaky
 class TestLoggingToTimeLog(unittest.TestCase):
 
     def setUp(self):
         self.clock = FakeClock()
         self.addCleanup(self.clock.stop)
-        self.config = get_test_config()
+        self.config = config.get_test_config()
         self.task = list(self.config.task_db.get_all().values())[0]
 
-    @flaky
     def test_it_logs_at_the_period_end(self):
         start_dt = datetime.fromtimestamp(self.clock.time())
         timer = Timer(self.config, clock=self.clock)
@@ -30,6 +33,21 @@ class TestLoggingToTimeLog(unittest.TestCase):
                 Period(task_id=self.task.id,
                         start=start_dt,
                         duration=self.config.work_period_duration)
+        ]
+
+    def test_logging_with_user_supplied_period_length(self):
+        start_dt = datetime.fromtimestamp(self.clock.time())
+        timer = Timer(self.config, clock=self.clock)
+        period_length = td('42m')
+        assert period_length > self.config.work_period_duration
+
+        timer.start(self.task.id, period_length=period_length)
+        self.clock.advance(period_length)
+
+        assert self.config.time_log.get_periods() == [
+                Period(task_id=self.task.id,
+                        start=start_dt,
+                        duration=period_length)
         ]
 
     def test_it_does_not_log_while_the_period_is_still_going(self):
@@ -75,3 +93,31 @@ class TestLoggingToTimeLog(unittest.TestCase):
                         start=start_dt + half_duration,
                         duration=half_duration)
         ]
+
+
+class TestNotifications(unittest.TestCase):
+
+    def setUp(self):
+        self.clock = FakeClock()
+        self.addCleanup(self.clock.stop)
+        self.config = config.get_test_config()
+        self.notifier = self.config.notifier = Mock(spec=config.DesktopNotifier)
+        self.task = list(self.config.task_db.get_all().values())[0]
+
+    def test_notifications_at_the_end_of_a_work_period(self):
+        timer = Timer(self.config, clock=self.clock)
+
+        timer.start(self.task.id)
+        self.clock.advance(self.config.work_period_duration)
+
+        assert self.notifier.send.call_count == 1
+        assert self.notifier.send.call_args.kwargs['title'] == 'Work period ended'
+
+    def test_notifications_at_the_end_of_a_break(self):
+        timer = Timer(self.config, clock=self.clock)
+
+        timer.start(BREAK_TASK_ID)
+        self.clock.advance(self.config.work_period_duration)
+
+        assert self.notifier.send.call_count == 1
+        assert self.notifier.send.call_args.kwargs['title'] == 'Break ended'

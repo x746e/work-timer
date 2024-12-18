@@ -2,7 +2,7 @@
 from datetime import date, datetime, timedelta
 from typing import no_type_check
 
-from desktop_notifier import Urgency, Icon, Sound
+# from desktop_notifier import Urgency, Icon
 from loguru import logger
 
 from rich.color import Color
@@ -61,22 +61,23 @@ class TaskList(Widget):
         self.set_interval(5, self._maybe_bug_about_not_ticking_timer)
 
     async def _maybe_bug_about_not_ticking_timer(self) -> None:
-        if self._is_timer_ticking:
-            return
-        if not self._config.bug_after:
-            return
-        if datetime.now() - self._not_ticking_since < self._config.bug_after:
-            return
-        if (self._bugged_last_at and
-                datetime.now() - self._bugged_last_at < not_none(self._config.bug_every)):
-            return
-        if self._config.notifier:
-            not_ticking_icon = Icon(name='document-open-recent')
-            # TODO: Add a sound as well.
-            await self._config.notifier.send(
-                    title='The timer is not ticking!', message='Go do some work!',
-                    urgency=Urgency.Critical, icon=not_ticking_icon)
-        self._bugged_last_at = datetime.now()
+        pass
+        # if self._is_timer_ticking:
+        #     return
+        # if not self._config.bug_after:
+        #     return
+        # if datetime.now() - self._not_ticking_since < self._config.bug_after:
+        #     return
+        # if (self._bugged_last_at and
+        #         datetime.now() - self._bugged_last_at < not_none(self._config.bug_every)):
+        #     return
+        # if self._config.notifier:
+        #     not_ticking_icon = Icon(name='document-open-recent')
+        #     # TODO: Add a sound as well.
+        #     await self._config.notifier.send(
+        #             title='The timer is not ticking!', message='Go do some work!',
+        #             urgency=Urgency.Critical, icon=not_ticking_icon)
+        # self._bugged_last_at = datetime.now()
 
     def compose(self) -> ComposeResult:
         yield self._make_tree_with_tasks()
@@ -301,16 +302,6 @@ class TaskList(Widget):
         await self.app.push_screen_wait(TimerScreen(self._task_db, timer))
         self._is_timer_ticking = False
         self._not_ticking_since = datetime.now()
-        # TODO: Move this into a work_timer.notifications.Notifier.
-        #       NoopNotifier if disabled.
-        #       Make Deps, self._config.deps.notifier?
-        if self._config.notifier:
-            period_ended_icon = Icon(name='document-open-recent')
-            period_ended_sound = Sound(name='complete')
-            await self._config.notifier.send(
-                    title='Work period ended', message=task.title,
-                    urgency=Urgency.Critical, icon=period_ended_icon,
-                    sound=period_ended_sound)
 
         def should_rest() -> bool:
             # TODO: Do we always rest?  If the period ended on its own, not when it was
@@ -319,6 +310,11 @@ class TaskList(Widget):
 
         @no_type_check  # pyright has hard time with the DataFrames for some reason.
         def get_rest_length() -> timedelta:
+            # TODO: Just noticed it started a long break when it shouldn't had,
+            # after the very first period of the day.  Not quite sure why,
+            # maybe timezone-related stuff?
+            # Add a bunch of logging here to be able to debug this next time it
+            # happens.
             logs = self._time_log.get_data_frame()
             # Today logs.
             tlogs = logs[logs.start.dt.date == date.today()]
@@ -342,16 +338,9 @@ class TaskList(Widget):
             return self._config.break_duration
 
         if should_rest():
-            rest_length = get_rest_length()
-            timer.start(taskdb.BREAK_TASK_ID)
+            # TODO: A test for a long break.
+            timer.start(taskdb.BREAK_TASK_ID, period_length=get_rest_length())
             await self.app.push_screen_wait(TimerScreen(self._task_db, timer))
-            if self._config.notifier:
-                break_ended_icon = Icon(name='document-open-recent')
-                break_ended_sound = Sound(name='dialog-error')
-                await self._config.notifier.send(
-                        title='Break ended', message=str(rest_length),
-                        urgency=Urgency.Critical, icon=break_ended_icon,
-                        sound=break_ended_sound)
 
     def action_cursor_up(self):
         self._get_tree().action_cursor_up()

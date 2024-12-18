@@ -8,15 +8,13 @@ from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
 
-from desktop_notifier import DesktopNotifier
+from desktop_notifier.sync import DesktopNotifierSync as DesktopNotifier
 from gcsa.google_calendar import GoogleCalendar
 
 from work_timer import taskdb
 from work_timer import timelog
 from work_timer.utils.time import td
 
-
-# TODO(t/180): Consider using a dataclass / argparser converter.
 
 @dataclass(kw_only=True)
 class Config:  # pylint: disable=too-many-instance-attributes
