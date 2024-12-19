@@ -4,6 +4,8 @@ from datetime import timedelta
 import time
 import threading
 from typing import Protocol, Callable
+import sys
+import traceback
 
 from work_timer.utils import clock
 from work_timer.utils.time import td
@@ -49,6 +51,8 @@ class FakeClock(clock.Clock):
         """
         advance_to = self._time + td(delta).total_seconds()
 
+        bts('BEFORE WAKE UP')
+
         for t in sorted(self._wake_at):
             if t > advance_to:
                 break
@@ -66,6 +70,21 @@ class FakeClock(clock.Clock):
 
         self._time = advance_to
         time.sleep(0)
+
+        # The idea here is to look at what are all the threads doing, and maybe
+        # wait for our code to get executed, if not already.
+        #
+        # To implement that I started by just list all the threads with the
+        # `bts` function.  It appears that doing that takes just enough time
+        # for other threads to call all the required callbacks!
+        #
+        # I'm going to leave this as is for now, and if a see tests getting
+        # flaky again, to continue with that the hacky idea above.
+        #
+        # And if that doesn't work, I probably should add some synchronization
+        # mechanism to the SingleTaskTimer itself: a threading.Event that is set
+        # after its callbacks fire, for instance.
+        bts('AFTER WAKE UP')
 
     def time(self) -> float:
         return self._time
@@ -89,3 +108,14 @@ class FakeClock(clock.Clock):
         # Move forward for a bit, to allow callbacks to fire.
         self._stopped = True
         self.advance('356d')
+
+
+def bts(label=''):
+    """Print stacktraces from all running threads."""
+    print('')
+    print('>>> ' + label + ' ' + '>>>' * 20)
+    for fr in sys._current_frames().values():  # pylint: disable=protected-access
+        traceback.print_stack(fr)
+        print('---' * 20)
+    print('<<<' * 20)
+    print()
