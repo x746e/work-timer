@@ -5,8 +5,6 @@ import random
 import time
 import unittest
 
-from flaky import flaky
-
 from work_timer.timer.single_task_timer import SingleTaskTimer as STTimer, TimerInfo
 from work_timer.taskdb import TaskID
 from work_timer.utils.testing import FakeClock, td
@@ -115,7 +113,6 @@ class TestScheduledEnding(unittest.TestCase):
         self.addCleanup(self._clock.stop)
         self.STTimer = functools.partial(STTimer, clock=self._clock)  # pylint: disable=invalid-name
 
-    @flaky
     def test_it_stops_itself_after_period_end(self):
         t = self.STTimer(task_id=TaskID(42), period_length=td('5m'))
 

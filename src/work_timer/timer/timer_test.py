@@ -3,8 +3,6 @@ from datetime import datetime
 import unittest
 from unittest import mock
 
-from flaky import flaky
-
 from work_timer import config
 from work_timer.taskdb import BREAK_TASK_ID
 from work_timer.timelog import Period
@@ -13,7 +11,6 @@ from work_timer.utils.testing import FakeClock
 from work_timer.utils.time import td
 
 
-@flaky
 class TestLoggingToTimeLog(unittest.TestCase):
 
     def setUp(self):
@@ -107,7 +104,6 @@ class TestLoggingToTimeLog(unittest.TestCase):
         ]
 
 
-@flaky
 class TestNotifications(unittest.TestCase):
 
     def setUp(self):
@@ -136,7 +132,6 @@ class TestNotifications(unittest.TestCase):
         assert self.notifier.send.call_args.kwargs['title'] == 'Break ended'
 
 
-@flaky
 class TestCalendar(unittest.TestCase):
 
     def setUp(self):
