@@ -1,6 +1,7 @@
 """Misc testing helpers."""
 from collections import defaultdict
 from datetime import timedelta
+import functools
 import time
 import threading
 from typing import Protocol, Callable
@@ -51,11 +52,11 @@ class FakeClock(clock.Clock):
         """
         advance_to = self._time + td(delta).total_seconds()
 
-        bts('BEFORE WAKE UP')
-
         for t in sorted(self._wake_at):
             if t > advance_to:
                 break
+            if t < self._time:
+                continue
 
             # Notify all the sleeping threads.
             with self._future_is_now:
@@ -73,18 +74,11 @@ class FakeClock(clock.Clock):
 
         # The idea here is to look at what are all the threads doing, and maybe
         # wait for our code to get executed, if not already.
-        #
-        # To implement that I started by just list all the threads with the
-        # `bts` function.  It appears that doing that takes just enough time
-        # for other threads to call all the required callbacks!
-        #
-        # I'm going to leave this as is for now, and if a see tests getting
-        # flaky again, to continue with that the hacky idea above.
-        #
+        while _the_timer_runs():
+            time.sleep(0.01)
         # And if that doesn't work, I probably should add some synchronization
         # mechanism to the SingleTaskTimer itself: a threading.Event that is set
         # after its callbacks fire, for instance.
-        bts('AFTER WAKE UP')
 
     def time(self) -> float:
         return self._time
@@ -112,10 +106,27 @@ class FakeClock(clock.Clock):
 
 def bts(label=''):
     """Print stacktraces from all running threads."""
-    print('')
-    print('>>> ' + label + ' ' + '>>>' * 20)
+    p = functools.partial(print, file=sys.stderr)
+    p('')
+    p('>>> ' + label + ' ' + '>>>' * 20)
     for fr in sys._current_frames().values():  # pylint: disable=protected-access
         traceback.print_stack(fr)
-        print('---' * 20)
-    print('<<<' * 20)
-    print()
+        p('---' * 20)
+    p('<<<' * 20)
+    p()
+
+
+def _the_timer_runs() -> bool:
+    return any(
+        _thread_runs_the_timer(fr)
+        for fr in sys._current_frames().values())  # pylint: disable=protected-access
+
+
+def _thread_runs_the_timer(fr) -> bool:
+    """Checks if `fr` or it parent frames run SingleTaskTimer methods."""
+    while fr:
+        if ('work_timer' in fr.f_code.co_filename and
+                fr.f_code.co_qualname.startswith('SingleTaskTimer')):
+            return True
+        fr = fr.f_back
+    return False
