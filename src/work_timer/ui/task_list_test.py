@@ -46,6 +46,10 @@ class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
 
         app = FakeApp(fake_tasks.get_task_db(tasks))
         async with app.run_test() as pilot:
+            await pilot.press('down')
+            await pilot.press('space')
+            await pilot.press('down')
+            await pilot.press('space')
             screenshot = ui_testing.grab_screenshot(pilot.app)
 
         row_a, col_a = ui_testing.find('task_a', screenshot)
@@ -139,6 +143,7 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
 
         async with app.run_test() as pilot:
             await pilot.press('down')
+            await pilot.press('space')
             await pilot.press('down')
 
             self.assertEqual(cursor_task(app).title, 'task_b')
@@ -157,7 +162,9 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
 
         async with app.run_test() as pilot:
             await pilot.press('down')
+            await pilot.press('space')
             await pilot.press('down')
+            await pilot.press('space')
             await pilot.press('down')
             self.assertEqual(cursor_task(app).title, 'task_c')
             await pilot.press('d')
@@ -198,7 +205,9 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
 
         async with app.run_test() as pilot:
             await pilot.press('down')
+            await pilot.press('space')
             await pilot.press('down')
+            await pilot.press('space')
             await pilot.press('down')
             tree = app.query_one(Tree)
             self.assertEqual(cursor_task(app).title, 'task_c')
@@ -235,7 +244,9 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
 
         async with app.run_test() as pilot:
             await pilot.press('down')
+            await pilot.press('space')
             await pilot.press('down')
+            await pilot.press('space')
             await pilot.press('down')
             tree = app.query_one(Tree)
             self.assertEqual(cursor_task(app).title, 'task_c')
@@ -270,7 +281,9 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
 
         async with app.run_test() as pilot:
             await pilot.press('down')
+            await pilot.press('space')
             await pilot.press('down')
+            await pilot.press('space')
             tree = app.query_one(Tree)
             self.assertEqual(cursor_task(app).title, 'task_b')
             await pilot.press('e')
@@ -325,7 +338,9 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
 
         async with app.run_test() as pilot:
             await pilot.press('down')
+            await pilot.press('space')
             await pilot.press('down')
+            await pilot.press('space')
             await pilot.press('down')
             tree = app.query_one(Tree)
             self.assertEqual(cursor_task(app).title, 'task_c')
@@ -371,8 +386,11 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
 
         async with app.run_test() as pilot:
             await pilot.press('down')
+            await pilot.press('space')
             await pilot.press('down')
+            await pilot.press('space')
             await pilot.press('down')
+            await pilot.press('space')
             self.assertEqual(cursor_task(app).title, 'task_c')
             await pilot.press('ctrl+up')
             await pilot.press('down')
@@ -407,9 +425,13 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
 
         async with app.run_test() as pilot:
             await pilot.press('down')
+            await pilot.press('space')
             await pilot.press('down')
+            await pilot.press('space')
             await pilot.press('down')
+            await pilot.press('space')
             await pilot.press('down')
+            # await pilot.press('space')
             self.assertEqual(cursor_task(app).title, 'task_d')
             await pilot.press('ctrl+left')
             await pilot.press('down')

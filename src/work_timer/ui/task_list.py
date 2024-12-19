@@ -394,7 +394,7 @@ class TaskList(Widget):
             if not self._whole_subtree_is_completed(task):
                 self._add_task(task, parent_node=tree.root)
 
-        tree.root.expand_all()
+        tree.root.expand()
         return tree
 
     def _add_task(self, task: Task, parent_node: TreeNode | None = None, focus=False) -> TreeNode:
