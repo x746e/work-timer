@@ -1442,7 +1442,7 @@ wheels = [
 [[package]]
 name = "work-timer"
 version = "0.0.0"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "desktop-notifier" },
     { name = "filelock" },

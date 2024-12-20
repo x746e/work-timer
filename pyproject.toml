@@ -1,6 +1,6 @@
 [project]
 name = "work_timer"
-description = "Default template for PDM package"
+description = "A simple terminal-based timer."
 authors = [
     {name = "Kirill Spitsyn", email = "k@spitsyn.me"},
 ]
@@ -19,6 +19,16 @@ requires-python = ">=3.13"
 readme = "README.md"
 license = {text = "MIT"}
 dynamic = ["version"]
+
+[project.scripts]
+wt = "work_timer.ui.app:main"
+wtctl = "work_timer.wtctl:main"
+
+[tool.setuptools.package-data]
+"*" = ["*.tcss"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [dependency-groups]
 dev = [
@@ -40,7 +50,6 @@ test = [
 ]
 
 [tool.uv]
-package = true
 default-groups = ['dev', 'lint', 'test']
 
 [tool.pytest.ini_options]
