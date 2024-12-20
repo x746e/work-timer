@@ -57,6 +57,9 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = "--doctest-modules --durations 3"
 
+[tool.pyright]
+include = ["src"]
+
 # TODO: Remove the default options?
 [tool.pylint.main]
 # Analyse import fallback blocks. This can be used to support both Python 2 and 3
