@@ -1,4 +1,7 @@
 """Timer interface."""
+from datetime import datetime
+import math
+
 from textual import on
 from textual.app import App, ComposeResult
 from textual.message import Message
@@ -121,7 +124,9 @@ class TimerWidget(Widget):
         return title
 
     def _update_time_display(self, ti: TimerInfo, disp: TimeDisplay) -> TimeDisplay:
-        seconds_left = ti.period_length.total_seconds() - ti.elapsed_time.total_seconds()
+        seconds_left = math.ceil(
+                ti.period_length.total_seconds() - ti.elapsed_time.total_seconds())
+        print(f'[{datetime.now().second:<2}] upd: left: {seconds_left}; ID: {ti.task_id}  | {ti}')
         disp.seconds_left = max(0, seconds_left)
         return disp
 

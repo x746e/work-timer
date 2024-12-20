@@ -1,6 +1,5 @@
 """A widget to showing a list (or a tree) of tasks."""
-from datetime import date, datetime, timedelta
-from typing import no_type_check
+from datetime import datetime
 
 # from desktop_notifier import Urgency, Icon
 from loguru import logger
@@ -299,48 +298,11 @@ class TaskList(Widget):
         self._is_timer_ticking = True
         timer = Timer(self._config)
         timer.start(task.id)
+
         await self.app.push_screen_wait(TimerScreen(self._task_db, timer))
+
         self._is_timer_ticking = False
         self._not_ticking_since = datetime.now()
-
-        def should_rest() -> bool:
-            # TODO: Do we always rest?  If the period ended on its own, not when it was
-            # cancelled?
-            return True
-
-        @no_type_check  # pyright has hard time with the DataFrames for some reason.
-        def get_rest_length() -> timedelta:
-            # TODO: Just noticed it started a long break when it shouldn't had,
-            # after the very first period of the day.  Not quite sure why,
-            # maybe timezone-related stuff?
-            # Add a bunch of logging here to be able to debug this next time it
-            # happens.
-            logs = self._time_log.get_data_frame()
-            # Today logs.
-            tlogs = logs[logs.start.dt.date == date.today()]
-            twork = tlogs[tlogs.task_id != taskdb.BREAK_TASK_ID]
-            if twork.empty:
-                return self._config.break_duration
-            tbreaks = tlogs[tlogs.task_id == taskdb.BREAK_TASK_ID]
-            # To decide if it's time for a long break:
-            # 1. Find the last long break today, or count from the start of the day
-            long_breaks = tbreaks[tbreaks.duration > self._config.break_duration + timedelta(seconds=1)]
-            if long_breaks.empty:
-                count_from = twork.iloc[0].start
-            else:
-                count_from = long_breaks.iloc[-1].start
-            # 2. Count from count_from how much work time is there.
-            #    If it more than, say 3h, it time for a long break!
-            worked_since_long_break = twork[twork.start > count_from].duration.sum()
-            time_for_a_long_break = worked_since_long_break > self._config.long_break_after
-            if time_for_a_long_break:
-                return self._config.long_break_duration
-            return self._config.break_duration
-
-        if should_rest():
-            # TODO: A test for a long break.
-            timer.start(taskdb.BREAK_TASK_ID, period_length=get_rest_length())
-            await self.app.push_screen_wait(TimerScreen(self._task_db, timer))
 
     def action_cursor_up(self):
         self._get_tree().action_cursor_up()

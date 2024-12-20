@@ -4,8 +4,6 @@ from datetime import timedelta
 import math
 import unittest
 
-from flaky import flaky
-
 from textual.app import App, ComposeResult
 from textual.pilot import Pilot
 from textual.widgets import Footer, Label, ProgressBar
@@ -15,6 +13,7 @@ from work_timer.config import get_test_config
 from work_timer.taskdb import TaskDB
 from work_timer.timer import Timer
 from work_timer.ui.timer_widget import TimerWidget, TimeDisplay
+from work_timer.utils.testing import FakeClock
 
 
 class FakeApp(App):  # pylint: disable=missing-class-docstring
@@ -30,44 +29,51 @@ class FakeApp(App):  # pylint: disable=missing-class-docstring
 
 
 class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
-    """Go through the whole workflow in one test.
-
-    Generally I prefer much more focused tests validating just one thing,
-    but before I figure out all this asyncio programming and how to mock things
-    out in it (`asyncio.sleep` mostly), I want to have this one test.
-
-    It will not mock out time, so I don't want to have more than one for now.
-    """
+    """Go through the whole workflow in one test."""
 
     def setUp(self):
         self.period_length = timedelta(seconds=4)
-        self.config = get_test_config(work_period_duration=self.period_length)
-        self.timer = Timer(self.config)
-        self.task = list(self.config.task_db.get_all().values())[0]
+        self.config = get_test_config(
+                work_period_duration=self.period_length,
+                break_duration=timedelta(seconds=3),
+        )
+        self.clock = FakeClock()
+        self.timer = Timer(self.config, clock=self.clock)
+        self.task = list(self.config.task_db.get_all().values())[-1]
         self.timer.start(self.task.id)
 
         self.app = FakeApp(self.config.task_db, self.timer)
 
-    @flaky
     async def test_it(self):
+
+        async def time_travel(to):
+            # TODO: We are mising threaded and async code right here.  That is
+            # likely not a great approach, even if it looks like it does work.
+            self.clock.advance(to)
+            await asyncio.sleep(.1)  # UI is supposed to get updated every 50ms.
+                                     # The hope is that 100ms should be enough in majority
+                                     # of cases.
+
         async with self.app.run_test() as pilot:
 
             # Should be started in the running state.
             self.check_initial_state(pilot)
 
             # Wait 1 second, check again.
-            await asyncio.sleep(1)
+            await time_travel('1s')
             self.check_running_state(pilot)
 
             # Pause, wait another second, check the paused state.
             await pilot.press('space')
-            await asyncio.sleep(1)
+            await time_travel('1s')
             self.check_paused_state(pilot)
 
-            # Get it run toward completion, check stopped state.
+            # At this point it was running for a second, and paused for a
+            # second.  Let's run the remaining 3 seconds of the working period.
             await pilot.press('space')
-            await asyncio.sleep(self.period_length.total_seconds())
-            self.check_stopped_state(pilot)
+            await time_travel('3s')
+            # Now it should switch to a three second break.
+            self.check_break(pilot)
 
     def check_initial_state(self, pilot: Pilot) -> None:
         """Check the Timer widget in the expected state before start."""
@@ -115,14 +121,17 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
             get_binding(pilot),
         )
 
-    def check_stopped_state(self, pilot: Pilot) -> None:
-        # Seconds left should be at zero, progress bar should be completed.
+    def check_break(self, pilot: Pilot) -> None:
+        timer_widget = pilot.app.query_exactly_one(TimerWidget)
+        assert 'break' in timer_widget.classes
+        # We should be at the start of a 3 second break.
         display = pilot.app.query_exactly_one(TimeDisplay)
-        self.assertEqual(display.value, '00:00:00')
-        progress_bar = pilot.app.query_exactly_one(ProgressBar)
-        self.assertEqual(progress_bar.total, progress_bar.progress)
-        # No binding should be active.
-        self.assertEqual(get_binding(pilot), [])
+        self.assertEqual(display.value, '00:00:03')
+        # Check `pause` and `stop` bindings are active.
+        self.assertEqual(
+            ['space Pause', 'S Stop'],
+            get_binding(pilot),
+        )
 
 
 def get_binding(pilot: Pilot) -> list[str]:
@@ -132,8 +141,11 @@ def get_binding(pilot: Pilot) -> list[str]:
 
 
 def run_test_app():
-    config = get_test_config()
-    task = list(config.task_db.get_all().values())[0]
+    config = get_test_config(
+            work_period_duration=timedelta(seconds=4),
+            break_duration=timedelta(seconds=3),
+    )
+    task = list(config.task_db.get_all().values())[-1]
     timer = Timer(config)
     timer.start(task.id)
     app = FakeApp(config.task_db, timer)

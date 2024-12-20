@@ -14,7 +14,7 @@ from loguru import logger
 
 from work_timer.taskdb import TaskID
 from work_timer.utils import state_machine
-from work_timer.utils.time import td
+from work_timer.utils.time import td, humanize_td
 from work_timer.utils.clock import Clock
 
 
@@ -155,6 +155,12 @@ class TimerInfo:
                 logger.warning('Elapsed time is larger than period length: '
                                f'self.elapsed_time ({td(self.elapsed_time)}) > '
                                f'self.period_length + eps ({td(pl)})')
+    def __repr__(self):
+        return (f'{self.__class__.__name__}('
+                f'state={self.state}, '
+                f'task_id={self.task_id}, '
+                f'period_length=td({humanize_td(self.period_length)!r}), '
+                f'elapsed_time=td({humanize_td(self.elapsed_time)!r}))')
 
 
 class OnNextSubPeriodCallback(Protocol):
