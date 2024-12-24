@@ -24,6 +24,10 @@ dynamic = ["version"]
 wt = "work_timer.ui.app:main"
 wtctl = "work_timer.wtctl:main"
 
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
 [tool.setuptools.package-data]
 "*" = ["*.tcss"]
 
