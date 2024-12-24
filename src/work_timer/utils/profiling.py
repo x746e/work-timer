@@ -6,7 +6,6 @@ import collections
 import functools
 import inspect
 import io
-from itertools import tee, chain
 import pstats
 import sys
 import textwrap
@@ -292,7 +291,7 @@ class CallRecord:
 @dataclass
 class ReturnRecord:
     frame_id: str
-    ret_val: str
+    ret: str
     duration: float
 
 
@@ -319,14 +318,14 @@ class CallLogger:
         sys.setprofile(None)
         if len(self.tracers) == 1:
             (tracer,) = self.tracers.values()
-            print(render_records(tracer.records))
+            print(format_records(tracer.records))
             self.records  = tracer.records  # pylint: disable=attribute-defined-outside-init
             return
         for thread_name, tracer in self.tracers.items():
             if not self.thread_filter(thread_name):
                 continue
             print('\n\n' + '>>' * 20 + ' ' + thread_name)
-            print(render_records(tracer.records))
+            print(format_records(tracer.records))
 
     def _trace(self, *args):
         self.tracers[threading.current_thread().name].trace(*args)
@@ -431,62 +430,22 @@ class _Tracer:
             self.records.append(
                 ReturnRecord(
                     frame_id,
-                    ret_val=repr(arg) if why == 'return' else '???',
+                    ret=repr(arg) if why == 'return' else '???',
                     duration=time.time() - start_time,
                 )
             )
 
 
-def prepend(value, iterable):
-    """Prepend a single value in front of an iterable.
-
-    >>> list(prepend(1, [2, 3, 4]))
-    [1, 2, 3, 4]
-    """
-    return chain([value], iterable)
-
-
-def with_prev(itr):
-    """For each element from `itr`, return it in a tuple with the previous element.
-
-    >>> list(with_prev([1, 2, 3]))
-    [(None, 1), (1, 2), (2, 3)]
-    """
-    prev, this = tee(itr)
-    return zip(prepend(None, prev), this)
-
-
-def render_records(records: list[Record]) -> str:
-    """Format a list of records."""
-    lvl = 0
-
-    ret = []
-
-    def add(msg: str) -> None:
-        ret.append(f'{"  " * lvl}{msg}')
-
-    for prev, rec in with_prev(records):
-        match rec:
-            case CallRecord(call=call):
-                add(call)
-                lvl += 1
-            case ReturnRecord(ret_val=ret_val):
-                lvl -= 1
-                if prev and isinstance(prev, CallRecord):
-                    assert prev.frame_id == rec.frame_id
-                    ret[-1] += f' -> {ret_val}'
-                else:
-                    add(f'-> {ret_val}')
-
-    return '\n'.join(ret)
-
-
 @dataclass
 class Call:
     call: str
-    ret_val: str
+    ret: str
     duration: float
     child_calls: list['Call'] = field(default_factory=list)
+
+
+def format_records(records: list[Record]) -> str:
+    return format_calls(process_records(records))
 
 
 def process_records(records: list[Record]) -> list[Call]:
@@ -507,7 +466,7 @@ def process_records(records: list[Record]) -> list[Call]:
                 children[-1].append(
                     Call(
                         call=c.call,
-                        ret_val=ret.ret_val,
+                        ret=ret.ret,
                         duration=ret.duration,
                         child_calls=kids,
                     )
@@ -517,22 +476,24 @@ def process_records(records: list[Record]) -> list[Call]:
     return children[0]
 
 
+def format_calls(calls: list[Call]) -> str:
+    """Format a list of records."""
 
-def main():
+    ret = []
 
-    def inc(a):
-        return a + 1
+    def inner(calls: list[Call], lvl=0) -> None:
 
-    def inc_n_tripple(b):
-        return inc(b) * 3
+        def add(msg: str) -> None:
+            ret.append(f'{"  " * lvl}{msg}')
 
-    inc_n_tripple(2)
-    # -> CallRecord('inc_n_tripple', {'b': 2}, thread=...)
-    # -> CallRecord('inc', {'a': 2}, thread=..., parent=...)
-    # -> ReturnRecord('inc',
+        for call in calls:
+            if not call.child_calls:
+                add(f'{call.call} -> {call.ret}')
+            else:
+                add(call.call)
+                inner(call.child_calls, lvl + 1)
+                add(f'-> {call.ret}')
 
+    inner(calls)
 
-if __name__ == '__main__':
-    main()
-    # import doctest
-    # doctest.testmod()
+    return '\n'.join(ret)

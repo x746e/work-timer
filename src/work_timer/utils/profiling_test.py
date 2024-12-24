@@ -10,7 +10,7 @@ from unittest.mock import ANY
 
 from work_timer.utils import profiling
 from work_timer.utils.profiling import (
-        CallLogger, CallRecord, ReturnRecord, render_records, Call,
+        CallLogger, CallRecord, ReturnRecord, format_records, Call,
         process_records, TimeFunctionCalls)
 
 
@@ -139,7 +139,7 @@ class TestRecords(unittest.TestCase):
 
         assert c.records == [
             CallRecord(frame_id=ANY, call='bar()'),
-            ReturnRecord(frame_id=ANY, ret_val='None', duration=approx(0)),
+            ReturnRecord(frame_id=ANY, ret='None', duration=approx(0)),
         ]
 
     def test_two_calls(self):
@@ -163,12 +163,12 @@ class TestRecords(unittest.TestCase):
             ),
             ReturnRecord(
                 frame_id=ANY,
-                ret_val='4',
+                ret='4',
                 duration=approx(0),
             ),
             ReturnRecord(
                 frame_id=ANY,
-                ret_val='5',
+                ret='5',
                 duration=approx(0),
             ),
         ]
@@ -188,12 +188,12 @@ class TestProcessRecords(unittest.TestCase):
             ),
             ReturnRecord(
                 frame_id='0x2',
-                ret_val='4',
+                ret='4',
                 duration=1,
             ),
             ReturnRecord(
                 frame_id='0x1',
-                ret_val='5',
+                ret='5',
                 duration=2,
             ),
         ]
@@ -203,12 +203,12 @@ class TestProcessRecords(unittest.TestCase):
         want_calls = [
             Call(
                 call='foo(a=1)',
-                ret_val='5',
+                ret='5',
                 duration=2,
                 child_calls=[
                     Call(
                         call='bar(b=2)',
-                        ret_val='4',
+                        ret='4',
                         duration=1,
                     ),
                 ],
@@ -232,8 +232,8 @@ class TestRendering(unittest.TestCase):
         -> 5
         """
 
-    def test_render_records(self):
-        assert render_records([
+    def test_format_records(self):
+        assert format_records([
             CallRecord(
                 frame_id='0x1',
                 call='foo(a=1)',
@@ -244,12 +244,12 @@ class TestRendering(unittest.TestCase):
             ),
             ReturnRecord(
                 frame_id='0x2',
-                ret_val='4',
+                ret='4',
                 duration=approx(0),
             ),
             ReturnRecord(
                 frame_id='0x1',
-                ret_val='5',
+                ret='5',
                 duration=approx(0),
             ),
         ]) == """\
