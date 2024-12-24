@@ -442,7 +442,11 @@ confidence = ["HIGH", "CONTROL_FLOW", "INFERENCE", "INFERENCE_FAILURE", "UNDEFIN
 disable = [
     # This is taken care of by ruff.
     "unused-import",
+    # Other ones I don't like.
     "too-few-public-methods",
+    "use-implicit-booleaness-not-comparison",
+    "disallowed-name",
+    "no-else-return",
 ]
 
 # Enable the message, report, category or checker with the given id(s). You can

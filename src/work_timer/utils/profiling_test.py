@@ -1,21 +1,26 @@
 """Tests for work_timer.utils.profiling."""
 import ast
 import inspect
+from pprint import pprint
+import threading
 import time
 import typing
 import unittest
+from unittest.mock import ANY
 
 from work_timer.utils import profiling
-from work_timer.utils.profiling import TimeFunctionCalls
+from work_timer.utils.profiling import (
+        CallLogger, CallRecord, ReturnRecord, render_records, Call,
+        process_records, TimeFunctionCalls)
 
 
-class approx:  # pylint: disable=invalid-name
+class _approx:  # pylint: disable=invalid-name
     """Equals appoximately to its `n` argument.
 
     Useful for rough comparisons inside unittests.
     """
 
-    def __init__(self, n, eps=0.1):
+    def __init__(self, n, eps):
         self.n = n
         self.eps = eps
 
@@ -24,6 +29,10 @@ class approx:  # pylint: disable=invalid-name
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.n})'
+
+
+def approx[T: (int, float)](n: T, eps=0.1) -> T:
+    return typing.cast(T, _approx(n, eps))
 
 
 class TestTimeFunctionCalls(unittest.TestCase):
@@ -92,7 +101,7 @@ class TestResovleCallArg(unittest.TestCase):
         self.assertEqual(profiling._resolve_call_arg(s, f), "42")
 
 
-class LogCallTests:
+class LogCallTest:
 
     def type_error_is_preserved(self):
         """
@@ -107,6 +116,243 @@ class LogCallTests:
         TypeError: f_with_two_args() takes 2 positional arguments but 3 were given
         """
 
+    def can_be_called(self):
+        """
+        >>> from work_timer.utils.profiling import log_call
+        >>> @log_call()
+        ... def foo():
+        ...     pass
+        ...
+        >>> foo()
+        foo() -> None
+        """
+
+
+class TestRecords(unittest.TestCase):
+
+    def test_the_simplest_call(self):
+        def bar():
+            return None
+
+        with CallLogger() as c:
+            bar()
+
+        assert c.records == [
+            CallRecord(frame_id=ANY, call='bar()'),
+            ReturnRecord(frame_id=ANY, ret_val='None', duration=approx(0)),
+        ]
+
+    def test_two_calls(self):
+        def foo(a):
+            return bar(a + 1) + 1
+
+        def bar(b):
+            return b * 2
+
+        with CallLogger() as c:
+            foo(1)
+
+        assert c.records == [
+            CallRecord(
+                frame_id=ANY,
+                call='foo(a=1)',
+            ),
+            CallRecord(
+                frame_id=ANY,
+                call='bar(b=2)',
+            ),
+            ReturnRecord(
+                frame_id=ANY,
+                ret_val='4',
+                duration=approx(0),
+            ),
+            ReturnRecord(
+                frame_id=ANY,
+                ret_val='5',
+                duration=approx(0),
+            ),
+        ]
+
+
+class TestProcessRecords(unittest.TestCase):
+
+    def test_process_records(self):
+        records = [
+            CallRecord(
+                frame_id='0x1',
+                call='foo(a=1)',
+            ),
+            CallRecord(
+                frame_id='0x2',
+                call='bar(b=2)',
+            ),
+            ReturnRecord(
+                frame_id='0x2',
+                ret_val='4',
+                duration=1,
+            ),
+            ReturnRecord(
+                frame_id='0x1',
+                ret_val='5',
+                duration=2,
+            ),
+        ]
+
+        got_calls = process_records(records)
+
+        want_calls = [
+            Call(
+                call='foo(a=1)',
+                ret_val='5',
+                duration=2,
+                child_calls=[
+                    Call(
+                        call='bar(b=2)',
+                        ret_val='4',
+                        duration=1,
+                    ),
+                ],
+            ),
+        ]
+        assert got_calls == want_calls
+
+
+class TestRendering(unittest.TestCase):
+
+    def test_basic_rendering(self):
+        """
+        >>> def foo(a):
+        ...     return bar(a + 1) + 1
+        >>> def bar(b):
+        ...     return b * 2
+        >>> with CallLogger() as c:
+        ...    _ = foo(1)
+        foo(a=1)
+          bar(b=2) -> 4
+        -> 5
+        """
+
+    def test_render_records(self):
+        assert render_records([
+            CallRecord(
+                frame_id='0x1',
+                call='foo(a=1)',
+            ),
+            CallRecord(
+                frame_id='0x2',
+                call='bar(b=2)',
+            ),
+            ReturnRecord(
+                frame_id='0x2',
+                ret_val='4',
+                duration=approx(0),
+            ),
+            ReturnRecord(
+                frame_id='0x1',
+                ret_val='5',
+                duration=approx(0),
+            ),
+        ]) == """\
+foo(a=1)
+  bar(b=2) -> 4
+-> 5"""
+
+
+class BasicCallLoggerTest(unittest.TestCase):
+
+    def test_three_calls(self):
+        """
+        >>> def bar(i):
+        ...     return i
+        ...
+        >>> def foo(i):
+        ...     if not i:
+        ...         return 0
+        ...     return foo(i - 1) + bar(i)
+        ...
+        >>> def outer():
+        ...     return foo(2)
+        ...
+        >>> with CallLogger() as c:
+        ...    outer()
+        ...    bar(2)
+        ...    foo(1)
+        3
+        2
+        1
+        outer()
+          foo(i=2)
+            foo(i=1)
+              foo(i=0) -> 0
+              bar(i=1) -> 1
+            -> 1
+            bar(i=2) -> 2
+          -> 3
+        -> 3
+        bar(i=2) -> 2
+        foo(i=1)
+          foo(i=0) -> 0
+          bar(i=1) -> 1
+        -> 1
+        """
+
+
+class TestMethods(unittest.TestCase):
+
+    def test_method_calls(self):
+        """
+        >>> class Cls:
+        ...     def __init__(self): ...
+        >>> with CallLogger() as c:
+        ...   _ = Cls()
+        Cls.__init__() -> None
+        """
+
+    def test_thread_start(self):
+        def target():
+            pass
+
+        def starter():
+            t = threading.Thread(target=target, name='T1')
+            t.start()
+            time.sleep(.1)
+
+        with CallLogger(thread_filter=lambda n: n in ('MainThread', 'T1')):
+            starter()
+
+    def test_weakref_set(self):
+        from weakref import WeakSet  # pylint: disable=import-outside-toplevel
+
+        class Foo: ...
+        foo = Foo()
+
+        with CallLogger() as cl:
+            s = WeakSet()
+            s.add(foo)
+        pprint(cl.records)
+
+    def test_c_func_inside_a_method(self):
+
+        def target():
+            pass
+
+        class Foo:
+            def __init__(self):
+                hasattr(target, 'foo')
+
+        with CallLogger() as c:
+            Foo()
+
+        pprint(c.records)
+
+    # def test_built_in_function__build_class__(self):
+    #     with CallLogger() as c:
+    #         class Foo:
+    #             def __init__(self):
+    #                 pass
+
+
 
 if __name__ == '__main__':
-    unittest.main()
+    import doctest
+    doctest.testmod()
