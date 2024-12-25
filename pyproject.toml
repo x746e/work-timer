@@ -12,6 +12,7 @@ dependencies = [
     "loguru>=0.7.2",
     "pandas>=2.2.3",
     "platformdirs>=4.3.6",
+    "texttable>=1.7.0",
     "textual>=0.86.3,<1.0.0",
     "watchdog>=6.0.0",
 ]
@@ -442,7 +443,11 @@ confidence = ["HIGH", "CONTROL_FLOW", "INFERENCE", "INFERENCE_FAILURE", "UNDEFIN
 disable = [
     # This is taken care of by ruff.
     "unused-import",
+    # Other ones I don't like.
     "too-few-public-methods",
+    "use-implicit-booleaness-not-comparison",
+    "disallowed-name",
+    "no-else-return",
 ]
 
 # Enable the message, report, category or checker with the given id(s). You can
