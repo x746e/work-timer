@@ -1,5 +1,6 @@
 """Tests for work_timer.utils.profiling."""
 import ast
+from datetime import datetime
 import inspect
 from pprint import pprint
 import threading
@@ -138,8 +139,8 @@ class TestRecords(unittest.TestCase):
             bar()
 
         assert c.records == [
-            CallRecord(frame_id=ANY, call='bar()'),
-            ReturnRecord(frame_id=ANY, ret='None', duration=approx(0)),
+            CallRecord(frame_id=ANY, call='bar()', dt=ANY),
+            ReturnRecord(frame_id=ANY, ret='None', dt=ANY),
         ]
 
     def test_two_calls(self):
@@ -156,20 +157,22 @@ class TestRecords(unittest.TestCase):
             CallRecord(
                 frame_id=ANY,
                 call='foo(a=1)',
+                dt=ANY,
             ),
             CallRecord(
                 frame_id=ANY,
                 call='bar(b=2)',
+                dt=ANY,
             ),
             ReturnRecord(
                 frame_id=ANY,
                 ret='4',
-                duration=approx(0),
+                dt=ANY,
             ),
             ReturnRecord(
                 frame_id=ANY,
                 ret='5',
-                duration=approx(0),
+                dt=ANY,
             ),
         ]
 
@@ -181,20 +184,22 @@ class TestProcessRecords(unittest.TestCase):
             CallRecord(
                 frame_id='0x1',
                 call='foo(a=1)',
+                dt=datetime.fromtimestamp(1),
             ),
             CallRecord(
                 frame_id='0x2',
                 call='bar(b=2)',
+                dt=datetime.fromtimestamp(2),
             ),
             ReturnRecord(
                 frame_id='0x2',
                 ret='4',
-                duration=1,
+                dt=datetime.fromtimestamp(3),
             ),
             ReturnRecord(
                 frame_id='0x1',
                 ret='5',
-                duration=2,
+                dt=datetime.fromtimestamp(4),
             ),
         ]
 
@@ -204,12 +209,14 @@ class TestProcessRecords(unittest.TestCase):
             Call(
                 call='foo(a=1)',
                 ret='5',
-                duration=2,
+                start=datetime.fromtimestamp(1),
+                end=datetime.fromtimestamp(4),
                 child_calls=[
                     Call(
                         call='bar(b=2)',
                         ret='4',
-                        duration=1,
+                        start=datetime.fromtimestamp(2),
+                        end=datetime.fromtimestamp(3),
                     ),
                 ],
             ),
@@ -237,20 +244,22 @@ class TestRendering(unittest.TestCase):
             CallRecord(
                 frame_id='0x1',
                 call='foo(a=1)',
+                dt=datetime.now(),
             ),
             CallRecord(
                 frame_id='0x2',
                 call='bar(b=2)',
+                dt=datetime.now(),
             ),
             ReturnRecord(
                 frame_id='0x2',
                 ret='4',
-                duration=approx(0),
+                dt=datetime.now(),
             ),
             ReturnRecord(
                 frame_id='0x1',
                 ret='5',
-                duration=approx(0),
+                dt=datetime.now(),
             ),
         ]) == """\
 foo(a=1)
@@ -317,7 +326,22 @@ class TestMethods(unittest.TestCase):
             t.start()
             time.sleep(.1)
 
-        with CallLogger(thread_filter=lambda n: n in ('MainThread', 'T1')):
+        def call_filter(c: Call) -> bool:
+            # return True
+            if c.call == 'starter()':
+                return True
+            if c.call == 'target()':
+                return True
+            if (c.call.startswith('Thread.__init__') or
+                    c.call.startswith('Thread.start') or
+                    c.call.startswith('Thread.run')):
+                return True
+            return False
+
+        def thread_filter(thread_name: str) -> bool:
+            return thread_name in ('MainThread', 'T1')
+
+        with CallLogger(thread_filter=thread_filter, call_filter=call_filter):
             starter()
 
     def test_weakref_set(self):

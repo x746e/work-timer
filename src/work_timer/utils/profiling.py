@@ -1,8 +1,9 @@
 """Misc profiling and tracing utilities."""
 import ast
-from dataclasses import dataclass, field
 import cProfile
 import collections
+from dataclasses import dataclass, field
+from datetime import datetime
 import functools
 import inspect
 import io
@@ -15,6 +16,10 @@ import trace
 import traceback
 
 from types import FrameType
+
+from texttable import Texttable
+
+from work_timer.utils.time import humanize_td
 
 
 # Random idea: how do I know when, say, my naive approach to task persistence --
@@ -286,27 +291,39 @@ def log_call(*args, **kwargs):
 class CallRecord:
     frame_id: str
     call: str
+    dt: datetime
+    # callable: str
+    # args
 
 
 @dataclass
 class ReturnRecord:
     frame_id: str
     ret: str
-    duration: float
+    dt: datetime
 
 
 type Record = CallRecord | ReturnRecord
 
 
+@dataclass
+class Call:
+    call: str
+    ret: str
+    start: datetime
+    end: datetime
+    child_calls: list['Call'] = field(default_factory=list)
+
+
 class CallLogger:
     """Profiling/tracing-based logger."""
 
-    def __init__(self, thread_filter=None):  # type: ignore[reportRedeclaration]
+    def __init__(self,
+                 thread_filter=lambda thread_name: True,
+                 call_filter=lambda call: True):
         self.tracers = collections.defaultdict(_Tracer)
-        if not thread_filter:
-            def thread_filter(unused_thread_name: str) -> bool:
-                return True
         self.thread_filter = thread_filter
+        self.call_filter = call_filter
 
     def __enter__(self):
         threading.setprofile(self._trace)
@@ -318,14 +335,24 @@ class CallLogger:
         sys.setprofile(None)
         if len(self.tracers) == 1:
             (tracer,) = self.tracers.values()
-            print(format_records(tracer.records))
+            calls = process_records(tracer.records)
+            print(format_calls(calls, call_filter=self.call_filter))
             self.records  = tracer.records  # pylint: disable=attribute-defined-outside-init
             return
+
+        thread_calls = {
+        }
         for thread_name, tracer in self.tracers.items():
             if not self.thread_filter(thread_name):
                 continue
-            print('\n\n' + '>>' * 20 + ' ' + thread_name)
-            print(format_records(tracer.records))
+            # print('\n\n' + '>>' * 20 + ' ' + thread_name)
+            calls = process_records(tracer.records)
+            # print(format_calls(calls, call_filter=self.call_filter))
+            thread_calls[thread_name] = calls
+
+        print()
+        print(format_multi_thread_calls(thread_calls,
+                                        call_filter=self.call_filter))
 
     def _trace(self, *args):
         self.tracers[threading.current_thread().name].trace(*args)
@@ -341,26 +368,26 @@ class _Tracer:
 
     def trace(self, frame, why, arg):
         """sys.settrace-compatible function."""
+        # TODO: pylint is right, this function needs to be refactored.
         # pylint: disable=inconsistent-return-statements,too-many-locals,too-many-statements
-
-        # tname = threading.current_thread().name
-        qualname = frame.f_code.co_qualname
+        # pylint: disable=too-many-nested-blocks,too-many-branches
 
         if why not in ('call', 'return', 'c_call', 'c_return'):
             return
 
-        if qualname in (
+        co_qualname = frame.f_code.co_qualname
+        if co_qualname in (
                 'CallLogger.__enter__', 'CallLogger.__exit__',
                 'Thread._bootstrap_inner', 'Thread._delete',
                 'Thread._bootstrap', 'setprofile'):
             return
-        if '__del__' in qualname:
+        if '__del__' in co_qualname:
             return
 
         call = ''
         looks_like_method = False
-        arg_info = inspect.getargvalues(frame)
         if why in ('call', 'return'):
+            arg_info = inspect.getargvalues(frame)
             # TODO: Maybe don't hardcode 'self'?
             if arg_info.args and arg_info.args[0] == 'self':
                 self_arg = arg_info.locals['self']
@@ -370,7 +397,22 @@ class _Tracer:
                 if self_class_name == cls:
                     looks_like_method = True
                     arg_info.args.pop(0)
-                    call = f'{cls}.{meth}{inspect.formatargvalues(*arg_info)}'
+
+                    if co_qualname == 'Thread.__init__':
+                        arg_info.args[:] = [
+                            a for a in arg_info.args
+                            if arg_info.locals[a]
+                        ]
+                        specs = []
+                        for a in arg_info.args:
+                            if a == 'target':
+                                t = arg_info.locals['target']
+                                specs.append(f'{a}=<{t.__name__}>')
+                            else:
+                                specs.append(f'{a}={arg_info.locals[a]!r}')
+                        call = f'{cls}.{meth}({", ".join(specs)})'
+                    else:
+                        call = f'{cls}.{meth}{inspect.formatargvalues(*arg_info)}'
 
         if not looks_like_method:
             def get_func_name():
@@ -418,11 +460,11 @@ class _Tracer:
         frame_id = hex(id(frame))
 
         if why in ('call', 'c_call'):
-            self._calls.append((frame_id, time.time(), call))
-            self.records.append(CallRecord(frame_id, call))
+            self._calls.append((frame_id, call))
+            self.records.append(CallRecord(frame_id, call, datetime.now()))
         elif why in ('return', 'c_return'):
             assert self._calls, f'self._calls is empty! {locals()=}'
-            saved_frame_id, start_time, unused_started_call = self._calls.pop()
+            saved_frame_id, unused_started_call = self._calls.pop()
             assert saved_frame_id == frame_id
             # assert call == started_call, f'{call=} != {started_call=}'
             #  TODO: "call" includes args -- which are modifiable locals
@@ -431,17 +473,9 @@ class _Tracer:
                 ReturnRecord(
                     frame_id,
                     ret=repr(arg) if why == 'return' else '???',
-                    duration=time.time() - start_time,
+                    dt=datetime.now(),
                 )
             )
-
-
-@dataclass
-class Call:
-    call: str
-    ret: str
-    duration: float
-    child_calls: list['Call'] = field(default_factory=list)
 
 
 def format_records(records: list[Record]) -> str:
@@ -467,7 +501,8 @@ def process_records(records: list[Record]) -> list[Call]:
                     Call(
                         call=c.call,
                         ret=ret.ret,
-                        duration=ret.duration,
+                        start=c.dt,
+                        end=ret.dt,
                         child_calls=kids,
                     )
                 )
@@ -476,7 +511,7 @@ def process_records(records: list[Record]) -> list[Call]:
     return children[0]
 
 
-def format_calls(calls: list[Call]) -> str:
+def format_calls(calls: list[Call], call_filter=lambda call: True) -> str:
     """Format a list of records."""
 
     ret = []
@@ -487,13 +522,81 @@ def format_calls(calls: list[Call]) -> str:
             ret.append(f'{"  " * lvl}{msg}')
 
         for call in calls:
-            if not call.child_calls:
-                add(f'{call.call} -> {call.ret}')
-            else:
+            if not call_filter(call):
+                continue
+            if any(call_filter(child) for child in call.child_calls):
                 add(call.call)
                 inner(call.child_calls, lvl + 1)
                 add(f'-> {call.ret}')
+            else:
+                add(f'{call.call} -> {call.ret}')
 
     inner(calls)
 
     return '\n'.join(ret)
+
+
+def format_multi_thread_calls(
+        thread_calls: dict[str, list[Call]],
+        call_filter=lambda call: True,
+    ) -> str:
+    """Format calls from multiple threads as a table."""
+
+    # pylint: disable=too-many-locals
+
+    DtThreadMsg = collections.namedtuple('DtThreadMsg', 'dt thread msg')
+
+    def date_and_format(thread_name, calls: list[Call]) -> list[DtThreadMsg]:
+        ret = []
+
+        def inner(calls: list[Call], lvl=0) -> None:
+
+            def add(dt: datetime, msg: str) -> None:
+                ret.append(DtThreadMsg(dt, thread_name, f'{"  " * lvl}{msg}'))
+
+            for call in calls:
+                if not call_filter(call):
+                    continue
+                if any(call_filter(child) for child in call.child_calls):
+                    add(call.start, call.call)
+                    inner(call.child_calls, lvl + 1)
+                    add(call.end, f'-> {call.ret}')
+                else:
+                    add(call.start, f'{call.call} -> {call.ret}')
+
+        inner(calls)
+
+        return ret
+
+    dated_formatted_calls = []
+
+    for thread_name, calls in thread_calls.items():
+        dated_formatted_calls.extend(date_and_format(thread_name, calls))
+
+    dated_formatted_calls.sort()
+
+    start_dt = dated_formatted_calls[0].dt
+
+    def format_dt(dt: datetime) -> str:
+        return humanize_td(dt - start_dt)
+
+    threads = list(thread_calls.keys())
+    nthreads = len(threads)
+
+    table = Texttable()
+    table.set_deco(Texttable.HEADER | Texttable.VLINES)
+    table.set_max_width(0)
+    table.header([''] + threads)
+
+    for el in dated_formatted_calls:
+        col_idx = threads.index(el.thread)
+
+        table.add_row(
+            [format_dt(el.dt)] +
+            [''] * col_idx +
+            [el.msg] +
+            [''] * (nthreads - col_idx - 1))
+
+    drawn = table.draw()
+    assert isinstance(drawn, str)
+    return drawn
