@@ -1,7 +1,4 @@
 """A widget to showing a list (or a tree) of tasks."""
-from datetime import datetime
-
-# from desktop_notifier import Urgency, Icon
 from loguru import logger
 
 from rich.color import Color
@@ -20,6 +17,7 @@ from work_timer.taskdb.task import TYPE_SYMBOLS
 from work_timer.timer import Timer
 from work_timer.ui.timer_widget import TimerScreen
 from work_timer.ui.task_editor import TaskEditor
+from work_timer.utils.scheduler import Scheduler
 from work_timer.utils.typing import not_none
 
 
@@ -53,30 +51,6 @@ class TaskList(Widget):
         self._task_id_to_node_id = {}
 
         self._config = config
-
-        self._is_timer_ticking = False
-        self._not_ticking_since = datetime.now()
-        self._bugged_last_at = None
-        self.set_interval(5, self._maybe_bug_about_not_ticking_timer)
-
-    async def _maybe_bug_about_not_ticking_timer(self) -> None:
-        pass
-        # if self._is_timer_ticking:
-        #     return
-        # if not self._config.bug_after:
-        #     return
-        # if datetime.now() - self._not_ticking_since < self._config.bug_after:
-        #     return
-        # if (self._bugged_last_at and
-        #         datetime.now() - self._bugged_last_at < not_none(self._config.bug_every)):
-        #     return
-        # if self._config.notifier:
-        #     not_ticking_icon = Icon(name='document-open-recent')
-        #     # TODO: Add a sound as well.
-        #     await self._config.notifier.send(
-        #             title='The timer is not ticking!', message='Go do some work!',
-        #             urgency=Urgency.Critical, icon=not_ticking_icon)
-        # self._bugged_last_at = datetime.now()
 
     def compose(self) -> ComposeResult:
         yield self._make_tree_with_tasks()
@@ -295,14 +269,12 @@ class TaskList(Widget):
 
         task = self._get_task(node)
 
-        self._is_timer_ticking = True
-        timer = Timer(self._config)
+        # TODO: Don't create the timer here.
+        scheduler = Scheduler()
+        timer = Timer(self._config, scheduler=scheduler)
         timer.start(task.id)
 
         await self.app.push_screen_wait(TimerScreen(self._task_db, timer))
-
-        self._is_timer_ticking = False
-        self._not_ticking_since = datetime.now()
 
     def action_cursor_up(self):
         self._get_tree().action_cursor_up()

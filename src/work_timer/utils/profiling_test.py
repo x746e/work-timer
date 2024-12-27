@@ -306,6 +306,26 @@ class BasicCallLoggerTest(unittest.TestCase):
         """
 
 
+class TestTrickyCalls(unittest.TestCase):
+
+    def test_tracing_re_match_doesnt_raise(self):
+        import re  # pylint: disable=import-outside-toplevel
+
+        with CallLogger():
+            re.match('foo', 'bar')
+
+    def test_weakref_set_doesnt_raise(self):
+        from weakref import WeakSet  # pylint: disable=import-outside-toplevel
+
+        class Foo: ...
+        foo = Foo()
+
+        with CallLogger() as cl:
+            s = WeakSet()
+            s.add(foo)
+        pprint(cl.records)
+
+
 class TestMethods(unittest.TestCase):
 
     def test_method_calls(self):
@@ -327,7 +347,6 @@ class TestMethods(unittest.TestCase):
             time.sleep(.1)
 
         def call_filter(c: Call) -> bool:
-            # return True
             if c.call == 'starter()':
                 return True
             if c.call == 'target()':
@@ -343,17 +362,6 @@ class TestMethods(unittest.TestCase):
 
         with CallLogger(thread_filter=thread_filter, call_filter=call_filter):
             starter()
-
-    def test_weakref_set(self):
-        from weakref import WeakSet  # pylint: disable=import-outside-toplevel
-
-        class Foo: ...
-        foo = Foo()
-
-        with CallLogger() as cl:
-            s = WeakSet()
-            s.add(foo)
-        pprint(cl.records)
 
     def test_c_func_inside_a_method(self):
 

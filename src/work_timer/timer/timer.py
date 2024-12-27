@@ -1,5 +1,6 @@
 """The Timer."""
 from datetime import date, datetime, timedelta
+import random
 import time
 from typing import no_type_check
 
@@ -8,8 +9,10 @@ from gcsa.event import Event
 
 from work_timer.config import Config
 from work_timer.taskdb import TaskID, BREAK_TASK_ID
+from work_timer.timer.motivators import MOTIVATORS
 from work_timer.timer.single_task_timer import SingleTaskTimer, TimerInfo
 from work_timer.utils.clock import Clock
+from work_timer.utils.scheduler import Scheduler
 
 
 class Timer:
@@ -22,12 +25,14 @@ class Timer:
 
     State = SingleTaskTimer.State
 
-    def __init__(self, config: Config, clock: Clock = time) -> None:
+    def __init__(self, config: Config, scheduler: Scheduler, clock: Clock = time) -> None:
         self._config = config
         self._time_log = config.time_log
         self._clock = clock
         self._single_task_timer = None
+        self._scheduler = scheduler
         self._break_manager = _BreakManager(config, clock)
+        self._bugger = _Bugger(config, self._scheduler)
 
     def start(self, task_id: TaskID, period_length: timedelta | None = None) -> None:
         """Starts a new period for `task_id`.
@@ -37,13 +42,18 @@ class Timer:
         """
         if period_length is None:
             period_length = self._config.work_period_duration
-        self._single_task_timer = SingleTaskTimer(task_id, period_length, clock=self._clock)
 
-        self._single_task_timer.set_on_next_sub_period_callback(self._on_next_sub_period)
+        kwargs = {
+            'on_sub_period_end_callback': self._on_sub_period_end,
+            'on_sub_period_start_callback': self._on_sub_period_start,
+        }
         if task_id == BREAK_TASK_ID:
-            self._single_task_timer.set_on_period_end_callback(self._on_break_end)
+            kwargs['on_period_end_callback'] = self._on_break_end
         else:
-            self._single_task_timer.set_on_period_end_callback(self._on_work_period_end)
+            kwargs['on_period_end_callback'] = self._on_work_period_end
+
+        self._single_task_timer = SingleTaskTimer(
+                task_id, period_length, clock=self._clock, scheduler=self._scheduler, **kwargs)
 
     def stop(self) -> None:
         assert self._single_task_timer is not None
@@ -62,8 +72,10 @@ class Timer:
             return NoActiveTimer()
         return self._single_task_timer.get_info()
 
-    def _on_next_sub_period(self, task_id: TaskID, started_at: datetime,
-                            duration: timedelta) -> None:
+    def _on_sub_period_end(self, task_id: TaskID, started_at: datetime,
+                           duration: timedelta) -> None:
+        self._bugger.timer_is_not_ticking()
+
         self._time_log.add_period(
                 task_id=task_id, start=started_at, duration=duration)
 
@@ -75,6 +87,9 @@ class Timer:
                     task.title,
                     start=started_at,
                     end=started_at + duration))
+
+    def _on_sub_period_start(self, unused_timer_info: TimerInfo) -> None:
+        self._bugger.timer_is_ticking()
 
     def _on_break_end(self, info: TimerInfo) -> None:
         assert info.task_id == BREAK_TASK_ID
@@ -157,7 +172,59 @@ class _BreakManager:
         return self._config.break_duration
 
 
-# TODO: Bugger: to bug when the timer is not ticking.
+class _Bugger:
+    """Annoys the user to do some work.
+
+    When the timer isn't ticking (because it's not started or is paused) for
+    `Config.bug_after`, send a notification encouraging to do some work.  After
+    that repeat the notification every `Config.bug_every` until the timer is
+    started again.
+    """
+
+    # TODO: Bug better:
+    # - Calendar awareness: don't bug during meetings.
+    # - And don't bug outside of working hours.
+    # - When the screen is locked.
+    #
+    # The ideas below may be better implemented in their own classes.
+    #
+    # TODO: At some point consider tracking what the user is doing, and bug
+    # about not doing what is planned: e.g. during a work period about fixing a
+    # software bug you probably shouldn't reading emails.  Or the news.
+    # TODO: Bug about working too much on some things, and not enough on another.
+
+    def __init__(self, config: Config, scheduler: Scheduler) -> None:
+        self._config = config
+        self._scheduler = scheduler
+
+        self._evt_id = None
+        self.timer_is_not_ticking()
+
+    def timer_is_ticking(self) -> None:
+        self._cancel_bugging()
+
+    def timer_is_not_ticking(self) -> None:
+        if self._config.bug_after:
+            self._schedule_bugging(self._config.bug_after)
+
+    def _schedule_bugging(self, after: timedelta) -> None:
+        assert not self._evt_id
+        self._evt_id = self._scheduler.schedule(self._bug, after=after)
+
+    def _cancel_bugging(self) -> None:
+        if self._evt_id:
+            self._scheduler.cancel(self._evt_id)
+            self._evt_id = None
+
+    def _bug(self) -> None:
+        if self._config.notifier:
+            not_ticking_icon = Icon(name='document-open-recent')
+            # TODO: Add a sound as well.
+            self._config.notifier.send(
+                    title='Time to do some work!', message=random.choice(MOTIVATORS),
+                    urgency=Urgency.Critical, icon=not_ticking_icon)
+        if self._config.bug_every:
+            self._schedule_bugging(self._config.bug_every)
 
 
 class NoActiveTimer:

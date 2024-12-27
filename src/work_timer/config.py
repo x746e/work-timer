@@ -116,6 +116,11 @@ def get_test_config(**overrides) -> Config:
         'long_break_duration': td('20s'),
         'long_break_after': td('20s')
     }
+
+    # TODO: Can we not duplicate logic between here and `get_config_from_args`?
+    if overrides.pop('enable_notifications', None):
+        overrides['notifier'] = DesktopNotifier(app_name='Work Timer')
+
     conf.update(overrides)
     config = Config(**conf)
     return config

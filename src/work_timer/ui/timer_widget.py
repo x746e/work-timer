@@ -1,5 +1,4 @@
 """Timer interface."""
-from datetime import datetime
 import math
 
 from textual import on
@@ -126,7 +125,6 @@ class TimerWidget(Widget):
     def _update_time_display(self, ti: TimerInfo, disp: TimeDisplay) -> TimeDisplay:
         seconds_left = math.ceil(
                 ti.period_length.total_seconds() - ti.elapsed_time.total_seconds())
-        print(f'[{datetime.now().second:<2}] upd: left: {seconds_left}; ID: {ti.task_id}  | {ti}')
         disp.seconds_left = max(0, seconds_left)
         return disp
 
@@ -162,8 +160,9 @@ class TimerScreen(Screen):
 
 def main() -> None:
     """A way to exercise the widget in isolation, useful for development."""
-
-    from work_timer.config import get_test_config  # pylint: disable=import-outside-toplevel
+    # pylint: disable=import-outside-toplevel
+    from work_timer.config import get_test_config
+    from work_timer.utils.scheduler import Scheduler
 
     class TimerApp(App):  # pylint: disable=missing-class-docstring
 
@@ -171,7 +170,7 @@ def main() -> None:
 
         def compose(self) -> ComposeResult:
             config = get_test_config()
-            timer = Timer(config)
+            timer = Timer(config, scheduler=Scheduler())
             task = list(config.task_db.get_all().values())[0]
             timer.start(task.id)
             yield TimerWidget(timer, config.task_db)

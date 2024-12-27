@@ -239,11 +239,14 @@ def log_call(*args, **kwargs):
                 print(f'[{threading.current_thread().name}] ', end='')
 
             if obj and hasattr(obj, '_clock'):
-                print(f'<{obj._clock.time()}> ', end='')   # pylint: disable=protected-access
+                print(f'<{humanize_td(obj._clock.time())}> ', end='')   # pylint: disable=protected-access
+
+            if obj and obj.__class__.__name__ == 'FakeClock':
+                print(f'<{humanize_td(obj.time())}> ', end='')   # pylint: disable=protected-access
 
             if is_method:
                 print(
-                    f'{obj!r}.{f.__name__}(' +
+                    f'{obj.__class__.__name__}().{f.__name__}(' +
                     ', '.join(f'{k}={v}' for k, v
                               in bound_args.arguments.items() if k != 'self') +
                     f') -> {ret}'
@@ -375,7 +378,9 @@ class _Tracer:
         if why not in ('call', 'return', 'c_call', 'c_return'):
             return
 
+
         co_qualname = frame.f_code.co_qualname
+        # print(f'{co_qualname=}; {why=}; {arg=}')
         if co_qualname in (
                 'CallLogger.__enter__', 'CallLogger.__exit__',
                 'Thread._bootstrap_inner', 'Thread._delete',
@@ -384,6 +389,9 @@ class _Tracer:
         if '__del__' in co_qualname:
             return
 
+        def safe_formatvalue(val) -> str:
+            return f'={safe_repr(val)}'
+
         call = ''
         looks_like_method = False
         if why in ('call', 'return'):
@@ -391,7 +399,10 @@ class _Tracer:
             # TODO: Maybe don't hardcode 'self'?
             if arg_info.args and arg_info.args[0] == 'self':
                 self_arg = arg_info.locals['self']
-                self_class_name = self_arg.__class__.__name__
+                try:
+                    self_class_name = self_arg.__class__.__name__
+                except AttributeError:
+                    self_class_name = ''
                 cls, meth = frame.f_code.co_qualname.split('.')[-2:]
 
                 if self_class_name == cls:
@@ -412,7 +423,9 @@ class _Tracer:
                                 specs.append(f'{a}={arg_info.locals[a]!r}')
                         call = f'{cls}.{meth}({", ".join(specs)})'
                     else:
-                        call = f'{cls}.{meth}{inspect.formatargvalues(*arg_info)}'
+                        args = inspect.formatargvalues(
+                                *arg_info, formatvalue=safe_formatvalue)
+                        call = f'{cls}.{meth}{args}'
 
         if not looks_like_method:
             def get_func_name():
@@ -424,34 +437,35 @@ class _Tracer:
             func_name = get_func_name()
 
             def get_args():
+
                 if why in ('call', 'return'):
-                    return inspect.formatargvalues(*inspect.getargvalues(frame))
+                    return inspect.formatargvalues(*inspect.getargvalues(frame),
+                                                   formatvalue=safe_formatvalue)
                 if why in ('c_call', 'c_return'):
                     # TODO: Try replacing this madness with an bytecode-based approach.
-                    lines, start_line = inspect.getsourcelines(frame)
-                    source_line = lines[frame.f_lineno - start_line]
-                    if func_name not in source_line:
-                        return '(???)'
                     try:
-                        parsed_line = ast.parse(source_line.strip())
-                    except (IndentationError, SyntaxError):
-                        next_line = lines[frame.f_lineno - start_line + 1]
-                        two_lines = textwrap.dedent(source_line + next_line)
-                        parsed_line = ast.parse(two_lines)
+                        lines, start_line = inspect.getsourcelines(frame)
+                        source_line = lines[frame.f_lineno - start_line]
+                        if func_name not in source_line:
+                            return '(???)'
+                        try:
+                            parsed_line = ast.parse(source_line.strip())
+                        except (IndentationError, SyntaxError):
+                            next_line = lines[frame.f_lineno - start_line + 1]
+                            two_lines = textwrap.dedent(source_line + next_line)
+                            parsed_line = ast.parse(two_lines)
 
-                    calls = [node for node in ast.walk(parsed_line)
-                             if isinstance(node, ast.Call)
-                             and _resolve_callable_name(node.func) == func_name]
-                    if len(calls) != 1:
-                        return '(???)'
-                    (call,) = calls
-                    try:
+                        calls = [node for node in ast.walk(parsed_line)
+                                if isinstance(node, ast.Call)
+                                and _resolve_callable_name(node.func) == func_name]
+                        if len(calls) != 1:
+                            return '(???)'
+                        (call,) = calls
                         args = [_resolve_call_arg(a, frame) for a in call.args]
+                        args = ', '.join(repr(a) for a in args)
+                        return f'({args})'
                     except Exception:  # pylint: disable=broad-exception-caught
                         return '(???)'
-
-                    args = ', '.join(repr(a) for a in args)
-                    return f'({args})'
 
             call = f'{func_name}{get_args()}'
 
@@ -465,17 +479,24 @@ class _Tracer:
         elif why in ('return', 'c_return'):
             assert self._calls, f'self._calls is empty! {locals()=}'
             saved_frame_id, unused_started_call = self._calls.pop()
-            assert saved_frame_id == frame_id
+            assert saved_frame_id == frame_id, f'{why=}; {arg=}'
             # assert call == started_call, f'{call=} != {started_call=}'
             #  TODO: "call" includes args -- which are modifiable locals
             #  Maybe just assert there that the stuff before the args is the same?
             self.records.append(
                 ReturnRecord(
                     frame_id,
-                    ret=repr(arg) if why == 'return' else '???',
+                    ret=safe_repr(arg) if why == 'return' else '???',
                     dt=datetime.now(),
                 )
             )
+
+
+def safe_repr(val) -> str:
+    try:
+        return repr(val)
+    except Exception:  # pylint: disable=broad-exception-caught
+        return '???'
 
 
 def format_records(records: list[Record]) -> str:

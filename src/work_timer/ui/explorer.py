@@ -22,6 +22,7 @@ from work_timer.timer import Timer
 from work_timer.ui.task_editor import TaskEditorWidget
 from work_timer.ui.timer_widget import TimerWidget
 from work_timer.utils import fake_tasks
+from work_timer.utils.scheduler import Scheduler
 
 # Make all the linters to shut up about unused symbols.
 _ = Horizontal
@@ -125,7 +126,7 @@ class Playground(Widget):
 def get_timer():
     config = get_test_config()
     task = list(config.task_db.get_all().values())[0]
-    timer = Timer(config)
+    timer = Timer(config, scheduler=Scheduler())
     timer.start(task.id)
     return TimerWidget(timer, config.task_db)
 

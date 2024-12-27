@@ -13,6 +13,7 @@ from work_timer.config import get_test_config
 from work_timer.taskdb import TaskDB
 from work_timer.timer import Timer
 from work_timer.ui.timer_widget import TimerWidget, TimeDisplay
+from work_timer.utils.scheduler import Scheduler
 from work_timer.utils.testing import FakeClock
 
 
@@ -38,7 +39,9 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
                 break_duration=timedelta(seconds=3),
         )
         self.clock = FakeClock()
-        self.timer = Timer(self.config, clock=self.clock)
+        self.scheduler = Scheduler(self.clock)
+        self.clock.set_scheduler(self.scheduler)
+        self.timer = Timer(self.config, clock=self.clock, scheduler=self.scheduler)
         self.task = list(self.config.task_db.get_all().values())[-1]
         self.timer.start(self.task.id)
 
@@ -140,17 +143,24 @@ def get_binding(pilot: Pilot) -> list[str]:
     return [str(b.render()).strip() for b in bindings]
 
 
-def run_test_app():
+def run_dev_app():
+    """Run an app with the TimerWidget.
+
+    Useful for development.
+    """
     config = get_test_config(
             work_period_duration=timedelta(seconds=4),
             break_duration=timedelta(seconds=3),
+            enable_notifications=True,
+            bug_after=timedelta(seconds=1),
+            bug_every=timedelta(seconds=1),
     )
     task = list(config.task_db.get_all().values())[-1]
-    timer = Timer(config)
+    timer = Timer(config, scheduler=Scheduler())
     timer.start(task.id)
     app = FakeApp(config.task_db, timer)
     app.run()
 
 
 if __name__ == '__main__':
-    run_test_app()
+    run_dev_app()

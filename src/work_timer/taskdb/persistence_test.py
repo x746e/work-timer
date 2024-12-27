@@ -168,18 +168,18 @@ EXPECTED_DATA = {
 }
 
 
-class TaskDBMixin(UnittestTestCaseMixin):
+class TaskDBMixin:
 
     """Helps creating PersistentTaskDBs and backing git repos."""
 
-    def init_task_db(self) -> Path:
+    def init_task_db(self: UnittestTestCaseMixin) -> Path:
         temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)  # pylint: disable=consider-using-with
         repo_path = Path(temp_dir.name)
         taskdb.PersistentTaskDB.init_repo(repo_path)
         self.addCleanup(temp_dir.cleanup)
         return repo_path
 
-    def task_db(self, repo_path: Path) -> taskdb.PersistentTaskDB:
+    def task_db(self: UnittestTestCaseMixin, repo_path: Path) -> taskdb.PersistentTaskDB:
         db = taskdb.PersistentTaskDB(repo_path=repo_path)
         self.addCleanup(db.close)
         return db
