@@ -19,8 +19,7 @@ class Timer:
 
     """The timer.
 
-    For now just forwards everything to the underlying _SingleTaskTimer.  The
-    plan is to move all the timing logic from ui.timer into this class.
+    The idea is to have one Timer instance per app.
     """
 
     State = SingleTaskTimer.State
