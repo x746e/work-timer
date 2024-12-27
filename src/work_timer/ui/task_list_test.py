@@ -7,10 +7,12 @@ from textual.widgets import Tree
 from work_timer import taskdb
 from work_timer.config import Config
 from work_timer.timelog import TimeLog
+from work_timer.timer import Timer
 from work_timer.ui import ui_testing
 from work_timer.ui.task_list import TaskList
 from work_timer.utils import fake_tasks
 from work_timer.utils.fake_tasks import extract, FakeTask
+from work_timer.utils.scheduler import Scheduler
 from work_timer.utils.time import td
 from work_timer.utils.typing import not_none
 
@@ -30,7 +32,8 @@ class FakeApp(App):  # pylint: disable=missing-class-docstring
                         work_period_duration=td('25m'),
                         break_duration=td('5m'), long_break_duration=td('20m'),
                         long_break_after=td('3h'))
-        yield TaskList(config)
+        timer = Timer(config, scheduler=Scheduler())
+        yield TaskList(config, timer)
 
 
 class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):

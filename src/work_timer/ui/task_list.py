@@ -17,7 +17,6 @@ from work_timer.taskdb.task import TYPE_SYMBOLS
 from work_timer.timer import Timer
 from work_timer.ui.timer_widget import TimerScreen
 from work_timer.ui.task_editor import TaskEditor
-from work_timer.utils.scheduler import Scheduler
 from work_timer.utils.typing import not_none
 
 
@@ -43,14 +42,15 @@ class TaskList(Widget):
         ('R', 'refresh', 'Refresh tasks'),
     ]
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, timer: Timer) -> None:
         super().__init__()
         self._task_db = config.task_db
         self._time_log = config.time_log
+        self._config = config
+        self._timer = timer
 
         self._task_id_to_node_id = {}
 
-        self._config = config
 
     def compose(self) -> ComposeResult:
         yield self._make_tree_with_tasks()
@@ -265,16 +265,10 @@ class TaskList(Widget):
         if not node:
             return
 
-        # TODO: All this logic doesn't really belong here.
-
         task = self._get_task(node)
-
-        # TODO: Don't create the timer here.
-        scheduler = Scheduler()
-        timer = Timer(self._config, scheduler=scheduler)
-        timer.start(task.id)
-
-        await self.app.push_screen_wait(TimerScreen(self._task_db, timer))
+        self._timer.start(task.id)
+        # TODO: Don't create the TimerScreen here.
+        await self.app.push_screen_wait(TimerScreen(self._task_db, self._timer))
 
     def action_cursor_up(self):
         self._get_tree().action_cursor_up()
