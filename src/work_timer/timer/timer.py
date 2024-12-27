@@ -208,7 +208,6 @@ class _Bugger:
             self._schedule_bugging(self._config.bug_after)
 
     def _schedule_bugging(self, after: timedelta) -> None:
-        assert not self._evt_id
         self._evt_id = self._scheduler.schedule(self._bug, after=after)
 
     def _cancel_bugging(self) -> None:

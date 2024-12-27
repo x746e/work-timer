@@ -6,6 +6,7 @@ from datetime import datetime
 import os
 import sys
 
+import nest_asyncio
 from loguru import logger
 import platformdirs
 
@@ -32,6 +33,7 @@ class WorkTimerApp(App):
 
 def main():
     """The app entrypoint."""
+    nest_asyncio.apply()
     logger.remove()
     log_dir = platformdirs.user_state_path('work_timer')
     process_name = os.path.basename(sys.argv[0])

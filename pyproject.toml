@@ -10,6 +10,7 @@ dependencies = [
     "gcsa>=2.5.1",
     "ipython>=8.29.0",
     "loguru>=0.7.2",
+    "nest-asyncio>=1.6.0",
     "pandas>=2.2.3",
     "platformdirs>=4.3.6",
     "texttable>=1.7.0",
