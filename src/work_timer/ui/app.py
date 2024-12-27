@@ -6,6 +6,7 @@ from datetime import datetime
 import os
 import sys
 
+import nest_asyncio
 from loguru import logger
 import platformdirs
 
@@ -14,7 +15,9 @@ from textual.logging import TextualHandler
 from textual.widgets import Footer
 
 from work_timer.config import get_config_from_args, Config
+from work_timer.timer import Timer
 from work_timer.ui.task_list import TaskList
+from work_timer.utils.scheduler import Scheduler
 
 
 class WorkTimerApp(App):
@@ -24,24 +27,26 @@ class WorkTimerApp(App):
     def __init__(self, config: Config) -> None:
         super().__init__()
         self._config = config
+        self._timer = Timer(self._config, scheduler=Scheduler())
 
     def compose(self) -> ComposeResult:
-        yield TaskList(self._config)
+        yield TaskList(self._config, self._timer)
         yield Footer()
 
 
 def main():
     """The app entrypoint."""
+    nest_asyncio.apply()
     logger.remove()
     log_dir = platformdirs.user_state_path('work_timer')
     process_name = os.path.basename(sys.argv[0])
     pid = os.getpid()
     now = datetime.now().replace(microsecond=0).isoformat()
     logger.add(log_dir / f'{process_name}-{pid}-{now}.log')
+    logger.add(TextualHandler(), format="{message}")
 
     config = get_config_from_args()
 
-    logger.add(TextualHandler(), format="{message}")
     app = WorkTimerApp(config)
     app.run()
 

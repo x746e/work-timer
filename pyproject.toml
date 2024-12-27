@@ -10,6 +10,7 @@ dependencies = [
     "gcsa>=2.5.1",
     "ipython>=8.29.0",
     "loguru>=0.7.2",
+    "nest-asyncio>=1.6.0",
     "pandas>=2.2.3",
     "platformdirs>=4.3.6",
     "texttable>=1.7.0",
@@ -50,7 +51,6 @@ test = [
     "pytest>=8.3.4",
     "pytest-asyncio>=0.24.0",
     "pytest-profiling>=1.8.1",
-    "pytest-textual-snapshot>=1.0.0",
     "pytest-xdist[psutil]>=3.6.1",
 ]
 
@@ -60,7 +60,7 @@ default-groups = ['dev', 'lint', 'test']
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-addopts = "--doctest-modules --durations 3"
+addopts = "--doctest-modules --durations 3 --no-success-flaky-report"
 
 [tool.pyright]
 include = ["src"]
@@ -441,8 +441,9 @@ confidence = ["HIGH", "CONTROL_FLOW", "INFERENCE", "INFERENCE_FAILURE", "UNDEFIN
 # --disable=W".
 # disable = ["raw-checker-failed", "bad-inline-option", "locally-disabled", "file-ignored", "suppressed-message", "useless-suppression", "deprecated-pragma", "use-implicit-booleaness-not-comparison-to-string", "use-implicit-booleaness-not-comparison-to-zero", "use-symbolic-message-instead"]
 disable = [
-    # This is taken care of by ruff.
+    # These are taken care of by ruff.
     "unused-import",
+    "unused-variable",
     # Other ones I don't like.
     "too-few-public-methods",
     "use-implicit-booleaness-not-comparison",

@@ -41,7 +41,7 @@ def td(s: str | timedelta) -> timedelta:
     )
 
 
-def humanize_td(delta: timedelta) -> str:
+def humanize_td(delta: timedelta | float | int) -> str:
     """Convert timedelta into a compact string.
 
     A reverse operation to `td` above.
@@ -53,8 +53,13 @@ def humanize_td(delta: timedelta) -> str:
     >>> humanize_td(timedelta(hours=5, microseconds=42))
     '5h42μs'
     """
-    microseconds = delta.microseconds
-    seconds = int(delta.total_seconds())
+    if isinstance(delta, (float, int)):
+        microseconds = delta % 1 * 10**6
+        seconds = int(delta)
+    else:
+        assert isinstance(delta, timedelta)
+        microseconds = delta.microseconds
+        seconds = int(delta.total_seconds())
     minutes, seconds = divmod(seconds, 60)
     hours, minutes = divmod(minutes, 60)
     days, hours = divmod(hours, 24)

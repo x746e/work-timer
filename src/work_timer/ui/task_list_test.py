@@ -7,10 +7,12 @@ from textual.widgets import Tree
 from work_timer import taskdb
 from work_timer.config import Config
 from work_timer.timelog import TimeLog
+from work_timer.timer import Timer
 from work_timer.ui import ui_testing
 from work_timer.ui.task_list import TaskList
 from work_timer.utils import fake_tasks
-from work_timer.utils.fake_tasks import FakeTask
+from work_timer.utils.fake_tasks import extract, FakeTask
+from work_timer.utils.scheduler import Scheduler
 from work_timer.utils.time import td
 from work_timer.utils.typing import not_none
 
@@ -30,7 +32,8 @@ class FakeApp(App):  # pylint: disable=missing-class-docstring
                         work_period_duration=td('25m'),
                         break_duration=td('5m'), long_break_duration=td('20m'),
                         long_break_after=td('3h'))
-        yield TaskList(config)
+        timer = Timer(config, scheduler=Scheduler())
+        yield TaskList(config, timer)
 
 
 class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
@@ -71,7 +74,7 @@ class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
         async with app.run_test():
             tree = app.query_one(Tree)
 
-        self.assertEqual(tasks, fake_tasks.fake_tasks_from_tree(tree))
+        self.assertEqual(tasks, extract.fake_tasks_from_tree(tree))
 
     async def test_completed_tasks_are_not_shown(self):
         tasks = [
@@ -90,7 +93,7 @@ class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
         want_displayed_tasks = [
                 FakeTask('a'),
         ]
-        assert want_displayed_tasks == fake_tasks.fake_tasks_from_tree(tree)
+        assert want_displayed_tasks == extract.fake_tasks_from_tree(tree)
 
     async def test_completed_tasks_with_active_children_are_shown(self):
         tasks = [
@@ -105,7 +108,7 @@ class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
         async with app.run_test():
             tree = app.query_one(Tree)
 
-        assert tasks == fake_tasks.fake_tasks_from_tree(tree)
+        assert tasks == extract.fake_tasks_from_tree(tree)
 
 
 # TODO: Consider testing using a PersistentTaskDB as well.
@@ -178,7 +181,7 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
                 ])
             ])
         ]
-        got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
+        got_db_tasks = extract.fake_tasks_from_db(task_db)
         assert want_db_tasks == got_db_tasks
         want_ui_tasks = [
             FakeTask('task_a', kids=[
@@ -188,7 +191,7 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
                 ])
             ])
         ]
-        got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
+        got_ui_tasks = extract.fake_tasks_from_tree(tree)
         assert want_ui_tasks == got_ui_tasks
 
     async def test_task_edit(self):
@@ -225,9 +228,9 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
                 ])
             ])
         ]
-        got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
+        got_db_tasks = extract.fake_tasks_from_db(task_db)
         assert want_tasks == got_db_tasks
-        got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
+        got_ui_tasks = extract.fake_tasks_from_tree(tree)
         assert want_tasks == got_ui_tasks
 
     async def test_task_delete(self):
@@ -262,9 +265,9 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
                 ])
             ])
         ]
-        got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
+        got_db_tasks = extract.fake_tasks_from_db(task_db)
         self.assertEqual(want_tasks, got_db_tasks)
-        got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
+        got_ui_tasks = extract.fake_tasks_from_tree(tree)
         self.assertEqual(want_tasks, got_ui_tasks)
 
     async def test_task_subtree_deletion_isnt_supported(self):
@@ -291,9 +294,9 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
             await pilot.press('ctrl+r')
 
         # Nothing should change
-        got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
+        got_db_tasks = extract.fake_tasks_from_db(task_db)
         self.assertEqual(initial_tasks, got_db_tasks)
-        got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
+        got_ui_tasks = extract.fake_tasks_from_tree(tree)
         self.assertEqual(initial_tasks, got_ui_tasks)
 
     async def test_increasing_priority(self):
@@ -318,9 +321,9 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
             FakeTask('task_a'),
             FakeTask('task_b', priority=taskdb.Task.Priority.P0),
         ]
-        got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
+        got_ui_tasks = extract.fake_tasks_from_tree(tree)
         self.assertEqual(want_tasks, got_ui_tasks)
-        got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
+        got_db_tasks = extract.fake_tasks_from_db(task_db)
         self.assertEqual(want_tasks, got_db_tasks)
 
     async def test_reparenting_from_the_editor(self):
@@ -368,9 +371,9 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
                 ])
             ])
         ]
-        got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
+        got_db_tasks = extract.fake_tasks_from_db(task_db)
         assert want_tasks == got_db_tasks
-        got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
+        got_ui_tasks = extract.fake_tasks_from_tree(tree)
         assert want_tasks == got_ui_tasks
 
     async def test_reordering(self):
@@ -405,9 +408,9 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
                     FakeTask('task_b'),
             ])
         ]
-        got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
+        got_db_tasks = extract.fake_tasks_from_db(task_db)
         assert want_tasks == got_db_tasks
-        got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
+        got_ui_tasks = extract.fake_tasks_from_tree(tree)
         assert want_tasks == got_ui_tasks
 
     async def test_reparenting(self):
@@ -449,9 +452,9 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
                 ]),
             ])
         ]
-        got_db_tasks = fake_tasks.fake_tasks_from_db(task_db)
+        got_db_tasks = extract.fake_tasks_from_db(task_db)
         assert want_tasks == got_db_tasks
-        got_ui_tasks = fake_tasks.fake_tasks_from_tree(tree)
+        got_ui_tasks = extract.fake_tasks_from_tree(tree)
         assert want_tasks == got_ui_tasks
 
 

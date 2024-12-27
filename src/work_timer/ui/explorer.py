@@ -6,7 +6,6 @@ browsers.
 import re
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import timedelta
 from typing import Sequence
 
 from textual import events
@@ -18,11 +17,12 @@ from textual.widget import Widget
 from textual.widgets import Static, ProgressBar, Tree, Footer
 from textual.widgets import tree as tree_widget
 
-from work_timer import taskdb
-from work_timer.timelog import TimeLog
+from work_timer.config import get_test_config
+from work_timer.timer import Timer
 from work_timer.ui.task_editor import TaskEditorWidget
-from work_timer.ui.timer import Timer
+from work_timer.ui.timer_widget import TimerWidget
 from work_timer.utils import fake_tasks
+from work_timer.utils.scheduler import Scheduler
 
 # Make all the linters to shut up about unused symbols.
 _ = Horizontal
@@ -124,8 +124,11 @@ class Playground(Widget):
 
 
 def get_timer():
-    return Timer(timed_task=taskdb.Task(title='Make the Timer pretty!', id=taskdb.TaskID(42)),
-                 period_length=timedelta(seconds=5), time_log=TimeLog())
+    config = get_test_config()
+    task = list(config.task_db.get_all().values())[0]
+    timer = Timer(config, scheduler=Scheduler())
+    timer.start(task.id)
+    return TimerWidget(timer, config.task_db)
 
 
 def get_task_editor():

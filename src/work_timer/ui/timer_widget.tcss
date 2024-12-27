@@ -1,4 +1,4 @@
-Timer {
+TimerWidget {
     align-vertical: middle;
 
     &.break {

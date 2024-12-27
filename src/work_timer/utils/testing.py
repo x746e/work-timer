@@ -13,8 +13,10 @@ from work_timer.utils.time import td
 
 
 class UnittestTestCaseMixin(Protocol):
+    # pylint: disable=invalid-name
+    def setUp(self) -> None: ...
 
-    def addCleanup(self, function: Callable) -> None: ...  # pylint: disable=invalid-name
+    def addCleanup(self, function: Callable, /, *args, **kwargs) -> None: ...
 
 
 class FakeClock(clock.Clock):
@@ -43,6 +45,10 @@ class FakeClock(clock.Clock):
         self._future_is_now = threading.Condition()
         self._wake_lock = threading.Lock()
         self._wake_at = defaultdict(list)
+        self._scheduler = None
+
+    def set_scheduler(self, scheduler) -> None:
+        self._scheduler = scheduler
 
     def advance(self, delta: timedelta | str) -> None:
         """Move the fake time by `delta`.
@@ -50,13 +56,35 @@ class FakeClock(clock.Clock):
         `delta` can either be a `timedelta` object, or a string like '5s' or
         '3h2m5s'.
         """
+
+        def let_callbacks_run():
+            if self._scheduler:
+                self._scheduler._wait()  # pylint: disable=protected-access
+
         advance_to = self._time + td(delta).total_seconds()
 
-        for t in sorted(self._wake_at):
+        # Don't move directly to `advance_to`: step through the times this
+        # class was asked to `.sleep` until, and, if `self._scheduler` is set,
+        # also step through the times callbacks was scheduled to run.  These
+        # two sets should be the same most of the time, if not always.
+
+        def get_next_wake_time() -> float | None:
+            with self._wake_lock:
+                wake_times = set(self._wake_at)
+            if self._scheduler:
+                wake_times |= set(self._scheduler._get_future_wake_times())  # pylint: disable=protected-access
+            wake_times = sorted(wake_times)
+            if not wake_times:
+                return None
+            return wake_times[0]
+
+        while True:
+            t = get_next_wake_time()
+            if t is None:
+                break
             if t > advance_to:
                 break
-            if t < self._time:
-                continue
+            assert t >= self._time
 
             # Notify all the sleeping threads.
             with self._future_is_now:
@@ -65,25 +93,23 @@ class FakeClock(clock.Clock):
 
             # And wait for them to signal us back they woke up.
             with self._wake_lock:
-                evts = self._wake_at.pop(t)
-            for sleeper_awoken in evts:
-                sleeper_awoken.wait()
+                if t in self._wake_at:
+                    evts = self._wake_at.pop(t)
+                    for sleeper_awoken in evts:
+                        sleeper_awoken.wait()
+
+            let_callbacks_run()
 
         self._time = advance_to
-        time.sleep(0)
+        time.sleep(0.01)
 
-        # The idea here is to look at what are all the threads doing, and maybe
-        # wait for our code to get executed, if not already.
-        while _the_timer_runs():
-            time.sleep(0.01)
-        # And if that doesn't work, I probably should add some synchronization
-        # mechanism to the SingleTaskTimer itself: a threading.Event that is set
-        # after its callbacks fire, for instance.
+        let_callbacks_run()
 
     def time(self) -> float:
         return self._time
 
     def sleep(self, seconds: float, /) -> None:
+
         until = self._time + seconds
 
         with self._wake_lock:
@@ -114,19 +140,3 @@ def bts(label=''):
         p('---' * 20)
     p('<<<' * 20)
     p()
-
-
-def _the_timer_runs() -> bool:
-    return any(
-        _thread_runs_the_timer(fr)
-        for fr in sys._current_frames().values())  # pylint: disable=protected-access
-
-
-def _thread_runs_the_timer(fr) -> bool:
-    """Checks if `fr` or it parent frames run SingleTaskTimer methods."""
-    while fr:
-        if ('work_timer' in fr.f_code.co_filename and
-                fr.f_code.co_qualname.startswith('SingleTaskTimer')):
-            return True
-        fr = fr.f_back
-    return False

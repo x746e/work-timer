@@ -8,15 +8,13 @@ from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
 
-from desktop_notifier import DesktopNotifier
+from desktop_notifier.sync import DesktopNotifierSync as DesktopNotifier
 from gcsa.google_calendar import GoogleCalendar
 
 from work_timer import taskdb
 from work_timer import timelog
 from work_timer.utils.time import td
 
-
-# TODO(t/180): Consider using a dataclass / argparser converter.
 
 @dataclass(kw_only=True)
 class Config:  # pylint: disable=too-many-instance-attributes
@@ -104,3 +102,25 @@ def existing_file(p: str) -> Path:
     if not path.is_file():
         raise argparse.ArgumentTypeError(f'{path} is not a file')
     return path
+
+
+def get_test_config(**overrides) -> Config:
+    """Generate a Config suitable for use for tests and development."""
+    from work_timer.utils import fake_tasks  # pylint: disable=import-outside-toplevel
+    task_db = fake_tasks.get_task_db()
+    conf = {
+        'task_db': task_db,
+        'time_log': timelog.TimeLog(),
+        'work_period_duration': td('10s'),
+        'break_duration': td('5s'),
+        'long_break_duration': td('20s'),
+        'long_break_after': td('20s')
+    }
+
+    # TODO: Can we not duplicate logic between here and `get_config_from_args`?
+    if overrides.pop('enable_notifications', None):
+        overrides['notifier'] = DesktopNotifier(app_name='Work Timer')
+
+    conf.update(overrides)
+    config = Config(**conf)
+    return config
