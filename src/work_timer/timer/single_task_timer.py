@@ -160,7 +160,7 @@ class SingleTaskTimer(state_machine.StateMachine):
             self._evt_id = None
 
 
-@dataclass(frozen=True)
+@dataclass
 class TimerInfo:
     """Information about the current Timer state."""
     state: SingleTaskTimer.State
@@ -180,6 +180,8 @@ class TimerInfo:
                 logger.warning('Elapsed time is larger than period length: '
                                f'self.elapsed_time ({td(self.elapsed_time)}) > '
                                f'self.period_length + eps ({td(pl)})')
+                self.elapsed_time = self.period_length
+
     def __repr__(self):
         return (f'{self.__class__.__name__}('
                 f'state={self.state}, '
