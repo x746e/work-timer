@@ -55,21 +55,25 @@ class Timer:
                 task_id, period_length, clock=self._clock, scheduler=self._scheduler, **kwargs)
 
     def stop(self) -> None:
-        assert self._single_task_timer is not None
-        self._single_task_timer.stop()
+        stt = self._single_task_timer
+        assert stt is not None
+        stt.stop()
 
     def pause(self) -> None:
-        assert self._single_task_timer is not None
-        self._single_task_timer.pause()
+        stt = self._single_task_timer
+        assert stt is not None
+        stt.pause()
 
     def resume(self) -> None:
-        assert self._single_task_timer is not None
-        self._single_task_timer.resume()
+        stt = self._single_task_timer
+        assert stt is not None
+        stt.resume()
 
     def get_info(self) -> 'NoActiveTimer | TimerInfo':
-        if self._single_task_timer is None:
+        stt = self._single_task_timer
+        if stt is None:
             return NoActiveTimer()
-        return self._single_task_timer.get_info()
+        return stt.get_info()
 
     def _on_sub_period_end(self, task_id: TaskID, started_at: datetime,
                            duration: timedelta) -> None:

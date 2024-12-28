@@ -238,11 +238,11 @@ def log_call(*args, **kwargs):
             if opts['thread_name']:
                 print(f'[{threading.current_thread().name}] ', end='')
 
-            if obj and hasattr(obj, '_clock'):
-                print(f'<{humanize_td(obj._clock.time())}> ', end='')   # pylint: disable=protected-access
-
-            if obj and obj.__class__.__name__ == 'FakeClock':
-                print(f'<{humanize_td(obj.time())}> ', end='')   # pylint: disable=protected-access
+            # if obj and hasattr(obj, '_clock'):
+            #     print(f'<{humanize_td(obj._clock.time())}> ', end='')   # pylint: disable=protected-access
+            #
+            # if obj and obj.__class__.__name__ == 'FakeClock':
+            #     print(f'<{humanize_td(obj.time())}> ', end='')   # pylint: disable=protected-access
 
             if is_method:
                 print(

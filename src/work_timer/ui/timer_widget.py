@@ -11,7 +11,7 @@ from textual.widget import Widget
 from textual.widgets import Digits, Footer, Label, ProgressBar
 
 from work_timer import taskdb
-from work_timer.timer import Timer, TimerInfo
+from work_timer.timer import NoActiveTimer, Timer, TimerInfo
 
 
 class TimeDisplay(Digits):
@@ -105,7 +105,9 @@ class TimerWidget(Widget):
 
     def _tick(self) -> None:
         ti = self._timer.get_info()
-        if not isinstance(ti, TimerInfo):
+
+        if isinstance(ti, NoActiveTimer):
+            self.post_message(TimerWidget.TimerStopped())
             return
 
         self._update_progress_bar(ti, self.query_one(ProgressBar))
@@ -113,9 +115,6 @@ class TimerWidget(Widget):
         self._update_title(ti, self.query_one('#title', Label))
 
         self._update_classes(ti)
-
-        if ti.state == Timer.State.STOPPED:
-            self.post_message(TimerWidget.TimerStopped())
 
     def _update_title(self, ti: TimerInfo, title: Label) -> Label:
         task = self._task_db.get(ti.task_id)
