@@ -1,4 +1,6 @@
 """A widget to showing a list (or a tree) of tasks."""
+from datetime import timedelta
+
 from loguru import logger
 
 from rich.color import Color
@@ -6,8 +8,10 @@ from rich.style import Style
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
+from textual.containers import Vertical
+from textual.screen import ModalScreen
 from textual.widget import Widget
-from textual.widgets import Tree
+from textual.widgets import Input, Label, Tree
 from textual.widgets.tree import TreeNode
 
 from work_timer import taskdb
@@ -17,6 +21,7 @@ from work_timer.taskdb.task import TYPE_SYMBOLS
 from work_timer.timer import Timer
 from work_timer.ui.timer_widget import TimerScreen
 from work_timer.ui.task_editor import TaskEditor
+from work_timer.utils.time import td
 from work_timer.utils.typing import not_none
 
 
@@ -30,6 +35,7 @@ class TaskList(Widget):
         ('d', 'mark_done', 'Mark as done'),
         ('c', 'create', 'New task'),  # with the cursor_node as a parent.
         ('s', 'start', 'Start the timer'),  # start the timer with the cursor_node.
+        ('S', 'start_custom_period_length', 'Select period lenght before starting'),
         ('-', 'dec_prio', '--priority'),
         ('+', 'inc_prio', '++priority'),
         ('ctrl+up', 'reorder_up', 'Reorder up'),
@@ -255,7 +261,7 @@ class TaskList(Widget):
             self._add_task(changed.new, focus=True)
 
     @work
-    async def action_start(self) -> None:
+    async def action_start(self, period_length=None) -> None:
         """Start the Timer with the selected task.
 
         Pushes the TimerScreen.  After the work period ends, starts a break
@@ -266,12 +272,16 @@ class TaskList(Widget):
             return
 
         task = self._get_task(node)
-        self._timer.start(task.id)
+        self._timer.start(task.id, period_length=period_length)
         # TODO: Don't create the TimerScreen here.
         await self.app.push_screen_wait(TimerScreen(self._task_db, self._timer))
 
-    def action_cursor_up(self):
-        self._get_tree().action_cursor_up()
+    @work
+    async def action_start_custom_period_length(self) -> None:
+        """Let the user select the period length, then start the Timer."""
+        period_length = await self.app.push_screen_wait(PeriodLengthSelectDialog())
+        if period_length is not None:
+            self.action_start(period_length=period_length)
 
     def action_cursor_down(self):
         self._get_tree().action_cursor_down()
@@ -381,3 +391,40 @@ def _title_with_style(task: taskdb.Task) -> Text:
     if task.description:
         title += ' :memo:'
     return Text.from_markup(title, style=style)
+
+
+class PeriodLengthSelectDialog(ModalScreen[timedelta | None]):
+    """A custom period length selection dialog."""
+
+    DEFAULT_CSS = """
+    PeriodLengthSelectDialog {
+        align: center middle;
+    }
+    #dialog {
+        padding: 0 1;
+        width: 60;
+        height: auto;
+        border: thick $background 80%;
+        background: $surface;
+
+        Label {
+            padding: 0 1 1 1;
+        }
+    }
+    """
+
+    def key_escape(self) -> None:
+        self.dismiss()
+
+    def on_input_submitted(self, evt: Input.Submitted) -> None:
+        try:
+            self.dismiss(td(evt.value))
+        except ValueError:
+            pass
+
+    def compose(self) -> ComposeResult:
+        yield Vertical(
+            Label('Enter the work period duration:'),
+            Input(id='duration'),
+            id='dialog',
+        )
