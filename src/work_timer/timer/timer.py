@@ -100,15 +100,19 @@ class Timer:
         self._single_task_timer = None
 
         if self._config.notifier:
-            self._config.notifier.send(
-                    # TODO: "Long break ended" for long breaks.
-                    title='Break ended', message=str(info.period_length),
-                    urgency=Urgency.Critical, icon=_NOTIF['break_ended_icon'],
-                    sound=_NOTIF['break_ended_sound'])
+            if not _was_manually_stopped(info):
+                self._config.notifier.send(
+                        # TODO: "Long break ended" for long breaks.
+                        title='Break ended', message=str(info.period_length),
+                        urgency=Urgency.Critical, icon=_NOTIF['break_ended_icon'],
+                        sound=_NOTIF['break_ended_sound'])
 
     def _on_work_period_end(self, info: TimerInfo) -> None:
-        if self._break_manager.time_for_a_break():
-            self.start(BREAK_TASK_ID, self._break_manager.get_break_duration())
+        if _was_manually_stopped(info):
+            self._single_task_timer = None
+            return
+
+        self.start(BREAK_TASK_ID, self._break_manager.get_break_duration())
 
         if self._config.notifier:
             task = self._config.task_db.get(info.task_id)
@@ -116,6 +120,16 @@ class Timer:
                     title='Work period ended', message=task.title,
                     urgency=Urgency.Critical, icon=_NOTIF['period_ended_icon'],
                     sound=_NOTIF['period_ended_sound'])
+
+
+def _was_manually_stopped(info: TimerInfo) -> bool:
+    # pylint: disable=simplifiable-if-statement
+    if info.elapsed_time < info.period_length:
+        # It was stopped before the end of the period.  Currently it can only
+        # be done manually.
+        return True
+    else:
+        return False
 
 
 _NOTIF = _NOTIFICATION_RESOURCES = {
@@ -133,11 +147,6 @@ class _BreakManager:
         self._config = config
         self._time_log = config.time_log
         self._clock = clock
-
-    def time_for_a_break(self) -> bool:
-        # TODO: Do we always rest?  If the period ended on its own, not when it was
-        # cancelled?
-        return True
 
     @no_type_check  # pyright has hard time with the DataFrames for some reason.
     def get_break_duration(self) -> timedelta:
