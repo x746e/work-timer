@@ -3,6 +3,7 @@ from datetime import datetime
 import functools
 import unittest
 from unittest import mock
+from unittest.mock import ANY
 
 from typing import no_type_check
 
@@ -82,6 +83,64 @@ class TestBreaks(TimerMixin, unittest.TestCase):
         ti = rt_type(timer.get_info(), TimerInfo)
         assert ti.task_id == BREAK_TASK_ID
         assert ti.period_length == self.config.long_break_duration
+
+
+class TestReplacingTasks(TimerMixin, unittest.TestCase):
+
+    def test_after_replacing_only_new_task_is_logged(self):
+        timer = self.Timer(self.config)
+        task_a, task_b = list(self.config.task_db.get_all().values())[-2:]
+
+        timer.start(task_a.id)
+        self.clock.advance(self.config.work_period_duration / 2)
+        timer.replace(task_id=task_b.id)
+        self.clock.advance(self.config.work_period_duration / 2)
+
+        assert self.config.time_log.get_periods() == [
+                Period(task_id=task_b.id,
+                       start=ANY,
+                       duration=self.config.work_period_duration)
+        ]
+
+    def test_after_replacing_new_task_is_in_TimerInfo(self):  # pylint: disable=invalid-name
+        timer = self.Timer(self.config)
+        task_a, task_b = list(self.config.task_db.get_all().values())[-2:]
+
+        timer.start(task_a.id)
+        timer.replace(task_id=task_b.id)
+
+        assert rt_type(timer.get_info(), TimerInfo).task_id == task_b.id
+
+
+class TestSwitchingTasks(TimerMixin, unittest.TestCase):
+
+    def test_after_switching_both_tasks_are_logged(self):
+        timer = self.Timer(self.config)
+        task_a, task_b = list(self.config.task_db.get_all().values())[-2:]
+
+        timer.start(task_a.id)
+        self.clock.advance(self.config.work_period_duration / 2)
+        timer.switch(task_id=task_b.id)
+        self.clock.advance(self.config.work_period_duration / 2)
+
+        assert self.config.time_log.get_periods() == [
+                Period(task_id=task_a.id,
+                       start=ANY,
+                       duration=self.config.work_period_duration / 2),
+                Period(task_id=task_b.id,
+                       start=ANY,
+                       duration=self.config.work_period_duration / 2),
+        ]
+
+    def test_after_switching_new_task_is_in_TimerInfo(self):  # pylint: disable=invalid-name
+        timer = self.Timer(self.config)
+        task_a, task_b = list(self.config.task_db.get_all().values())[-2:]
+
+        timer.start(task_a.id)
+        self.clock.advance(self.config.work_period_duration / 2)
+        timer.switch(task_id=task_b.id)
+
+        assert rt_type(timer.get_info(), TimerInfo).task_id == task_b.id
 
 
 class TestLoggingToTimeLog(TimerMixin, unittest.TestCase):

@@ -87,6 +87,13 @@ class SingleTaskTimer(state_machine.StateMachine):
         with self._state_transition_lock:
             return self._get_info(state=self.get_state())
 
+    def replace(self, task_id: TaskID) -> None:
+        """Replace task_id for the current period.
+
+        Makes it if the current period was started for the `task_id`.
+        """
+        self._task_id = task_id
+
     def _get_info(self, state: 'SingleTaskTimer.State') -> 'TimerInfo':
         """An internal version of `get_info`, allowing to specify the `state`.
 

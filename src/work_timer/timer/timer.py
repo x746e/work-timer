@@ -75,6 +75,25 @@ class Timer:
             return NoActiveTimer()
         return stt.get_info()
 
+    def switch(self, task_id: TaskID) -> None:
+        """Stop current period, start a new one for `task_id`.
+
+        Useful when the current period isn't yet finished, but you want to
+        start working on another task _for the rest of the current period_.
+        """
+        ti = self.get_info()
+        assert isinstance(ti, TimerInfo)
+        if ti.task_id == task_id:
+            return
+
+        self.stop()
+        self.start(task_id, ti.period_length - ti.elapsed_time)
+
+    def replace(self, task_id: TaskID) -> None:
+        stt = self._single_task_timer
+        assert stt is not None
+        stt.replace(task_id=task_id)
+
     def _on_sub_period_end(self, task_id: TaskID, started_at: datetime,
                            duration: timedelta) -> None:
         self._bugger.timer_is_not_ticking()
