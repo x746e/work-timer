@@ -9,9 +9,9 @@ from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
 from textual.containers import Vertical
-from textual.screen import ModalScreen
+from textual.screen import ModalScreen, Screen
 from textual.widget import Widget
-from textual.widgets import Input, Label, Tree
+from textual.widgets import Footer, Input, Label, Tree
 from textual.widgets.tree import TreeNode
 
 from work_timer import taskdb
@@ -25,27 +25,17 @@ from work_timer.utils.time import td
 from work_timer.utils.typing import not_none
 
 
-class TaskList(Widget):
-    """A widget to showing a list (or a tree) of tasks."""
+class BaseTaskList(Widget):
+    """The widget that can render a tree of tasks.
 
-    # pylint: disable=too-many-instance-attributes
+    This was factored out of `TaskList` below to contain only base
+    tree-rendering functionality.  The different logic of manipulating the
+    tasks in the tree lives in subclasses.
+    """
 
     BINDINGS = [
-        ('e', 'edit', 'Edit'),
-        ('d', 'mark_done', 'Mark as done'),
-        ('c', 'create', 'New task'),  # with the cursor_node as a parent.
-        ('s', 'start', 'Start the timer'),  # start the timer with the cursor_node.
-        ('S', 'start_custom_period_length', 'Select period lenght before starting'),
-        ('-', 'dec_prio', '--priority'),
-        ('+', 'inc_prio', '++priority'),
-        ('ctrl+up', 'reorder_up', 'Reorder up'),
-        ('ctrl+down', 'reorder_down', 'Reorder down'),
-        ('ctrl+left', 'reparent_up', 'Reparent up'),
-        ('ctrl+right', 'reparent_down', 'Reparent down'),
-        ('q', 'quit', 'Quit'),
-        ('j', 'cursor_down'),
         ('k', 'cursor_up'),
-        ('R', 'refresh', 'Refresh tasks'),
+        ('j', 'cursor_down'),
     ]
 
     def __init__(self, config: Config, timer: Timer) -> None:
@@ -57,9 +47,14 @@ class TaskList(Widget):
 
         self._task_id_to_node_id = {}
 
-
     def compose(self) -> ComposeResult:
         yield self._make_tree_with_tasks()
+
+    def action_cursor_up(self):
+        self._get_tree().action_cursor_up()
+
+    def action_cursor_down(self):
+        self._get_tree().action_cursor_down()
 
     def _get_selected_task_node(self) -> TreeNode | None:
         cursor_node = not_none(self._get_tree().cursor_node)
@@ -74,6 +69,130 @@ class TaskList(Widget):
     def _get_task(self, node: TreeNode) -> Task:
         task_id = not_none(node.data)
         return self._task_db.get(task_id)
+
+    def _remove_node(self, node: TreeNode) -> None:
+        """Remove the node from the tree.
+
+        If it's the last displayed node of the parent, remove the expand/collapse
+        triangular marker from its parent node.
+        """
+        if node.parent and len(node.parent.children) == 1:
+            node.parent.allow_expand = False
+
+        def remove_id_mapping(node: TreeNode) -> None:
+            task_id = not_none(node.data)
+            self._task_id_to_node_id.pop(task_id)
+            for child in node.children:
+                remove_id_mapping(child)
+
+        remove_id_mapping(node)
+        node.remove()
+
+    def _make_tree_with_tasks(self) -> Tree:
+        """Returns a Tree widget populated with Tasks."""
+
+        tree = Tree[taskdb.TaskID](label='/', data=ROOT_TASK_ID)
+        self._task_id_to_node_id[ROOT_TASK_ID] = tree.root.id
+
+        for task in self._task_db.get_children(parent_id=ROOT_TASK_ID):
+            if not self._whole_subtree_is_completed(task):
+                self._add_task(task, parent_node=tree.root)
+
+        tree.root.expand()
+        return tree
+
+    def _add_task(self, task: Task, parent_node: TreeNode | None = None, focus=False) -> TreeNode:
+        """Adds a `task`, with all its children, as a child of the `parent_node`."""
+
+        assert task.id not in self._task_id_to_node_id, (
+                f'{task} is already added to the task list')
+
+        def get_node_by_task_id(task_id: TaskID | None) -> TreeNode:
+            if task_id is None:
+                return self._get_tree().root
+            node_id = self._task_id_to_node_id[task_id]
+            return self._get_tree().get_node_by_id(node_id)
+
+        task = self._task_db.get(task.id)  # Refresh .parent_id / .child_ids
+        if not parent_node:
+            parent_node = get_node_by_task_id(task.parent_id)
+
+        def insert_loc() -> dict[str, int]:
+            if not task.parent_id:
+                return {}
+            child_ids_added_so_far = [
+                    not_none(child_node.data) for child_node in parent_node.children
+            ]
+            parent_task = self._task_db.get(task.parent_id)
+            index = parent_task.child_ids.index(task.id)
+            for prev_id in reversed(parent_task.child_ids[0:index]):
+                if prev_id in child_ids_added_so_far:
+                    return {'after': child_ids_added_so_far.index(prev_id)}
+            return {'before': 0}
+
+        node = parent_node.add(_title_with_style(task), data=task.id, **insert_loc())  # type: ignore
+        parent_node.allow_expand = True
+        self._task_id_to_node_id[task.id] = node.id
+        children = self._task_db.get_children(task.id)
+        children_to_show = [c for c in children if not self._whole_subtree_is_completed(c)]
+
+        for child_task in children_to_show:
+            self._add_task(child_task, parent_node=node)
+
+        if not children_to_show:
+            node.allow_expand = False
+
+        if focus:
+            # Not sure why, but it appears I need both these calls.
+            self._get_tree().move_cursor(node)
+            self._get_tree().select_node(node)
+
+        return node
+
+    def _whole_subtree_is_completed(self, task: Task) -> bool:
+        if task.status != Task.Status.DONE:
+            return False
+        children = self._task_db.get_children(task.id)
+        return all(self._whole_subtree_is_completed(child) for child in children)
+
+
+_PRIO_TO_COLOR = {
+    Task.Priority.P0: Color.parse('bright_red'),
+    Task.Priority.P1: Color.parse('yellow'),
+    Task.Priority.P2: None,
+    Task.Priority.P3: Color.parse('grey50'),
+}
+
+
+def _title_with_style(task: taskdb.Task) -> Text:
+    style = Style(color=_PRIO_TO_COLOR[task.priority])
+    if task.status == Task.Status.DONE:
+        style = style.combine([style, Style(strike=True)])
+    title = task.title
+    if task.type != Task.Type.REGULAR:
+        title = f'{TYPE_SYMBOLS[task.type]} {title}'
+    if task.description:
+        title += ' :memo:'
+    return Text.from_markup(title, style=style)
+
+
+class TaskList(BaseTaskList):
+    """A widget to show and manipulate a list (or tree) of tasks."""
+
+    BINDINGS = [
+        ('e', 'edit', 'Edit'),
+        ('d', 'mark_done', 'Mark as done'),
+        ('c', 'create', 'New task'),  # with the cursor_node as a parent.
+        ('s', 'start', 'Start the timer'),  # start the timer with the cursor_node.
+        ('S', 'start_custom_period_length', 'Select period lenght before starting'),
+        ('-', 'dec_prio', '--priority'),
+        ('+', 'inc_prio', '++priority'),
+        ('ctrl+up', 'reorder_up', 'Reorder up'),
+        ('ctrl+down', 'reorder_down', 'Reorder down'),
+        ('ctrl+left', 'reparent_up', 'Reparent up'),
+        ('ctrl+right', 'reparent_down', 'Reparent down'),
+        ('R', 'refresh', 'Refresh tasks'),
+    ]
 
     def action_mark_done(self) -> None:
         """Mark the task as DONE.
@@ -90,16 +209,6 @@ class TaskList(Widget):
         # And remove it from the UI.
         if not node.children:
             self._remove_node(node)
-
-    def _remove_node(self, node: TreeNode) -> None:
-        """Remove the node from the tree.
-
-        If it's the last displayed node of the parent, remove the expand/collapse
-        triangular marker from its parent node.
-        """
-        if node.parent and len(node.parent.children) == 1:
-            node.parent.allow_expand = False
-        node.remove()
 
     def action_dec_prio(self) -> None:
         """Decrease the Task's priority by one."""
@@ -283,12 +392,6 @@ class TaskList(Widget):
         if period_length is not None:
             self.action_start(period_length=period_length)
 
-    def action_cursor_down(self):
-        self._get_tree().action_cursor_down()
-
-    def action_quit(self):
-        self.app.exit()
-
     async def action_refresh(self):
         await self.recompose()
         self._get_tree().focus()
@@ -305,92 +408,6 @@ class TaskList(Widget):
     # task-changing ones when no tasks are selected.
     def on_tree_node_highlighted(self, unused_event: Tree.NodeHighlighted) -> None:
         self.refresh_bindings()
-
-    def _make_tree_with_tasks(self) -> Tree:
-        """Returns a Tree widget populated with Tasks."""
-
-        tree = Tree[taskdb.TaskID](label='/', data=ROOT_TASK_ID)
-        self._task_id_to_node_id[ROOT_TASK_ID] = tree.root.id
-
-        for task in self._task_db.get_children(parent_id=ROOT_TASK_ID):
-            if not self._whole_subtree_is_completed(task):
-                self._add_task(task, parent_node=tree.root)
-
-        tree.root.expand()
-        return tree
-
-    def _add_task(self, task: Task, parent_node: TreeNode | None = None, focus=False) -> TreeNode:
-        """Adds a `task`, with all its children, as a child of `parent_node`."""
-
-        # TODO: Check the task isn't added yet?
-
-        def get_node_by_task_id(task_id: TaskID | None) -> TreeNode:
-            if task_id is None:
-                return self._get_tree().root
-            node_id = self._task_id_to_node_id[task_id]
-            return self._get_tree().get_node_by_id(node_id)
-
-        task = self._task_db.get(task.id)  # Refresh .parent_id / .child_ids
-        if not parent_node:
-            parent_node = get_node_by_task_id(task.parent_id)
-
-        def insert_loc() -> dict[str, int]:
-            if not task.parent_id:
-                return {}
-            child_ids_added_so_far = [
-                    not_none(child_node.data) for child_node in parent_node.children
-            ]
-            parent_task = self._task_db.get(task.parent_id)
-            index = parent_task.child_ids.index(task.id)
-            for prev_id in reversed(parent_task.child_ids[0:index]):
-                if prev_id in child_ids_added_so_far:
-                    return {'after': child_ids_added_so_far.index(prev_id)}
-            return {'before': 0}
-
-        node = parent_node.add(_title_with_style(task), data=task.id, **insert_loc())  # type: ignore
-        parent_node.allow_expand = True
-        self._task_id_to_node_id[task.id] = node.id
-        children = self._task_db.get_children(task.id)
-        children_to_show = [c for c in children if not self._whole_subtree_is_completed(c)]
-
-        for child_task in children_to_show:
-            self._add_task(child_task, parent_node=node)
-
-        if not children_to_show:
-            node.allow_expand = False
-
-        if focus:
-            # Not sure why, but it appears I need both these calls.
-            self._get_tree().move_cursor(node)
-            self._get_tree().select_node(node)
-
-        return node
-
-    def _whole_subtree_is_completed(self, task: Task) -> bool:
-        if task.status != Task.Status.DONE:
-            return False
-        children = self._task_db.get_children(task.id)
-        return all(self._whole_subtree_is_completed(child) for child in children)
-
-
-_PRIO_TO_COLOR = {
-    Task.Priority.P0: Color.parse('bright_red'),
-    Task.Priority.P1: Color.parse('yellow'),
-    Task.Priority.P2: None,
-    Task.Priority.P3: Color.parse('grey50'),
-}
-
-
-def _title_with_style(task: taskdb.Task) -> Text:
-    style = Style(color=_PRIO_TO_COLOR[task.priority])
-    if task.status == Task.Status.DONE:
-        style = style.combine([style, Style(strike=True)])
-    title = task.title
-    if task.type != Task.Type.REGULAR:
-        title = f'{TYPE_SYMBOLS[task.type]} {title}'
-    if task.description:
-        title += ' :memo:'
-    return Text.from_markup(title, style=style)
 
 
 class PeriodLengthSelectDialog(ModalScreen[timedelta | None]):
@@ -428,3 +445,15 @@ class PeriodLengthSelectDialog(ModalScreen[timedelta | None]):
             Input(id='duration'),
             id='dialog',
         )
+
+
+class TaskListScreen(Screen):
+
+    def __init__(self, config: Config, timer: Timer) -> None:
+        super().__init__()
+        self._config = config
+        self._timer = timer
+
+    def compose(self) -> ComposeResult:
+        yield TaskList(self._config, self._timer)
+        yield Footer()

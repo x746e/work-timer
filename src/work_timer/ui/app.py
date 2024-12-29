@@ -10,13 +10,12 @@ import nest_asyncio
 from loguru import logger
 import platformdirs
 
-from textual.app import App, ComposeResult
+from textual.app import App
 from textual.logging import TextualHandler
-from textual.widgets import Footer
 
 from work_timer.config import get_config_from_args, Config
 from work_timer.timer import Timer
-from work_timer.ui.task_list import TaskList
+from work_timer.ui.task_list import TaskListScreen
 from work_timer.utils.scheduler import Scheduler
 
 
@@ -24,14 +23,18 @@ class WorkTimerApp(App):
 
     """The main Textual App."""
 
+    BINDINGS = [
+        ('q', 'quit', 'Quit'),
+    ]
+
     def __init__(self, config: Config) -> None:
         super().__init__()
         self._config = config
         self._timer = Timer(self._config, scheduler=Scheduler())
+        self.install_screen(TaskListScreen(self._config, self._timer), 'task_list')
 
-    def compose(self) -> ComposeResult:
-        yield TaskList(self._config, self._timer)
-        yield Footer()
+    def on_mount(self) -> None:
+        self.push_screen('task_list')
 
 
 def main():
