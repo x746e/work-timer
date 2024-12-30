@@ -15,6 +15,7 @@ from work_timer.timer import Timer
 from work_timer.ui.timer_widget import TimerWidget, TimeDisplay
 from work_timer.utils.scheduler import Scheduler
 from work_timer.utils.testing import FakeClock
+from work_timer.utils.typing import not_none
 
 
 class FakeApp(App):  # pylint: disable=missing-class-docstring
@@ -23,9 +24,11 @@ class FakeApp(App):  # pylint: disable=missing-class-docstring
         super().__init__()
         self._timer = timer
         self._task_db = task_db
+        self._timer_widget = None
 
     def compose(self) -> ComposeResult:
-        yield TimerWidget(self._timer, self._task_db)
+        self._timer_widget = TimerWidget(self._timer, self._task_db)
+        yield self._timer_widget
         yield Footer(show_command_palette=False)
 
 
@@ -50,12 +53,9 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
     async def test_it(self):
 
         async def time_travel(to):
-            # TODO: We are mising threaded and async code right here.  That is
-            # likely not a great approach, even if it looks like it does work.
             self.clock.advance(to)
-            await asyncio.sleep(.1)  # UI is supposed to get updated every 50ms.
-                                     # The hope is that 100ms should be enough in majority
-                                     # of cases.
+            not_none(self.app._timer_widget)._tick()  # pylint: disable=protected-access
+            await asyncio.sleep(.1)
 
         async with self.app.run_test() as pilot:
 
@@ -89,11 +89,9 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
         progress_bar = pilot.app.query_exactly_one(ProgressBar)
         self.assertEqual(progress_bar.total, self.period_length.total_seconds())
         self.assertEqual(math.floor(progress_bar.progress), 0)
-        # The footer says "Pause" and "Stop".
-        self.assertEqual(
-            ['space Pause', 'S Stop'],
-            get_binding(pilot),
-        )
+        # Check the bindings.
+        assert get_binding(pilot) == [
+            'space Pause', 'S Stop', 'r Replace current task', 'w Switch to another task']
 
     def check_running_state(self, pilot: Pilot) -> None:
         """Check the running widget."""
@@ -104,11 +102,9 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
         progress_bar = pilot.app.query_exactly_one(ProgressBar)
         self.assertEqual(progress_bar.total, self.period_length.total_seconds())
         self.assertEqual(math.floor(progress_bar.progress), 1)
-        # Check `pause` and `stop` bindings are active.
-        self.assertEqual(
-            ['space Pause', 'S Stop'],
-            get_binding(pilot),
-        )
+        # Check the bindings.
+        assert get_binding(pilot) == [
+            'space Pause', 'S Stop', 'r Replace current task', 'w Switch to another task']
 
     def check_paused_state(self, pilot: Pilot) -> None:
         """Check a paused widget."""
@@ -118,11 +114,9 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
         progress_bar = pilot.app.query_exactly_one(ProgressBar)
         self.assertEqual(progress_bar.total, self.period_length.total_seconds())
         self.assertEqual(math.floor(progress_bar.progress), 1)
-        # Check `pause` and `stop` bindings are active.
-        self.assertEqual(
-            ['space Resume', 'S Stop'],
-            get_binding(pilot),
-        )
+        # Check the bindings.
+        assert get_binding(pilot) == [
+            'space Resume', 'S Stop', 'r Replace current task', 'w Switch to another task']
 
     def check_break(self, pilot: Pilot) -> None:
         timer_widget = pilot.app.query_exactly_one(TimerWidget)
@@ -131,10 +125,7 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
         display = pilot.app.query_exactly_one(TimeDisplay)
         self.assertEqual(display.value, '00:00:03')
         # Check `pause` and `stop` bindings are active.
-        self.assertEqual(
-            ['space Pause', 'S Stop'],
-            get_binding(pilot),
-        )
+        assert get_binding(pilot) == ['space Pause', 'S Stop']
 
 
 def get_binding(pilot: Pilot) -> list[str]:

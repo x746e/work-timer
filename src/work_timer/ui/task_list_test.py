@@ -33,7 +33,7 @@ class FakeApp(App):  # pylint: disable=missing-class-docstring
                         break_duration=td('5m'), long_break_duration=td('20m'),
                         long_break_after=td('3h'))
         timer = Timer(config, scheduler=Scheduler())
-        yield TaskList(config, timer)
+        yield TaskList(config.task_db, timer)
 
 
 class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):

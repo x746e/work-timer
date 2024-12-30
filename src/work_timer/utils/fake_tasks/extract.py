@@ -14,7 +14,7 @@ from work_timer.utils.fake_tasks import FakeTask
 def fake_tasks_from_tree(tree: 'Tree') -> list[FakeTask]:
     """Extracts FakeTasks out of a Tree widget."""
 
-    from work_timer.ui.task_list import _PRIO_TO_COLOR  # pylint: disable=import-outside-toplevel
+    from work_timer.ui.base_task_list import _PRIO_TO_COLOR  # pylint: disable=import-outside-toplevel
 
     _COLOR_TO_PRIO = dict(map(reversed, _PRIO_TO_COLOR.items()))  # type: ignore  # pylint: disable=invalid-name
 

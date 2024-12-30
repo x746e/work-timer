@@ -1,7 +1,7 @@
 """Timer interface."""
 import math
 
-from textual import on
+from textual import on, work
 from textual.app import App, ComposeResult
 from textual.message import Message
 from textual.reactive import reactive
@@ -11,6 +11,7 @@ from textual.widget import Widget
 from textual.widgets import Digits, Footer, Label, ProgressBar
 
 from work_timer import taskdb
+from work_timer.ui.base_task_list import TaskSelectionDialog
 from work_timer.timer import NoActiveTimer, Timer, TimerInfo
 
 
@@ -26,16 +27,18 @@ class TimeDisplay(Digits):
     def watch_seconds_left(self, time: float) -> None:
         minutes, seconds = divmod(time, 60)
         hours, minutes = divmod(minutes, 60)
-        self.update(f"{hours:02,.0f}:{minutes:02.0f}:{seconds:02.0f}")
+        self.update(f'{hours:02,.0f}:{minutes:02.0f}:{seconds:02.0f}')
 
 
 class TimerWidget(Widget):
     """Timer interface widget."""
 
     BINDINGS = [
-        ("space", "pause", "Pause"),
-        ("space", "resume", "Resume"),
-        ("S", "stop", "Stop"),
+        ('space', 'pause', 'Pause'),
+        ('space', 'resume', 'Resume'),
+        ('S', 'stop', 'Stop'),
+        ('r', 'replace', 'Replace current task'),
+        ('w', 'switch', 'Switch to another task'),
     ]
 
     class TimerStopped(Message):
@@ -50,7 +53,7 @@ class TimerWidget(Widget):
                  timer: Timer,
                  task_db: taskdb.TaskDB):
         super().__init__()
-        self._ticker = self.set_interval(.05, self._tick)
+        self._ticker = self.set_interval(.25, self._tick)
         self._task_db = task_db
         self._timer = timer
 
@@ -85,12 +88,39 @@ class TimerWidget(Widget):
     def action_stop(self) -> None:
         self._timer.stop()
 
+    @work
+    async def action_replace(self) -> None:
+        """Replace the current task with another one.
+
+        Useful for the cases when you realize you've been working on another
+        task all along.
+        """
+        new_task_id = await self.app.push_screen_wait(TaskSelectionDialog(self._task_db))
+        if new_task_id is None:
+            return
+        self._timer.replace(task_id=new_task_id)
+        self._refresh()
+
+    @work
+    async def action_switch(self) -> None:
+        """Switch to another task.
+
+        Useful when you want to work the rest of the current period on another task.
+        """
+        new_task_id = await self.app.push_screen_wait(TaskSelectionDialog(self._task_db))
+        if new_task_id is None:
+            return
+        self._timer.switch(task_id=new_task_id)
+        self._refresh()
+
     def check_action(  # pylint: disable=too-many-return-statements
         self, action: str, parameters: tuple[object, ...]
     ) -> bool | None:
         ti = self._timer.get_info()
         if not isinstance(ti, TimerInfo):
             return False
+        if action in ('replace', 'switch') and ti.task_id != taskdb.BREAK_TASK_ID:
+            return True
         match (action, ti.state):
             case ('pause', Timer.State.RUNNING):
                 return True
@@ -104,6 +134,9 @@ class TimerWidget(Widget):
                 return False
 
     def _tick(self) -> None:
+        self._refresh()
+
+    def _refresh(self):
         ti = self._timer.get_info()
 
         if isinstance(ti, NoActiveTimer):
@@ -115,6 +148,8 @@ class TimerWidget(Widget):
         self._update_title(ti, self.query_one('#title', Label))
 
         self._update_classes(ti)
+
+        self.refresh_bindings()
 
     def _update_title(self, ti: TimerInfo, title: Label) -> Label:
         task = self._task_db.get(ti.task_id)
