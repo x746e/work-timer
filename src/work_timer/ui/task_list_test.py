@@ -110,6 +110,24 @@ class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
 
         assert tasks == extract.fake_tasks_from_tree(tree)
 
+    async def test_refresh_shows_new_tasks(self):
+        tasks = [
+            FakeTask('a'),
+        ]
+        db = fake_tasks.get_task_db(tasks)
+
+        app = FakeApp(db)
+        async with app.run_test() as pilot:
+            db.add(taskdb.Task('b'))
+            await pilot.press('R')
+            tree = app.query_one(Tree)
+
+        want_displayed_tasks = [
+                FakeTask('a'),
+                FakeTask('b'),
+        ]
+        assert extract.fake_tasks_from_tree(tree) == want_displayed_tasks
+
 
 # TODO: Consider testing using a PersistentTaskDB as well.
 

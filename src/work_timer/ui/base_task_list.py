@@ -26,6 +26,7 @@ class BaseTaskList(Widget):
     BINDINGS = [
         ('k', 'cursor_up'),
         ('j', 'cursor_down'),
+        ('R', 'refresh', 'Refresh tasks'),
     ]
 
     def __init__(self, task_db: TaskDB) -> None:
@@ -42,6 +43,10 @@ class BaseTaskList(Widget):
 
     def action_cursor_down(self):
         self._get_tree().action_cursor_down()
+
+    async def action_refresh(self):
+        await self.recompose()
+        self._get_tree().focus()
 
     def _get_selected_task_node(self) -> TreeNode | None:
         cursor_node = not_none(self._get_tree().cursor_node)
@@ -79,7 +84,9 @@ class BaseTaskList(Widget):
         """Returns a Tree widget populated with Tasks."""
 
         tree = Tree[taskdb.TaskID](label='/', data=ROOT_TASK_ID)
-        self._task_id_to_node_id[ROOT_TASK_ID] = tree.root.id
+        self._task_id_to_node_id = {
+            ROOT_TASK_ID: tree.root.id,
+        }
 
         for task in self._task_db.get_children(parent_id=ROOT_TASK_ID):
             if not self._whole_subtree_is_completed(task):

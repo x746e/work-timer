@@ -37,7 +37,6 @@ class TaskList(BaseTaskList):
         ('ctrl+down', 'reorder_down', 'Reorder down'),
         ('ctrl+left', 'reparent_up', 'Reparent up'),
         ('ctrl+right', 'reparent_down', 'Reparent down'),
-        ('R', 'refresh', 'Refresh tasks'),
     ]
 
     def __init__(self, task_db: TaskDB, timer: Timer) -> None:
@@ -237,10 +236,6 @@ class TaskList(BaseTaskList):
         period_length = await self.app.push_screen_wait(PeriodLengthSelectDialog())
         if period_length is not None:
             self.action_start(period_length=period_length)
-
-    async def action_refresh(self):
-        await self.recompose()
-        self._get_tree().focus()
 
     def check_action(
         self, action: str, parameters: tuple[object, ...]
