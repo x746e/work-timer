@@ -84,7 +84,8 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
         display = pilot.app.query_exactly_one(TimeDisplay)
         self.assertEqual(display.value, '00:00:04')
         # The task title is shown.
-        assert pilot.app.query_exactly_one('#title', Label).renderable == self.task.title
+        assert pilot.app.query_exactly_one('#title', Label).renderable == (
+                f'#{self.task.id} {self.task.title}')
         # Progress is about zero.
         progress_bar = pilot.app.query_exactly_one(ProgressBar)
         self.assertEqual(progress_bar.total, self.period_length.total_seconds())

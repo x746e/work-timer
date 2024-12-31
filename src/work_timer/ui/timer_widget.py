@@ -153,7 +153,7 @@ class TimerWidget(Widget):
 
     def _update_title(self, ti: TimerInfo, title: Label) -> Label:
         task = self._task_db.get(ti.task_id)
-        title.update(task.title)
+        title.update(f'#{task.id} {task.title}')
         return title
 
     def _update_time_display(self, ti: TimerInfo, disp: TimeDisplay) -> TimeDisplay:
