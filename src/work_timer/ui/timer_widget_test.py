@@ -1,5 +1,4 @@
 """Tests for work_timer.ui.timer_widget."""
-import asyncio
 from datetime import timedelta
 import math
 import unittest
@@ -52,10 +51,10 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_it(self):
 
-        async def time_travel(to):
+        async def time_travel(to, pilot):
             self.clock.advance(to)
             not_none(self.app._timer_widget)._tick()  # pylint: disable=protected-access
-            await asyncio.sleep(.1)
+            await pilot.pause(delay=.1)
 
         async with self.app.run_test() as pilot:
 
@@ -63,18 +62,18 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
             self.check_initial_state(pilot)
 
             # Wait 1 second, check again.
-            await time_travel('1s')
+            await time_travel('1s', pilot)
             self.check_running_state(pilot)
 
             # Pause, wait another second, check the paused state.
             await pilot.press('space')
-            await time_travel('1s')
+            await time_travel('1s', pilot)
             self.check_paused_state(pilot)
 
             # At this point it was running for a second, and paused for a
             # second.  Let's run the remaining 3 seconds of the working period.
             await pilot.press('space')
-            await time_travel('3s')
+            await time_travel('3s', pilot)
             # Now it should switch to a three second break.
             self.check_break(pilot)
 
