@@ -148,7 +148,7 @@ class TaskEditorWidget(Widget):
                 yield Input(str(self._edited_task.id), disabled=True)
 
             yield Label('Title:')
-            yield Input(self._edited_task.title, id='title')
+            yield Input(self._edited_task.title, id='title', select_on_focus=False)
 
             yield Label('Status:')
             yield Select(
