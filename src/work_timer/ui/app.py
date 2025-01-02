@@ -16,6 +16,7 @@ from textual.logging import TextualHandler
 from work_timer.config import get_config_from_args, Config
 from work_timer.timer import Timer
 from work_timer.ui.task_list import TaskListScreen
+from work_timer.ui.timer_widget import TimerScreen
 from work_timer.utils.scheduler import Scheduler
 
 
@@ -32,9 +33,16 @@ class WorkTimerApp(App):
         self._config = config
         self._timer = Timer(self._config, scheduler=Scheduler())
         self.install_screen(TaskListScreen(self._config, self._timer), 'task_list')
+        self.install_screen(TimerScreen(self._config.task_db, self._timer), 'timer')
 
     def on_mount(self) -> None:
         self.push_screen('task_list')
+
+    def on_task_list_timer_started(self) -> None:
+        self.switch_screen('timer')
+
+    def on_timer_widget_timer_stopped(self) -> None:
+        self.switch_screen('task_list')
 
 
 def main():

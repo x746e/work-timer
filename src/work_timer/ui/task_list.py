@@ -9,6 +9,7 @@ from loguru import logger
 from textual import work
 from textual.app import ComposeResult
 from textual.containers import Vertical
+from textual.message import Message
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Footer, Input, Label, Tree
 
@@ -16,7 +17,6 @@ from work_timer.config import Config
 from work_timer.taskdb import Task, TaskDB
 from work_timer.timer import Timer
 from work_timer.ui.base_task_list import BaseTaskList
-from work_timer.ui.timer_widget import TimerScreen
 from work_timer.ui.task_editor import TaskEditor
 from work_timer.utils.time import td
 from work_timer.utils.typing import not_none
@@ -38,6 +38,9 @@ class TaskList(BaseTaskList):
         ('ctrl+left', 'reparent_up', 'Reparent up'),
         ('ctrl+right', 'reparent_down', 'Reparent down'),
     ]
+
+    class TimerStarted(Message):
+        pass
 
     def __init__(self, task_db: TaskDB, timer: Timer) -> None:
         super().__init__(task_db=task_db)
@@ -227,8 +230,7 @@ class TaskList(BaseTaskList):
 
         task = self._get_task(node)
         self._timer.start(task.id, period_length=period_length)
-        # TODO: Don't create the TimerScreen here.
-        await self.app.push_screen_wait(TimerScreen(self._task_db, self._timer))
+        self.post_message(self.TimerStarted())
 
     @work
     async def action_start_custom_period_length(self) -> None:

@@ -1,7 +1,7 @@
 """Timer interface."""
 import math
 
-from textual import on, work
+from textual import work
 from textual.app import App, ComposeResult
 from textual.message import Message
 from textual.reactive import reactive
@@ -46,16 +46,26 @@ class TimerWidget(Widget):
 
     can_focus = True
 
-    _ticker: TextualTimer
+    _ticker: TextualTimer | None
     _timer: Timer
 
     def __init__(self,
                  timer: Timer,
                  task_db: taskdb.TaskDB):
         super().__init__()
-        self._ticker = self.set_interval(.25, self._tick)
         self._task_db = task_db
         self._timer = timer
+
+    def on_mount(self):
+        self._ticker = self.set_interval(.25, self._tick, pause=True)
+
+    def resume_updates(self):
+        assert self._ticker is not None
+        self._ticker.resume()
+
+    def pause_updates(self):
+        assert self._ticker is not None
+        self._ticker.pause()
 
     def compose(self) -> ComposeResult:
         title = Label('NOT RUNNING', id='title')
@@ -72,10 +82,6 @@ class TimerWidget(Widget):
         yield title
         yield time_display
         yield progress_bar
-
-    @on(TimerStopped)
-    async def on_timer_stopped(self) -> None:
-        self.refresh_bindings()
 
     def action_pause(self) -> None:
         self._timer.pause()
@@ -140,7 +146,7 @@ class TimerWidget(Widget):
         ti = self._timer.get_info()
 
         if isinstance(ti, NoActiveTimer):
-            self.post_message(TimerWidget.TimerStopped())
+            self.post_message(self.TimerStopped())
             return
 
         self._update_progress_bar(ti, self.query_one(ProgressBar))
@@ -183,13 +189,15 @@ class TimerScreen(Screen):
         self._task_db = task_db
         self._timer = timer
 
+    def on_screen_resume(self):
+        self.query_one(TimerWidget).resume_updates()
+
+    def on_screen_suspend(self):
+        self.query_one(TimerWidget).pause_updates()
+
     def compose(self) -> ComposeResult:
         yield TimerWidget(self._timer, self._task_db)
         yield Footer()
-
-    @on(TimerWidget.TimerStopped)
-    async def on_period_end(self) -> None:
-        self.dismiss()
 
 
 def main() -> None:

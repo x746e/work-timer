@@ -7,7 +7,7 @@ from textual.widgets import Tree
 from work_timer import taskdb
 from work_timer.config import Config
 from work_timer.timelog import TimeLog
-from work_timer.timer import Timer
+from work_timer.timer import Timer, TimerInfo
 from work_timer.ui import ui_testing
 from work_timer.ui.task_list import TaskList
 from work_timer.utils import fake_tasks
@@ -26,14 +26,18 @@ class FakeApp(App):  # pylint: disable=missing-class-docstring
         super().__init__()
         self._task_db = task_db
         self._time_log = time_log
+        self._config = Config(task_db=self._task_db, time_log=self._time_log,
+                              work_period_duration=td('25m'),
+                              break_duration=td('5m'), long_break_duration=td('20m'),
+                              long_break_after=td('3h'))
+        self.timer = Timer(self._config, scheduler=Scheduler())
+        self.timer_started = False
 
     def compose(self):
-        config = Config(task_db=self._task_db, time_log=self._time_log,
-                        work_period_duration=td('25m'),
-                        break_duration=td('5m'), long_break_duration=td('20m'),
-                        long_break_after=td('3h'))
-        timer = Timer(config, scheduler=Scheduler())
-        yield TaskList(config.task_db, timer)
+        yield TaskList(self._config.task_db, self.timer)
+
+    def on_task_list_timer_started(self) -> None:
+        self.timer_started = True
 
 
 class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
@@ -476,9 +480,9 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
         assert want_tasks == got_ui_tasks
 
 
-class TestTimer(unittest.IsolatedAsyncioTestCase):
+class TestStartingTimer(unittest.IsolatedAsyncioTestCase):
 
-    async def test_it_logs(self):
+    async def test_starting_timer(self):
         # Make a TaskDB, as usual.
         tasks = [FakeTask('task_a')]
         task_db = fake_tasks.get_task_db(tasks)
@@ -490,15 +494,15 @@ class TestTimer(unittest.IsolatedAsyncioTestCase):
             # Navigate to the task.
             await pilot.press('down')
             self.assertEqual(cursor_task(app).title, 'task_a')
-            # Go to the Timer view.
+            # Start the timer.
             await pilot.press('s')
-            # Start the period.
-            await pilot.press('space')
-            # Stop the period.
-            await pilot.press('S')
 
-        # Check there's a entry in the TimeLog.
-        self.assertEqual(len(time_log.get_periods()), 1)
+        # Check the TaskList signalled it started the Timer.
+        assert app.timer_started
+        # And that the actual Timer instance was started as well.
+        info = app.timer.get_info()
+        assert isinstance(info, TimerInfo)
+        assert info.state == Timer.State.RUNNING
 
 
 def cursor_task(app):
