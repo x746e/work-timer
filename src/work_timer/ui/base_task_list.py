@@ -1,4 +1,5 @@
 """A widget to showing a list (or a tree) of tasks -- basic tree rendering."""
+from random import choice
 
 from rich.color import Color
 from rich.style import Style
@@ -32,7 +33,6 @@ class BaseTaskList(Widget):
     def __init__(self, task_db: TaskDB) -> None:
         super().__init__()
         self._task_db = task_db
-
         self._task_id_to_node_id = {}
 
     def compose(self) -> ComposeResult:
@@ -83,7 +83,21 @@ class BaseTaskList(Widget):
     def _make_tree_with_tasks(self) -> Tree:
         """Returns a Tree widget populated with Tasks."""
 
+        icons = [
+            (' ', ' '),
+            (' ', ' '),
+            (' ', ' '),
+            (' ', ' '),
+            (' ', ' '),
+            (' ', ' '),
+            ('󰧖 ', '󰧚 '),
+            ('󰬧  ', '󰬫  '),
+            ('  ', '  '),
+        ]
+
         tree = Tree[taskdb.TaskID](label='/', data=ROOT_TASK_ID)
+        tree.ICON_NODE, tree.ICON_NODE_EXPANDED = choice(icons)  # type: ignore
+
         self._task_id_to_node_id = {
             ROOT_TASK_ID: tree.root.id,
         }
