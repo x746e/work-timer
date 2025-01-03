@@ -3,6 +3,8 @@
 import argparse
 from datetime import date, datetime, timedelta
 from pathlib import Path
+import re
+from typing import no_type_check
 
 from traitlets.config import Config
 from IPython import embed
@@ -11,9 +13,10 @@ import pandas as pd
 from work_timer import config
 from work_timer import taskdb
 from work_timer import timelog
-from work_timer.utils.time import humanize_td
+from work_timer.utils.time import humanize_td, td
 
 
+@no_type_check  # pyright has issues with Pandas.
 def console(args):
     """Pull in tasks and time log DataFrames, and switch to an IPython console."""
     # pylint: disable=unused-variable,possibly-unused-variable
@@ -44,7 +47,31 @@ def console(args):
     pd.set_option('display.width', 0)
     pd.set_option('display.max_columns', 10)
 
-    # TODO: Maybe print out some overall stats for today.
+    # Some stats.
+    print('So far today:')
+    summary = tlogs.groupby(['title'])[['duration']].sum()
+    summary.sort_values('duration', ascending=False, inplace=True)
+    print(format_timedelta_columns(summary))
+    print()
+
+    ## Planning stats
+    # Find planned for today parent task.
+    today_planned_task = tasks[tasks.title == '2025-01-02']
+    assert len(today_planned_task) == 1
+
+    @no_type_check
+    def get_tag(descr: str, tag: str) -> str:
+        return re.search(rf'^{tag}=(?P<tag_value>.*)$', descr, re.M).group('tag_value')
+
+    total = td(get_tag(descr=today_planned_task.description.iloc[0], tag='TOTAL'))
+    print(f'Estimated work hours today: {humanize_td(total)}')
+
+    planned_tasks = tasks[tasks.index.isin(today_planned_task.child_ids.iloc[0])]
+    print(planned_tasks)
+    # print(planned_tasks.description.apply(lambda desc: get_tag(desc, 'PLANNED')))
+
+    # For each task there look at PLANNED= tag in description.
+    # Show alongside with the summary.
 
     # TODO: Pull the current period as well if the timer is running.
 
@@ -56,6 +83,7 @@ def console(args):
     # ip = get_ipython()
     # formatter = ip.display_formatter.formatters['text/plain']
     # formatter.for_type(pd.DataFrame, data_frame_formatter)
+    print('\n')
     c = Config()
     c.PlainTextFormatter.type_printers = {pd.DataFrame: _data_frame_formatter}
     embed(config=c)
@@ -63,13 +91,16 @@ def console(args):
 
 def _data_frame_formatter(df, p, cycle):
     assert not cycle
+    p.text(str(format_timedelta_columns(df)))
+
+
+def format_timedelta_columns(df: pd.DataFrame) -> pd.DataFrame:
     timedelta_columns = [
             column
             for column, type_ in zip(df.columns, df.dtypes)
             if pd.api.types.is_timedelta64_dtype(type_)]
-    df = df.assign(**{column: df[column].apply(humanize_td)
-                      for column in timedelta_columns})
-    p.text(str(df))
+    return df.assign(**{column: df[column].apply(humanize_td)
+                     for column in timedelta_columns})
 
 
 def edit_task(args) -> None:
