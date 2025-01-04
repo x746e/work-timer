@@ -61,7 +61,7 @@ class TimerWidget(Widget):
         self._w = {}
 
     def on_mount(self):
-        self._ticker = self.set_interval(.01, self._tick, pause=True)
+        self._ticker = self.set_interval(.1, self._tick, pause=True)
 
     def resume_updates(self):
         assert self._ticker is not None
