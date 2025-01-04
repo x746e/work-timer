@@ -56,8 +56,12 @@ class TimerWidget(Widget):
         self._task_db = task_db
         self._timer = timer
 
+        self._last_timer_info = None
+        # Widget cache.  TODO: Actually measure if it meaningfully improves performance.
+        self._w = {}
+
     def on_mount(self):
-        self._ticker = self.set_interval(.25, self._tick, pause=True)
+        self._ticker = self.set_interval(.01, self._tick, pause=True)
 
     def resume_updates(self):
         assert self._ticker is not None
@@ -68,20 +72,20 @@ class TimerWidget(Widget):
         self._ticker.pause()
 
     def compose(self) -> ComposeResult:
-        title = Label('NOT RUNNING', id='title')
-        time_display = TimeDisplay(0)
-        progress_bar = ProgressBar(show_percentage=False, show_eta=False)
+        self._w['title'] = Label('NOT RUNNING', id='title')
+        self._w['time_display'] = TimeDisplay(0)
+        self._w['progress_bar'] = ProgressBar(show_percentage=False, show_eta=False)
 
         ti = self._timer.get_info()
         if isinstance(ti, TimerInfo):
             self._update_classes(ti)
-            self._update_title(ti, title)
-            self._update_time_display(ti, time_display)
-            self._update_progress_bar(ti, progress_bar)
+            self._update_title(ti, self._w['title'])
+            self._update_time_display(ti, self._w['time_display'])
+            self._update_progress_bar(ti, self._w['progress_bar'])
 
-        yield title
-        yield time_display
-        yield progress_bar
+        yield self._w['title']
+        yield self._w['time_display']
+        yield self._w['progress_bar']
 
     def action_pause(self) -> None:
         self._timer.pause()
@@ -149,13 +153,26 @@ class TimerWidget(Widget):
             self.post_message(self.TimerStopped())
             return
 
-        self._update_progress_bar(ti, self.query_one(ProgressBar))
-        self._update_time_display(ti, self.query_one(TimeDisplay))
-        self._update_title(ti, self.query_one('#title', Label))
+        self._update_progress_bar(ti, self._w['progress_bar'])
+        self._update_time_display(ti, self._w['time_display'])
 
-        self._update_classes(ti)
+        state_changed = task_changed = True
+        if self._last_timer_info:
+            state_changed = task_changed = False
+            if self._last_timer_info.state != ti.state:
+                state_changed = True
+            if self._last_timer_info.task_id != ti.task_id:
+                task_changed = True
+        self._last_timer_info = ti
 
-        self.refresh_bindings()
+        if task_changed:
+            self._update_title(ti, self._w['title'])
+
+        if state_changed or task_changed:
+            self._update_classes(ti)
+            # `refresh_bindings` triggers `.recompose()` of the `Footer`, which
+            # is CPU intensive and appears to leak memory.
+            self.refresh_bindings()
 
     def _update_title(self, ti: TimerInfo, title: Label) -> Label:
         task = self._task_db.get(ti.task_id)
@@ -174,8 +191,11 @@ class TimerWidget(Widget):
         return pb
 
     def _update_classes(self, ti: TimerInfo) -> None:
+        classes = set()
         if ti.task_id == taskdb.BREAK_TASK_ID:
-            self.classes = 'break'
+            classes.add('break')
+
+        self.classes = classes
 
 
 class TimerScreen(Screen):
