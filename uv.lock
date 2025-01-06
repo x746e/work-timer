@@ -481,6 +481,15 @@ wheels = [
 ]
 
 [[package]]
+name = "lefthook"
+version = "1.10.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ce/a1/783220864783c32f69fe7a632f59342de22512ea4fc38fb3ae585106feb5/lefthook-1.10.1.tar.gz", hash = "sha256:d618f284784e966ff7a1a71eb17c8a5b49bd36eef21a48a9780274463f513b17", size = 29481551 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/12/cb/bb89b25203988bc3b08eb35188d41b48c59f2e517459f1f2d400242dbe7a/lefthook-1.10.1-py3-none-any.whl", hash = "sha256:d2c6a751e807f253f6be1cb17905f9c9b4a332db250593890dd05231182fec45", size = 29622024 },
+]
+
+[[package]]
 name = "linkify-it-py"
 version = "2.0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1487,6 +1496,7 @@ dev = [
     { name = "textual-dev" },
 ]
 lint = [
+    { name = "lefthook" },
     { name = "mypy" },
     { name = "pylint" },
     { name = "pyright" },
@@ -1522,6 +1532,7 @@ dev = [
     { name = "textual-dev", specifier = ">=1.7.0" },
 ]
 lint = [
+    { name = "lefthook", specifier = ">=1.10.1" },
     { name = "mypy", specifier = ">=1.13.0" },
     { name = "pylint", specifier = ">=3.3.1" },
     { name = "pyright", specifier = ">=1.1.389" },
