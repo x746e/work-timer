@@ -24,10 +24,6 @@ class WorkTimerApp(App):
 
     """The main Textual App."""
 
-    BINDINGS = [
-        ('q', 'quit', 'Quit'),
-    ]
-
     def __init__(self, config: Config) -> None:
         super().__init__()
         self._config = config
