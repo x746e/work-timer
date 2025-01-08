@@ -80,11 +80,11 @@ class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(tasks, extract.fake_tasks_from_tree(tree))
 
-    async def test_completed_tasks_are_not_shown(self):
+    async def test_closed_tasks_are_not_shown(self):
         tasks = [
             FakeTask('a', kids=[
                 FakeTask('b', status=Status.DONE, kids=[
-                    FakeTask('c', status=Status.DONE),
+                    FakeTask('c', status=Status.WONTFIX),
                 ])
             ])
         ]
@@ -97,7 +97,7 @@ class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
         want_displayed_tasks = [
                 FakeTask('a'),
         ]
-        assert want_displayed_tasks == extract.fake_tasks_from_tree(tree)
+        assert extract.fake_tasks_from_tree(tree) == want_displayed_tasks
 
     async def test_completed_tasks_with_active_children_are_shown(self):
         tasks = [

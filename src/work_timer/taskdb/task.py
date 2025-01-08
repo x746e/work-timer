@@ -32,6 +32,10 @@ class Task:  # pylint: disable=too-many-instance-attributes
         DONE = enum.auto()
         WONTFIX = enum.auto()
 
+        @property
+        def is_closed(self):
+            return self in [Task.Status.DONE, Task.Status.WONTFIX]
+
     class Priority(LowerCaseStrEnum):
         P0 = enum.auto()
         P1 = enum.auto()

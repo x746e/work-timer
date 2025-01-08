@@ -103,7 +103,7 @@ class BaseTaskList(Widget):
         }
 
         for task in self._task_db.get_children(parent_id=ROOT_TASK_ID):
-            if not self._whole_subtree_is_completed(task):
+            if not self._whole_subtree_is_closed(task):
                 self._add_task(task, parent_node=tree.root)
 
         tree.root.expand()
@@ -142,7 +142,7 @@ class BaseTaskList(Widget):
         parent_node.allow_expand = True
         self._task_id_to_node_id[task.id] = node.id
         children = self._task_db.get_children(task.id)
-        children_to_show = [c for c in children if not self._whole_subtree_is_completed(c)]
+        children_to_show = [c for c in children if not self._whole_subtree_is_closed(c)]
 
         for child_task in children_to_show:
             self._add_task(child_task, parent_node=node)
@@ -157,13 +157,15 @@ class BaseTaskList(Widget):
 
         return node
 
-    def _whole_subtree_is_completed(self, task: Task) -> bool:
-        if task.status != Task.Status.DONE:
+    def _whole_subtree_is_closed(self, task: Task) -> bool:
+        if not task.status.is_closed:
             return False
         children = self._task_db.get_children(task.id)
-        return all(self._whole_subtree_is_completed(child) for child in children)
+        return all(self._whole_subtree_is_closed(child) for child in children)
 
     def _refresh_node(self, node: TreeNode, task: Task) -> None:
+        if self._whole_subtree_is_closed(task):
+            self._remove_node(node)
         node.set_label(_title_with_style(task))
         node.data = task.id
         node.refresh()
