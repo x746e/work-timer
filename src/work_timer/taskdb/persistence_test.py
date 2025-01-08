@@ -1,5 +1,6 @@
 """Tests for work_timer.taskdb.persistence."""
 import contextlib
+import dataclasses
 import json
 from pathlib import Path
 import subprocess
@@ -296,6 +297,23 @@ class PersistentTaskDBTest(unittest.TestCase, TaskDBMixin):
         assert task_b.parent_id == id_a
         task_c = db.get(id_c)
         assert task_c.parent_id == id_a
+
+    def test_type_preservation(self):
+        # StrEnum auto-converts to str on __eq__, so I didn't notice the Enums
+        # are lost on save/load for quite some time.
+        d = self.init_task_db()
+        writing_db = self.task_db(repo_path=d)
+        reading_db = self.task_db(repo_path=d)
+
+        orig = Task('Orig Task')
+        task_id = writing_db.add(orig)
+        loaded = reading_db.get(task_id)
+
+        def get_field_types(dataclass):
+            name_to_field_val = dataclasses.asdict(dataclass)
+            return {name: type(val) for (name, val) in name_to_field_val.items()}
+
+        assert get_field_types(orig) == get_field_types(loaded)
 
 
 class PersistentTaskDBParallelTest(unittest.TestCase, TaskDBMixin):

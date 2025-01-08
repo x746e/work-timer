@@ -1,5 +1,6 @@
 """A module defining a TaskDB implementation that can store its state."""
 import dataclasses
+import enum
 import io
 import json
 from pathlib import Path
@@ -214,7 +215,23 @@ class PersistentTaskDB(TaskDB):
                 t._commit = self._commit  # pylint: disable=protected-access
 
     def _from_df(self, df: pd.DataFrame, read_at_commit: str) -> dict[TaskID, Task]:
-        tasks = {d['id']: Task(**d) for d in df.reset_index().to_dict(orient='records')}
+
+        enum_fields = {}
+        for name, field in Task.__dataclass_fields__.items():  # pylint: disable=no-member
+            if isinstance(field.type, type) and issubclass(field.type, enum.Enum):
+                enum_fields[name] = field.type
+
+        def make_task(**fields) -> Task:
+            def inst_enums():
+                for name, val in fields.items():
+                    if name in enum_fields:
+                        yield (name, enum_fields[name](val))
+                    else:
+                        yield (name, val)
+
+            return Task(**dict(inst_enums()))
+
+        tasks = {d['id']: make_task(**d) for d in df.reset_index().to_dict(orient='records')}
         for t in tasks.values():
             t._commit = read_at_commit  # pylint: disable=protected-access
         return tasks
