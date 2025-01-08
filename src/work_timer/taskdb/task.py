@@ -30,6 +30,7 @@ class Task:  # pylint: disable=too-many-instance-attributes
     class Status(enum.StrEnum):
         NEW = enum.auto()
         DONE = enum.auto()
+        WONTFIX = enum.auto()
 
     class Priority(LowerCaseStrEnum):
         P0 = enum.auto()

@@ -116,6 +116,7 @@ EXPECTED_DATA = {
                     'enum': [
                         'new',
                         'done',
+                        'wontfix',
                     ],
                 },
                 'name': 'status',
