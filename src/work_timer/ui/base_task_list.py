@@ -87,12 +87,8 @@ class BaseTaskList(Widget):
             (' ', ' '),
             (' ', ' '),
             (' ', ' '),
-            (' ', ' '),
             (' ', ' '),
             (' ', ' '),
-            ('󰧖 ', '󰧚 '),
-            ('󰬧  ', '󰬫  '),
-            ('  ', '  '),
         ]
 
         tree = Tree[taskdb.TaskID](label='/', data=ROOT_TASK_ID)
