@@ -64,10 +64,10 @@ def console(args):
         return re.search(rf'^{tag}=(?P<tag_value>.*)$', descr, re.M).group('tag_value')
 
     total = td(get_tag(descr=today_planned_task.description.iloc[0], tag='TOTAL'))
-    print(f'Estimated work hours today: {humanize_td(total)}')
+    # print(f'Estimated work hours today: {humanize_td(total)}')
 
     planned_tasks = tasks[tasks.index.isin(today_planned_task.child_ids.iloc[0])]
-    print(planned_tasks)
+    # print(planned_tasks)
     # print(planned_tasks.description.apply(lambda desc: get_tag(desc, 'PLANNED')))
 
     # For each task there look at PLANNED= tag in description.
