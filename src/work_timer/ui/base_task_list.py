@@ -93,6 +93,13 @@ class BaseTaskList(Widget):
 
         tree = Tree[taskdb.TaskID](label='/', data=ROOT_TASK_ID)
         tree.ICON_NODE, tree.ICON_NODE_EXPANDED = choice(icons)  # type: ignore
+        tree.LINES['default'] = (
+            "  ",
+            "│ ",
+            "╰─",
+            "├─",
+        )
+        tree.guide_depth = 3
 
         self._task_id_to_node_id = {
             ROOT_TASK_ID: tree.root.id,
