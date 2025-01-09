@@ -14,7 +14,7 @@ dependencies = [
     "pandas>=2.2.3",
     "platformdirs>=4.3.6",
     "texttable>=1.7.0",
-    "textual>=0.86.3",
+    "textual[syntax]>=0.86.3",
     "watchdog>=6.0.0",
 ]
 requires-python = ">=3.13"
