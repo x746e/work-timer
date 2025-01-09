@@ -1,4 +1,5 @@
 """The Task class plus some special "internal" tasks are defined here."""
+from copy import copy
 from dataclasses import dataclass, field
 import enum
 import textwrap
@@ -72,6 +73,19 @@ class Task:  # pylint: disable=too-many-instance-attributes
             commit = 'uncommitted'
         return (f'<Task#{self.id}: {title} | {self.status} {self.priority} '
                 f'{self.child_ids} @{commit}>')
+
+
+def duplicate(task: Task) -> Task:
+    """Make a duplicate of `task`.
+
+    It will have the same data, but unset `Task.id`, `child_ids`, and internal
+    cached values.
+    """
+    new_task = copy(task)
+    new_task.id = UNSET_TASK_ID
+    new_task.child_ids = []
+    new_task._commit = None  # pylint: disable=protected-access
+    return new_task
 
 
 TYPE_SYMBOLS = {

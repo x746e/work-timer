@@ -15,6 +15,7 @@ from textual.widgets import Footer, Input, Label, Tree
 
 from work_timer.config import Config
 from work_timer.taskdb import Task, TaskDB
+from work_timer.taskdb.task import duplicate
 from work_timer.timer import Timer
 from work_timer.ui.base_task_list import BaseTaskList
 from work_timer.ui.task_editor import TaskEditor
@@ -33,6 +34,11 @@ class TaskList(BaseTaskList):
         ('S', 'start_custom_period_length', 'Select period lenght before starting'),
         ('-', 'dec_prio', '--priority'),
         ('+', 'inc_prio', '++priority'),
+        # TODO: Make it a :duplicate command.
+        # Or a pallete-only command.
+        # It's not often needed, but `D` is confusing.
+        # Or C-x d.
+        ('D', 'duplicate', 'Make a duplicate of the task'),
         ('ctrl+up', 'reorder_up', 'Reorder up'),
         ('ctrl+down', 'reorder_down', 'Reorder down'),
         ('ctrl+left', 'reparent_up', 'Reparent up'),
@@ -216,6 +222,16 @@ class TaskList(BaseTaskList):
         changed = await self.app.push_screen_wait(TaskEditor(self._task_db, new_task))
         if changed:
             self._add_task(changed.new, focus=True)
+
+    def action_duplicate(self) -> None:
+        node = self._get_selected_task_node()
+        if not node:
+            return
+
+        task = self._get_task(node)
+        new_task_id = self._task_db.add(duplicate(task))
+        new_task = self._task_db.get(new_task_id)
+        self._add_task(new_task, focus=True)
 
     @work
     async def action_start(self, period_length=None) -> None:
