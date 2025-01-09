@@ -12,7 +12,7 @@ from textual.screen import Screen
 from textual.widget import Widget
 from textual.widgets import Button, Label, Input, Footer, Select, TextArea
 
-from work_timer import taskdb
+from work_timer.taskdb import Task, TaskDB, UNSET_TASK_ID
 from work_timer.ui.dialogs import Confirm
 
 
@@ -24,7 +24,7 @@ class TaskEditorWidget(Widget):
 
         __match_args__ = ('new',)
 
-        def __init__(self, new: taskdb.Task) -> None:
+        def __init__(self, new: Task) -> None:
             super().__init__()
             self.new = new
 
@@ -32,7 +32,7 @@ class TaskEditorWidget(Widget):
 
         __match_args__ = ('old', 'new')
 
-        def __init__(self, old: taskdb.Task, new: taskdb.Task) -> None:
+        def __init__(self, old: Task, new: Task) -> None:
             super().__init__()
             self.old = old
             self.new = new
@@ -49,13 +49,13 @@ class TaskEditorWidget(Widget):
         ('ctrl+r', 'delete', 'Delete'),
     ]
 
-    def __init__(self, task_db: taskdb.TaskDB, task: taskdb.Task):
+    def __init__(self, task_db: TaskDB, task: Task):
         super().__init__()
         self._task_db = task_db
         self._edited_task = task
 
     def _creating_new_task(self) -> bool:
-        return self._edited_task.id == taskdb.UNSET_TASK_ID
+        return self._edited_task.id == UNSET_TASK_ID
 
     def _editing_a_parent(self) -> bool:
         return bool(self._task_db.get_children(parent_id=self._edited_task.id))
@@ -96,7 +96,7 @@ class TaskEditorWidget(Widget):
             message = self.Changed(old=self._edited_task, new=updated_task)
         self.post_message(message)
 
-    def _get_updated_task(self) -> taskdb.Task:
+    def _get_updated_task(self) -> Task:
         updated_task = copy.deepcopy(self._edited_task)
 
         # TODO: Can I somehow bind Input.value to self._edited_task.title?
@@ -151,18 +151,21 @@ class TaskEditorWidget(Widget):
             yield Input(self._edited_task.title, id='title', select_on_focus=False)
 
             yield Label('Status:')
+            print(self._edited_task)
+            print(f'{self._edited_task.status!r}')
+            print(self._edited_task.status)
             yield Select(
-                    options=[(status.name, status.value) for status in taskdb.Task.Status],
+                    options=[(status.name, status) for status in Task.Status],
                     allow_blank=False, value=self._edited_task.status, id='status')
 
             yield Label('Priority:')
             yield Select(
-                    options=[(priority.name, priority.value) for priority in taskdb.Task.Priority],
+                    options=[(priority.name, priority) for priority in Task.Priority],
                     allow_blank=False, value=self._edited_task.priority, id='priority')
 
             yield Label('Type:')
             yield Select(
-                    options=[(t.name, t.value) for t in taskdb.Task.Type],
+                    options=[(t.name, t) for t in Task.Type],
                     allow_blank=False, value=self._edited_task.type, id='type')
 
             yield Label('Parent ID:')
@@ -199,7 +202,7 @@ class TaskEditor(Screen):
     Created = TaskEditorWidget.Created
     Deleted = TaskEditorWidget.Deleted
 
-    def __init__(self, task_db: taskdb.TaskDB, task: taskdb.Task):
+    def __init__(self, task_db: TaskDB, task: Task):
         super().__init__()
         self._task_db = task_db
         self._edited_task = task

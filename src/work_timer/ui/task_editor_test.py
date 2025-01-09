@@ -1,10 +1,13 @@
 """Tests for work_timer.ui.task_editor."""
+from enum import Enum
+
 from textual import work
 from textual.app import App
 
 from work_timer import taskdb
-from work_timer.utils import fake_tasks
 from work_timer.ui.task_editor import TaskEditor
+from work_timer.utils import fake_tasks
+from work_timer.utils.typing import not_none
 
 
 class FakeApp(App):
@@ -75,6 +78,27 @@ class TestUpdates:
 
             assert app.editor_msg.old == task
             assert app.editor_msg.new.title == f'{task.title}!!!'
+            assert matches_db_version(db, app.editor_msg.new), (
+                "The task in the message should match the one in the DB.")
+
+    async def test_updating_task_status_doesnt_lose_str_enums(self):
+        db = fake_tasks.get_task_db()
+        task = next(iter(db.get_all().values()))
+        app = FakeApp(db, task)
+        async with app.run_test() as pilot:
+            # Focus on the status Input.
+            await pilot.press('tab')
+            assert not_none(app.focused).id == 'status', (
+                    'Expected the id=status Input to be focused')
+            # Select some other status.
+            await pilot.press('down')
+            await pilot.press('down')
+            await pilot.press('enter')
+            # Save.
+            await pilot.press('ctrl+s')
+
+            assert app.editor_msg.new.status != app.editor_msg.old.status
+            assert isinstance(app.editor_msg.new.status, Enum)
             assert matches_db_version(db, app.editor_msg.new), (
                 "The task in the message should match the one in the DB.")
 
