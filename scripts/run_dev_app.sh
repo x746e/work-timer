@@ -30,6 +30,7 @@ while [[ "$#" > 0 ]]; do case $1 in
 esac; done
 
 args=(
+    --plandb ~/dev-plandb
     --taskdb ~/dev-tasks
     --timelog ~/dev-timelog.json
     --work-period-duration 7s

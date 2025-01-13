@@ -17,21 +17,57 @@ from work_timer.config import Config
 from work_timer.taskdb import Task, TaskDB
 from work_timer.taskdb.task import duplicate
 from work_timer.timer import Timer
-from work_timer.ui.base_task_list import BaseTaskList
+from work_timer.ui.base_task_list import BaseTaskList, TaskFilter
 from work_timer.ui.task_editor import TaskEditor
 from work_timer.utils.time import td
 from work_timer.utils.typing import not_none
 
 
-class TaskList(BaseTaskList):
-    """A widget to show and manipulate a list (or tree) of tasks."""
+class TaskListTimerStarter(BaseTaskList):
+
+    """Task list that can start the Timer."""
 
     BINDINGS = [
+        ('s', 'start', 'Start the timer'),  # start the timer with the cursor_node.
+        ('S', 'start_custom_period_length', 'Select period lenght before starting'),
+    ]
+
+    class TimerStarted(Message):
+        pass
+
+    def __init__(self, task_db: TaskDB, timer: Timer,
+                 task_filter: TaskFilter | None = None) -> None:
+        super().__init__(task_db=task_db, task_filter=task_filter)
+        self._timer = timer
+
+    @work
+    async def action_start(self, period_length=None) -> None:
+        """Start the Timer with the selected task.
+
+        Pushes the TimerScreen.  After the work period ends, starts a break
+        period.
+        """
+        task = self._get_selected_task()
+        if not task:
+            return
+        self._timer.start(task.id, period_length=period_length)
+        self.post_message(self.TimerStarted())
+
+    @work
+    async def action_start_custom_period_length(self) -> None:
+        """Let the user select the period length, then start the Timer."""
+        period_length = await self.app.push_screen_wait(PeriodLengthSelectDialog())
+        if period_length is not None:
+            self.action_start(period_length=period_length)
+
+
+class TaskList(TaskListTimerStarter):
+    """A widget to show and manipulate a list (or tree) of tasks."""
+
+    BINDINGS = TaskListTimerStarter.BINDINGS + [
         ('e', 'edit', 'Edit'),
         ('d', 'mark_done', 'Mark as done'),
         ('c', 'create', 'New task'),  # with the cursor_node as a parent.
-        ('s', 'start', 'Start the timer'),  # start the timer with the cursor_node.
-        ('S', 'start_custom_period_length', 'Select period lenght before starting'),
         ('-', 'dec_prio', '--priority'),
         ('+', 'inc_prio', '++priority'),
         # TODO: Make it a :duplicate command.
@@ -45,14 +81,10 @@ class TaskList(BaseTaskList):
         ('ctrl+right', 'reparent_down', 'Reparent down'),
     ]
 
-    class TimerStarted(Message):
-        pass
-
     _task_db: TaskDB
 
     def __init__(self, task_db: TaskDB, timer: Timer) -> None:
-        super().__init__(task_db=task_db)
-        self._timer = timer
+        super().__init__(task_db=task_db, timer=timer)
 
     def action_mark_done(self) -> None:
         """Mark the task as DONE.
@@ -233,26 +265,6 @@ class TaskList(BaseTaskList):
         new_task = self._task_db.get(new_task_id)
         self._add_task(new_task, focus=True)
 
-    @work
-    async def action_start(self, period_length=None) -> None:
-        """Start the Timer with the selected task.
-
-        Pushes the TimerScreen.  After the work period ends, starts a break
-        period.
-        """
-        task = self._get_selected_task()
-        if not task:
-            return
-        self._timer.start(task.id, period_length=period_length)
-        self.post_message(self.TimerStarted())
-
-    @work
-    async def action_start_custom_period_length(self) -> None:
-        """Let the user select the period length, then start the Timer."""
-        period_length = await self.app.push_screen_wait(PeriodLengthSelectDialog())
-        if period_length is not None:
-            self.action_start(period_length=period_length)
-
     def check_action(
         self, action: str, parameters: tuple[object, ...]
     ) -> bool | None:
@@ -306,8 +318,8 @@ class PeriodLengthSelectDialog(ModalScreen[timedelta | None]):
 
 class TaskListScreen(Screen):
 
-    def __init__(self, config: Config, timer: Timer) -> None:
-        super().__init__()
+    def __init__(self, config: Config, timer: Timer, name: str | None = None) -> None:
+        super().__init__(name=name)
         self._config = config
         self._timer = timer
 

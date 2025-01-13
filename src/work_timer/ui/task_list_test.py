@@ -1,12 +1,12 @@
 """Tests for work_timer.ui.task_list."""
 import unittest
 
+from textual import on
 from textual.app import App
 from textual.widgets import Tree
 
 from work_timer import taskdb
-from work_timer.config import Config
-from work_timer.timelog import TimeLog
+from work_timer.config import get_test_config
 from work_timer.timer import Timer, TimerInfo
 from work_timer.ui import ui_testing
 from work_timer.ui.base_task_list import BaseTaskList, TaskFilter
@@ -26,20 +26,20 @@ Status = taskdb.Task.Status
 
 class FakeApp(App):  # pylint: disable=missing-class-docstring
 
-    def __init__(self, task_db: taskdb.TaskDB, time_log: TimeLog = TimeLog()) -> None:
+    def __init__(self, task_db: taskdb.TaskDB) -> None:
         super().__init__()
         self._task_db = task_db
-        self._time_log = time_log
-        self._config = Config(task_db=self._task_db, time_log=self._time_log,
-                              work_period_duration=td('25m'),
-                              break_duration=td('5m'), long_break_duration=td('20m'),
-                              long_break_after=td('3h'))
+        self._config = get_test_config(
+                task_db=self._task_db, work_period_duration=td('25m'),
+                break_duration=td('5m'), long_break_duration=td('20m'),
+                long_break_after=td('3h'))
         self.timer = Timer(self._config, scheduler=Scheduler())
         self.timer_started = False
 
     def compose(self):
         yield TaskList(self._config.task_db, self.timer)
 
+    @on(TaskList.TimerStarted)
     def on_task_list_timer_started(self) -> None:
         self.timer_started = True
 
@@ -597,9 +597,7 @@ class TestStartingTimer(unittest.IsolatedAsyncioTestCase):
         # Make a TaskDB, as usual.
         tasks = [FakeTask('task_a')]
         task_db = fake_tasks.get_task_db(tasks)
-        # And a TimeLog instance.
-        time_log = TimeLog()
-        app = FakeApp(task_db, time_log)
+        app = FakeApp(task_db)
 
         async with app.run_test() as pilot:
             # Navigate to the task.

@@ -10,12 +10,14 @@ import nest_asyncio
 from loguru import logger
 import platformdirs
 
+from textual import on
 from textual.app import App
 from textual.logging import TextualHandler
 
 from work_timer.config import get_config_from_args, Config
 from work_timer.timer import Timer
-from work_timer.ui.task_list import TaskListScreen
+from work_timer.ui.planning import PlanningScreen, _PlanEditorScreen
+from work_timer.ui.task_list import TaskList, TaskListScreen
 from work_timer.ui.timer_widget import TimerScreen
 from work_timer.utils.scheduler import Scheduler
 
@@ -24,21 +26,40 @@ class WorkTimerApp(App):
 
     """The main Textual App."""
 
+    BINDINGS = [
+        ('P', 'app.switch_screen("planning")'),
+    ]
+
     def __init__(self, config: Config) -> None:
         super().__init__()
         self._config = config
         self._timer = Timer(self._config, scheduler=Scheduler())
         self.install_screen(TaskListScreen(self._config, self._timer), 'task_list')
         self.install_screen(TimerScreen(self._config.task_db, self._timer), 'timer')
+        self.install_screen(
+            PlanningScreen(
+                task_db=self._config.task_db,
+                time_log=self._config.time_log,
+                timer=self._timer,
+                plan_db=self._config.plan_db,
+            ),
+            'planning')
+        self._screen_to_return = None
 
     def on_mount(self) -> None:
         self.push_screen('task_list')
 
+    @on(TaskList.TimerStarted)
     def on_task_list_timer_started(self) -> None:
+        if isinstance(self.screen, _PlanEditorScreen):
+            self._screen_to_return = 'planning'
+        else:
+            self._screen_to_return = 'task_list'
         self.switch_screen('timer')
 
     def on_timer_widget_timer_stopped(self) -> None:
-        self.switch_screen('task_list')
+        assert self._screen_to_return is not None
+        self.switch_screen(self._screen_to_return)
 
 
 def main():

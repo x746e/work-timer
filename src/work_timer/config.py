@@ -13,6 +13,7 @@ from gcsa.google_calendar import GoogleCalendar
 
 from work_timer import taskdb
 from work_timer import timelog
+from work_timer.planning import PlanDB
 from work_timer.utils.time import td
 
 
@@ -22,6 +23,7 @@ class Config:  # pylint: disable=too-many-instance-attributes
     # Dependencies.
     task_db: taskdb.TaskDB
     time_log: timelog.TimeLog
+    plan_db: PlanDB
     calendar: GoogleCalendar | None = None
     notifier: DesktopNotifier | None = None
 
@@ -41,6 +43,8 @@ def get_config_from_args(argv: list[str]) -> Config:
                         help='Path to the directory to store the tasks data.')
     parser.add_argument('--timelog', required=True, type=existing_file,
                         help='Path to the file to store the time log.')
+    parser.add_argument('--plandb', required=True, type=directory,
+                        help='Path to the directory with the plans.')
 
     parser.add_argument('--work-period-duration', type=td, default='25m',
                         help='Work period duration')
@@ -74,6 +78,7 @@ def get_config_from_args(argv: list[str]) -> Config:
     config = {}
     config['task_db'] = taskdb.PersistentTaskDB(args.taskdb)
     config['time_log'] = timelog.PersistentTimeLog(args.timelog)
+    config['plan_db'] = PlanDB(args.plandb)
     if args.calendar_id:
         config['calendar'] = GoogleCalendar(args.calendar_id)
     if args.enable_notifications:
@@ -104,6 +109,15 @@ def existing_file(p: str) -> Path:
     return path
 
 
+def get_test_plan_db() -> PlanDB:
+    # pylint: disable=import-outside-toplevel
+    import tempfile
+    temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)  # pylint: disable=consider-using-with
+    repo_path = Path(temp_dir.name)
+    PlanDB.init_repo(repo_path)
+    return PlanDB(repo_path=repo_path)
+
+
 def get_test_config(**overrides) -> Config:
     """Generate a Config suitable for use for tests and development."""
     from work_timer.utils import fake_tasks  # pylint: disable=import-outside-toplevel
@@ -111,6 +125,7 @@ def get_test_config(**overrides) -> Config:
     conf = {
         'task_db': task_db,
         'time_log': timelog.TimeLog(),
+        'plan_db': get_test_plan_db(),
         'work_period_duration': td('10s'),
         'break_duration': td('5s'),
         'long_break_duration': td('20s'),

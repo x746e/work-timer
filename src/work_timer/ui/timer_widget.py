@@ -204,8 +204,8 @@ class TimerScreen(Screen):
 
     CSS_PATH = 'timer_widget.tcss'
 
-    def __init__(self, task_db: taskdb.TaskDB, timer: Timer) -> None:
-        super().__init__()
+    def __init__(self, task_db: taskdb.TaskDB, timer: Timer, name: str | None = None) -> None:
+        super().__init__(name=name)
         self._task_db = task_db
         self._timer = timer
 
