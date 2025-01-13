@@ -34,7 +34,7 @@ class Config:  # pylint: disable=too-many-instance-attributes
     bug_every: timedelta | None = None
 
 
-def get_config_from_args() -> Config:
+def get_config_from_args(argv: list[str]) -> Config:
     """Parses sys.argv into a Config object."""
     parser = argparse.ArgumentParser()
     parser.add_argument('--taskdb', required=True, type=directory,
@@ -61,7 +61,7 @@ def get_config_from_args() -> Config:
     parser.add_argument('--bug-every', type=td,
                         help='How often to bug after the first bugging notification.  If not set, '
                              'defaults to the value of --bug-after')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if (args.bug_after or args.bug_every) and not args.enable_notifications:
         parser.error('--enable-notifications must be set for --bug-* arguments to make sense.')
@@ -124,3 +124,22 @@ def get_test_config(**overrides) -> Config:
     conf.update(overrides)
     config = Config(**conf)
     return config
+
+
+def get_dev_config() -> Config:
+    """Make a dev config.
+
+    Similar to `get_test_config`, but with more realistically-looking tasks,
+    using a dev copy of a PersistentTaskDB.
+    """
+    taskdb_path = Path('~/dev-tasks').expanduser()
+    timelog_path = Path('~/dev-timelog.json').expanduser()
+    argv = [
+        f'--taskdb={taskdb_path}',
+        f'--timelog={timelog_path}',
+        '--work-period-duration=7s',
+        '--break-duration=2s',
+        '--long-break-duration=5s',
+        '--long-break-after=20s',
+    ]
+    return get_config_from_args(argv)

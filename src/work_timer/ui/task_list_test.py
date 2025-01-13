@@ -9,12 +9,16 @@ from work_timer.config import Config
 from work_timer.timelog import TimeLog
 from work_timer.timer import Timer, TimerInfo
 from work_timer.ui import ui_testing
+from work_timer.ui.base_task_list import BaseTaskList, TaskFilter
 from work_timer.ui.task_list import TaskList
 from work_timer.utils import fake_tasks
 from work_timer.utils.fake_tasks import extract, FakeTask
 from work_timer.utils.scheduler import Scheduler
 from work_timer.utils.time import td
 from work_timer.utils.typing import not_none
+
+
+# TODO: Split base_task_list_test
 
 
 Status = taskdb.Task.Status
@@ -131,6 +135,113 @@ class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
                 FakeTask('b'),
         ]
         assert extract.fake_tasks_from_tree(tree) == want_displayed_tasks
+
+
+class FilteringApp(App):  # pylint: disable=missing-class-docstring
+
+    task_list: BaseTaskList
+
+    def __init__(self, task_db: taskdb.TaskDB, task_filter: TaskFilter,
+                 filter_include_parents=True, filter_include_children=False) -> None:
+        super().__init__()
+        self._task_db = task_db
+        self._task_filter = task_filter
+        self._filter_include_parents = filter_include_parents
+        self._filter_include_children = filter_include_children
+
+    def compose(self):
+        self.task_list = BaseTaskList(self._task_db)
+        self.task_list.set_task_filter(self._task_filter)
+        yield self.task_list
+
+
+async def display_and_filter(
+        tasks: list[FakeTask], task_filter: TaskFilter,
+        filter_include_parents=True, filter_include_children=True) -> list[FakeTask]:
+    """Display `tasks` in list with a `task_filter`, return the displayed ones."""
+    db = fake_tasks.get_task_db(tasks)
+
+    app = FilteringApp(db, task_filter=task_filter,
+                       filter_include_parents=filter_include_parents,
+                       filter_include_children=filter_include_children)
+    async with app.run_test():
+        tree = app.query_one(Tree)
+    return extract.fake_tasks_from_tree(tree)
+
+
+class FilteringTest(unittest.IsolatedAsyncioTestCase):
+
+    async def test_flat_filtering(self):
+        tasks = [
+            FakeTask('a'),
+            FakeTask('b'),
+            FakeTask('c'),
+        ]
+
+        got_displayed_tasks = await display_and_filter(
+                tasks,
+                task_filter=lambda task: task.title == 'b')
+
+        want_displayed_tasks = [
+            FakeTask('b'),
+        ]
+        assert got_displayed_tasks == want_displayed_tasks
+
+    # TODO
+    # async def test_showing_parents_and_children(self):
+    #     tasks = [
+    #         FakeTask('a', kids=[
+    #             FakeTask('b', kids=[
+    #                 FakeTask('c'),
+    #             ]),
+    #         ]),
+    #         FakeTask('d'),
+    #     ]
+    #
+    #     got_displayed_tasks = await display_and_filter(
+    #             tasks,
+    #             filter_include_parents=True, filter_include_children=True,
+    #             task_filter=lambda task: task.title in ('b', 'd'))
+    #
+    #     want_displayed_tasks = [
+    #         FakeTask('a', kids=[
+    #             FakeTask('b', kids=[
+    #                 FakeTask('c'),
+    #             ]),
+    #         ]),
+    #         FakeTask('d'),
+    #     ]
+    #     assert got_displayed_tasks == want_displayed_tasks
+
+    # async def test_not_showing_parents(self):
+    #     ...
+    #     want_tasks = [
+    #         # FakeTask('a', kids=[
+    #             FakeTask('b', kids=[
+    #                 FakeTask('c'),
+    #             ])
+    #         # ])
+    #     ]
+    #
+    # async def test_not_showing_children(self):
+    #     ...
+    #     want_tasks = [
+    #         FakeTask('a', kids=[
+    #             FakeTask('b', kids=[
+    #                 # FakeTask('c'),
+    #             ])
+    #         ])
+    #     ]
+    #
+    # async def test_not_showing_parents_nor_children(self):
+    #     ...
+    #     want_tasks = [
+    #         # FakeTask('a', kids=[
+    #             FakeTask('b', kids=[
+    #                 # FakeTask('c'),
+    #             ])
+    #         # ])
+    #     ]
 
 
 # TODO: Consider testing using a PersistentTaskDB as well.

@@ -21,19 +21,12 @@ def console(args):
     """Pull in tasks and time log DataFrames, and switch to an IPython console."""
     # pylint: disable=unused-variable,possibly-unused-variable
 
-    # TODO: Select the DBs according to a config.
-    # task_db = taskdb.PersistentTaskDB(Path('~/dev-tasks/'))
-    # time_log = timelog.PersistentTimeLog(Path('~/dev-timelog.json'))
-
     task_db = taskdb.PersistentTaskDB(args.taskdb)
     time_log = timelog.PersistentTimeLog(args.timelog)
 
     tasks = task_db.get_data_frame()
     logs = time_log.get_data_frame()
     logs = logs.merge(tasks, left_on='task_id', right_on='id', how='left')
-    # Drop microseconds.  TODO: Do it somewhere in the DBs instead.
-    logs.start = logs.start.apply(lambda dt: dt.replace(microsecond=0))
-    logs.duration = logs.duration.apply(lambda td: pd.Timedelta(seconds=int(td.total_seconds())))
     # Today logs.
     tlogs = logs[logs.start.dt.date == date.today()]
     tlogs = tlogs.drop(columns=['description'])

@@ -4,7 +4,7 @@ from datetime import timedelta
 import functools
 import time
 import threading
-from typing import Protocol, Callable
+from typing import Protocol, Callable, cast
 import sys
 import traceback
 
@@ -140,3 +140,24 @@ def bts(label=''):
         p('---' * 20)
     p('<<<' * 20)
     p()
+
+
+class _approx:  # pylint: disable=invalid-name
+    """Equals appoximately to its `n` argument.
+
+    Useful for rough comparisons inside unittests.
+    """
+
+    def __init__(self, n, eps):
+        self.n = n
+        self.eps = eps
+
+    def __eq__(self, other) -> bool:
+        return abs(self.n - other) < self.eps
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.n})'
+
+
+def approx[T: (int, float)](n: T, eps=0.1) -> T:
+    return cast(T, _approx(n, eps))

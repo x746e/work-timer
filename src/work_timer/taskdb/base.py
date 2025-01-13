@@ -4,6 +4,7 @@ TaskDB is the main interface for the Task DB, plus it contains some base
 implementation.  It doesn't store anything persistently, see PersistentTaskDB
 class for that.
 """
+from abc import abstractmethod
 import copy
 import threading
 
@@ -14,17 +15,17 @@ from work_timer.taskdb.task import (Task, TaskID, UNSET_TASK_ID, ROOT_TASK_ID,
                                     INTERNAL_TASKS)
 
 
-class TaskDB:
+class TaskDBView:
+    """A read-only view to the underlying TaskDB with actual Tasks."""
 
-    """A class with tasks."""
+    @abstractmethod
+    def get_all(self) -> dict[TaskID, Task]: ...
 
-    def __init__(self) -> None:
-        self._lock = threading.RLock()
-        self._reload()
+    @abstractmethod
+    def get(self, task_id: TaskID) -> Task: ...
 
-    def get_all(self) -> dict[TaskID, Task]:
-        with self._lock:
-            return copy.deepcopy(self._tasks)
+    @abstractmethod
+    def get_children(self, parent_id: TaskID) -> list[Task]: ...
 
     def get_data_frame(self) -> pd.DataFrame:
         """Returns (a copy of) tasks as a Pandas DataFrame."""
@@ -39,6 +40,19 @@ class TaskDB:
         df.priority = pd.Categorical(df.priority, categories=list(Task.Priority), ordered=True)
         df.type = pd.Categorical(df.type, categories=list(Task.Type))
         return df
+
+
+class TaskDB(TaskDBView):
+
+    """A class with tasks."""
+
+    def __init__(self) -> None:
+        self._lock = threading.RLock()
+        self._reload()
+
+    def get_all(self) -> dict[TaskID, Task]:
+        with self._lock:
+            return copy.deepcopy(self._tasks)
 
     def get(self, task_id: TaskID) -> Task:
         with self._lock:

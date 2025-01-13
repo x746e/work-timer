@@ -26,6 +26,9 @@ class TimeLog:
     def get_data_frame(self) -> pd.DataFrame:
         """Returns a DataFrame with the work periods."""
         df = pd.DataFrame(self.get_periods())
+        df.start = df.start.apply(lambda dt: dt.replace(microsecond=0))
+        df.duration = df.duration.apply(
+                lambda td: pd.Timedelta(seconds=int(td.total_seconds())))
         return df
 
     # Methods for overriding in subclasses.

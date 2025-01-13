@@ -13,27 +13,7 @@ from work_timer.utils import profiling
 from work_timer.utils.profiling import (
         CallLogger, CallRecord, ReturnRecord, format_records, Call,
         process_records, TimeFunctionCalls)
-
-
-class _approx:  # pylint: disable=invalid-name
-    """Equals appoximately to its `n` argument.
-
-    Useful for rough comparisons inside unittests.
-    """
-
-    def __init__(self, n, eps):
-        self.n = n
-        self.eps = eps
-
-    def __eq__(self, other) -> bool:
-        return abs(self.n - other) < self.eps
-
-    def __repr__(self):
-        return f'{self.__class__.__name__}({self.n})'
-
-
-def approx[T: (int, float)](n: T, eps=0.1) -> T:
-    return typing.cast(T, _approx(n, eps))
+from work_timer.utils.testing import approx
 
 
 class TestTimeFunctionCalls(unittest.TestCase):

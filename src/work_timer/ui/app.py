@@ -52,7 +52,7 @@ def main():
     logger.add(log_dir / f'{process_name}-{pid}-{now}.log')
     logger.add(TextualHandler(), format="{message}")
 
-    config = get_config_from_args()
+    config = get_config_from_args(sys.argv[1:])
 
     app = WorkTimerApp(config)
     app.run()

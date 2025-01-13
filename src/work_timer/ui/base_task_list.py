@@ -1,5 +1,6 @@
 """A widget to showing a list (or a tree) of tasks -- basic tree rendering."""
 from random import choice
+from typing import Callable
 
 from rich.color import Color
 from rich.style import Style
@@ -11,9 +12,12 @@ from textual.widgets import Tree
 from textual.widgets.tree import TreeNode
 
 from work_timer import taskdb
-from work_timer.taskdb import Task, TaskDB, TaskID, ROOT_TASK_ID
+from work_timer.taskdb import Task, TaskDBView, TaskID, ROOT_TASK_ID
 from work_timer.taskdb.task import TYPE_SYMBOLS
 from work_timer.utils.typing import not_none
+
+
+type TaskFilter = Callable[[Task], bool]
 
 
 class BaseTaskList(Widget):
@@ -30,10 +34,24 @@ class BaseTaskList(Widget):
         ('R', 'refresh', 'Refresh tasks'),
     ]
 
-    def __init__(self, task_db: TaskDB) -> None:
+    def __init__(self, task_db: TaskDBView, task_filter: TaskFilter | None = None,
+                 filter_include_children=False, filter_include_parents=True) -> None:
         super().__init__()
         self._task_db = task_db
         self._task_id_to_node_id = {}
+
+        # Filtering options.  TODO: Try inner class?
+        if task_filter is None:
+            def is_open(task: Task) -> bool:
+                return not task.status.is_closed
+            self._task_filter = is_open
+        else:
+            self._task_filter = task_filter
+        self._filter_include_children = filter_include_children
+        self._filter_include_parents = filter_include_parents
+
+    def set_task_filter(self, task_filter: TaskFilter) -> None:
+        self._task_filter = task_filter
 
     def compose(self) -> ComposeResult:
         yield self._make_tree_with_tasks()
@@ -48,6 +66,12 @@ class BaseTaskList(Widget):
         await self.recompose()
         self._get_tree().focus()
 
+    def _get_selected_task(self) -> Task | None:
+        node = self._get_selected_task_node()
+        if node is None:
+            return None
+        return self._node_to_task(node)
+
     def _get_selected_task_node(self) -> TreeNode | None:
         cursor_node = not_none(self._get_tree().cursor_node)
         if cursor_node.is_root:
@@ -55,12 +79,12 @@ class BaseTaskList(Widget):
         assert cursor_node.data is not None
         return cursor_node
 
-    def _get_tree(self) -> Tree:
-        return not_none(self.query_one(Tree))
-
-    def _get_task(self, node: TreeNode) -> Task:
+    def _node_to_task(self, node: TreeNode) -> Task:
         task_id = not_none(node.data)
         return self._task_db.get(task_id)
+
+    def _get_tree(self) -> Tree:
+        return not_none(self.query_one(Tree))
 
     def _remove_node(self, node: TreeNode) -> None:
         """Remove the node from the tree.
@@ -106,13 +130,13 @@ class BaseTaskList(Widget):
         }
 
         for task in self._task_db.get_children(parent_id=ROOT_TASK_ID):
-            if not self._whole_subtree_is_closed(task):
+            if not self._whole_subtree_is_filtered_out(task):
                 self._add_task(task, parent_node=tree.root)
 
         tree.root.expand()
         return tree
 
-    def _add_task(self, task: Task, parent_node: TreeNode | None = None, focus=False) -> TreeNode:
+    def _add_task(self, task: Task, parent_node: TreeNode | None = None, focus=False) -> None:
         """Adds a `task`, with all its children, as a child of the `parent_node`."""
 
         assert task.id not in self._task_id_to_node_id, (
@@ -141,11 +165,12 @@ class BaseTaskList(Widget):
                     return {'after': child_ids_added_so_far.index(prev_id)}
             return {'before': 0}
 
-        node = parent_node.add(_title_with_style(task), data=task.id, **insert_loc())  # type: ignore
+        node = parent_node.add(self._title_with_style(task),
+                               data=task.id, **insert_loc())  # type: ignore
         parent_node.allow_expand = True
         self._task_id_to_node_id[task.id] = node.id
         children = self._task_db.get_children(task.id)
-        children_to_show = [c for c in children if not self._whole_subtree_is_closed(c)]
+        children_to_show = [c for c in children if not self._whole_subtree_is_filtered_out(c)]
 
         for child_task in children_to_show:
             self._add_task(child_task, parent_node=node)
@@ -158,20 +183,37 @@ class BaseTaskList(Widget):
             self._get_tree().move_cursor(node)
             self._get_tree().select_node(node)
 
-        return node
-
-    def _whole_subtree_is_closed(self, task: Task) -> bool:
-        if not task.status.is_closed:
+    def _whole_subtree_is_filtered_out(self, task: Task) -> bool:
+        if self._task_filter(task):
             return False
         children = self._task_db.get_children(task.id)
-        return all(self._whole_subtree_is_closed(child) for child in children)
+        return all(self._whole_subtree_is_filtered_out(child) for child in children)
 
     def _refresh_node(self, node: TreeNode, task: Task) -> None:
-        if self._whole_subtree_is_closed(task):
+        if self._whole_subtree_is_filtered_out(task):
             self._remove_node(node)
-        node.set_label(_title_with_style(task))
+        node.set_label(self._title_with_style(task))
         node.data = task.id
         node.refresh()
+
+    def _title_with_style(self, task: Task) -> Text:
+        style = Style(color=_PRIO_TO_COLOR[task.priority])
+        if task.status == Task.Status.DONE:
+            style = style.combine([style, Style(strike=True)])
+        title = task.title
+        if task.type != Task.Type.REGULAR:
+            title = f'{TYPE_SYMBOLS[task.type]} {title}'
+        if task.description:
+            title += ' :memo:'
+
+        title = self._add_extra_task_info(title, task)
+
+        return Text.from_markup(title, style=style)
+
+    def _add_extra_task_info(self, title: str, task: Task) -> str:
+        """A hook for subclasses to add to the `title`."""
+        del task
+        return title
 
 
 _PRIO_TO_COLOR = {
@@ -180,18 +222,6 @@ _PRIO_TO_COLOR = {
     Task.Priority.P2: None,
     Task.Priority.P3: Color.parse('grey50'),
 }
-
-
-def _title_with_style(task: taskdb.Task) -> Text:
-    style = Style(color=_PRIO_TO_COLOR[task.priority])
-    if task.status == Task.Status.DONE:
-        style = style.combine([style, Style(strike=True)])
-    title = task.title
-    if task.type != Task.Type.REGULAR:
-        title = f'{TYPE_SYMBOLS[task.type]} {title}'
-    if task.description:
-        title += ' :memo:'
-    return Text.from_markup(title, style=style)
 
 
 class TaskSelectionDialog(ModalScreen[TaskID | None]):
@@ -203,7 +233,7 @@ class TaskSelectionDialog(ModalScreen[TaskID | None]):
     }
     """
 
-    def __init__(self, task_db: TaskDB) -> None:
+    def __init__(self, task_db: TaskDBView) -> None:
         super().__init__()
         self._task_db = task_db
 

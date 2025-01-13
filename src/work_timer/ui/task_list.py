@@ -48,6 +48,8 @@ class TaskList(BaseTaskList):
     class TimerStarted(Message):
         pass
 
+    _task_db: TaskDB
+
     def __init__(self, task_db: TaskDB, timer: Timer) -> None:
         super().__init__(task_db=task_db)
         self._timer = timer
@@ -60,7 +62,7 @@ class TaskList(BaseTaskList):
         node = not_none(self._get_selected_task_node())
 
         # Mark as done.
-        task = self._get_task(node)
+        task = self._node_to_task(node)
         task.status = Task.Status.DONE
         self._task_db.update(task)
 
@@ -71,7 +73,7 @@ class TaskList(BaseTaskList):
     def action_dec_prio(self) -> None:
         """Decrease the Task's priority by one."""
         node = not_none(self._get_selected_task_node())
-        task = self._get_task(node)
+        task = self._node_to_task(node)
 
         all_priorities = list(Task.Priority)
         idx = all_priorities.index(task.priority)
@@ -86,7 +88,7 @@ class TaskList(BaseTaskList):
     def action_inc_prio(self) -> None:
         """Increase the Task's priority by one."""
         node = not_none(self._get_selected_task_node())
-        task = self._get_task(node)
+        task = self._node_to_task(node)
 
         all_priorities = list(Task.Priority)
         idx = all_priorities.index(task.priority)
@@ -101,7 +103,7 @@ class TaskList(BaseTaskList):
     def action_reorder_up(self) -> None:
         """Move the focused task before its previous sibling."""
         node = not_none(self._get_selected_task_node())
-        task = self._get_task(node)
+        task = self._node_to_task(node)
 
         if not task.parent_id:
             return
@@ -121,7 +123,7 @@ class TaskList(BaseTaskList):
     def action_reorder_down(self) -> None:
         """Move the focused task after its next sibling."""
         node = not_none(self._get_selected_task_node())
-        task = self._get_task(node)
+        task = self._node_to_task(node)
 
         if not task.parent_id:
             return
@@ -141,7 +143,7 @@ class TaskList(BaseTaskList):
     def action_reparent_up(self) -> None:
         """Set task's grandparent as its parent."""
         node = not_none(self._get_selected_task_node())
-        task = self._get_task(node)
+        task = self._node_to_task(node)
         logger.debug(f'Reparent up {task}')
 
         if not task.parent_id:
@@ -160,13 +162,13 @@ class TaskList(BaseTaskList):
     def action_reparent_down(self) -> None:
         """Set task's previous sibling as its parent."""
         node = not_none(self._get_selected_task_node())
-        task = self._get_task(node)
+        task = self._node_to_task(node)
         logger.debug(f'Reparent down {task}')
 
         if not node.previous_sibling:
             return
 
-        prev_task = self._get_task(node.previous_sibling)
+        prev_task = self._node_to_task(node.previous_sibling)
         prev_task = self._task_db.get(prev_task.id)
         prev_task.child_ids.append(task.id)
         self._task_db.update(prev_task)
@@ -186,7 +188,7 @@ class TaskList(BaseTaskList):
         if not node:
             return
 
-        task = self._get_task(node)
+        task = self._node_to_task(node)
         resp = await self.app.push_screen_wait(TaskEditor(self._task_db, task))
         match resp:
             case TaskEditor.Changed(old_task, new_task):
@@ -224,11 +226,9 @@ class TaskList(BaseTaskList):
             self._add_task(changed.new, focus=True)
 
     def action_duplicate(self) -> None:
-        node = self._get_selected_task_node()
-        if not node:
+        task = self._get_selected_task()
+        if not task:
             return
-
-        task = self._get_task(node)
         new_task_id = self._task_db.add(duplicate(task))
         new_task = self._task_db.get(new_task_id)
         self._add_task(new_task, focus=True)
@@ -240,11 +240,9 @@ class TaskList(BaseTaskList):
         Pushes the TimerScreen.  After the work period ends, starts a break
         period.
         """
-        node = self._get_selected_task_node()
-        if not node:
+        task = self._get_selected_task()
+        if not task:
             return
-
-        task = self._get_task(node)
         self._timer.start(task.id, period_length=period_length)
         self.post_message(self.TimerStarted())
 
@@ -259,7 +257,7 @@ class TaskList(BaseTaskList):
         self, action: str, parameters: tuple[object, ...]
     ) -> bool | None:
         if action in ('edit', 'mark_done', 'start', 'inc_prio', 'dec_prio'):
-            if not self._get_selected_task_node():
+            if not self._get_selected_task():
                 return None  # Mark the action as disabled.
         return True
 
