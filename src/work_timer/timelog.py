@@ -18,7 +18,6 @@ class TimeLog:
                    duration: timedelta):
         self._periods.append(
                 Period(task_id=task_id, start=start, duration=duration))
-        self._persist()
 
     def get_periods(self) -> list['Period']:
         return self._periods
@@ -31,13 +30,8 @@ class TimeLog:
                 lambda td: pd.Timedelta(seconds=int(td.total_seconds())))
         return df
 
-    # Methods for overriding in subclasses.
-
     def _load(self) -> list['Period']:
         return []
-
-    def _persist(self) -> None:
-        pass
 
 
 @dataclass
@@ -47,6 +41,10 @@ class Period:
     duration: timedelta
 
 
+# TODO: Test that two `PersistentTimeLog`s don't override each other's data.
+# TODO: Just use sqlite?
+
+
 class PersistentTimeLog(TimeLog):
 
     """An implementation of TimeLog that persists the records in a JSON file."""
@@ -54,6 +52,16 @@ class PersistentTimeLog(TimeLog):
     def __init__(self, path: Path):
         self._path = path.expanduser()
         super().__init__()
+
+    def add_period(self, task_id: taskdb.TaskID, start: datetime,
+                   duration: timedelta) -> None:
+        self._reload()
+        self._periods.append(
+                Period(task_id=task_id, start=start, duration=duration))
+        self._persist()
+
+    def _reload(self) -> None:
+        self._periods = self._load()
 
     def _load(self) -> list[Period]:
         if not self._path.exists():
