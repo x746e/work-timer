@@ -2,12 +2,18 @@
 import datetime
 from datetime import timedelta
 
+from bigtree.tree.construct import dataframe_to_tree_by_relation
+from bigtree.tree.export import tree_to_dataframe
+
+from rich.text import Text
+
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal
 from textual.screen import ModalScreen, Screen
 from textual.widget import Widget
 from textual.widgets import Footer, Input, Label, Tree
+from textual.widgets.tree import TreeNode
 
 from work_timer.config import get_dev_config
 from work_timer.planning import Plan, PlanDB, Day, Week, format_period
@@ -97,9 +103,9 @@ class PlanningScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield _PlanSelection(task_db=self._task_db,
-                            timer=self._timer,
-                            time_log=self._time_log,
-                            plan_db=self._plan_db)
+                             timer=self._timer,
+                             time_log=self._time_log,
+                             plan_db=self._plan_db)
         yield Footer()
 
 
@@ -143,14 +149,15 @@ class _PlanningTaskList(TaskListTimerStarter):
     """A task list with the tasks planned for the period."""
 
     def __init__(self, task_db: TaskDB, timer: Timer, time_log: TimeLog, plan: Plan) -> None:
-        super().__init__(task_db=task_db, task_filter=self._planned_task_filter,
-                         timer=timer)
+        self._task_db = task_db
         self._time_log = time_log
         self._plan = plan
         self._calc_stats()
+        super().__init__(task_db=task_db, task_filter=self._planned_task_filter,
+                         timer=timer)
 
     def _planned_task_filter(self, task: Task) -> bool:
-        return self._plan.has(task.id)
+        return (self._plan.has(task.id) or task.id in self._time_spent)
 
     BINDINGS = TaskListTimerStarter.BINDINGS + [
         ('a', 'add'),
@@ -161,12 +168,13 @@ class _PlanningTaskList(TaskListTimerStarter):
     ]
 
     def on_mount(self) -> None:
-        self._get_tree().root.expand_all()
+        self._tree.root.expand_all()
 
     def _calc_stats(self):
         logs = self._time_log.get_data_frame()
         tasks = self._task_db.get_data_frame()
         logs = logs.merge(tasks, left_on='task_id', right_on='id', how='left')
+
         # TODO: Special handling for the periods that go over midnight.
         # TODO: Factor this out somewhere.
         match self._plan.period:
@@ -175,30 +183,96 @@ class _PlanningTaskList(TaskListTimerStarter):
                 dt_end = dt_start + datetime.timedelta(days=1)
             case Week():
                 raise NotImplementedError
-        self._stats = dict(
+
+        self._time_spent = dict(
                 logs[
                     (logs.start >= dt_start) & (logs.start < dt_end) &
                     (logs.task_id > 0)
                 ].groupby('task_id')[['duration']].sum().itertuples()
         )
 
-    def _add_extra_task_info(self, title: str, task: Task) -> str:
+        root = dataframe_to_tree_by_relation(
+                tasks[tasks.index > 0].reset_index(), child_col='id', parent_col='parent_id',
+                attribute_cols=[])
 
-        def t_round(hours: float) -> str:
-            t = datetime.timedelta(hours=hours)
+        total_time_planned = timedelta(hours=self._plan.total_hours)
+
+        def rollup_time_spent(node) -> timedelta:
+            task_id = node.node_name
+
+            spent_on_this_task = self._time_spent.get(task_id, timedelta())
+            spent_on_children = sum(
+                (rollup_time_spent(child) for child in node.children),
+                start=timedelta())
+
+            spent_time = spent_on_this_task + spent_on_children
+            node.set_attrs({'spent_time': spent_time})
+            return spent_time
+
+        def rollup_time_planned(node) -> timedelta:
+            task_id = node.node_name
+
+            planned_for_this_task = timedelta()
+            if planned := self._plan.get(task_id):
+                planned_for_this_task = planned.proportion * total_time_planned
+            planned_for_children = sum(
+                (rollup_time_planned(child) for child in node.children),
+                start=timedelta())
+
+            planned_time = planned_for_this_task + planned_for_children
+            node.set_attrs({'planned_time': planned_time})
+            return planned_time
+
+        rollup_time_spent(root)
+        rollup_time_planned(root)
+
+        df = tree_to_dataframe(
+            root, attr_dict={'spent_time': 'spent_time', 'planned_time': 'planned_time'}
+        )
+        df = df.drop(columns=['path'])
+        self._rolled_up_time_spent = dict(
+                df.drop(columns=['planned_time']).itertuples(index=False))
+        self._rolled_up_time_planned = dict(
+                df.drop(columns=['spent_time']).itertuples(index=False))
+
+    def _add_extra_task_info(self, title: str, task: Task,
+                             parent_node: TreeNode, tree: Tree) -> str:
+
+        def t_round(t: timedelta) -> str:
             # Round to the minute.
             floor = timedelta(minutes=t // timedelta(minutes=1))
             if floor % timedelta(minutes=1) > timedelta(seconds=30):
                 floor += timedelta(minutes=1)
             return humanize_td(floor)
 
-        if planned := self._plan.get(task.id):
-            title += f'--- <p: {planned.proportion:.2f}/'
-            title += f'{t_round(planned.proportion * self._plan.total_hours)} '
-            if task.id in self._stats:
-                title += f' a: {humanize_td(self._stats[task.id])}'
-            title += '>'
-        else:
+        def tree_depth() -> int:
+            node = parent_node
+            n = 1
+            while node != tree.root:
+                n += 1
+                node = not_none(node.parent)
+            return n
+
+        screen_width = self.app.size.width
+        indent = tree_depth() * tree.guide_depth
+        twidth = indent + Text.from_markup(title).cell_len
+        col_padding = 1
+        available_space = screen_width - twidth - col_padding
+
+        t_planned = self._rolled_up_time_planned[task.id]
+
+        t_actual = self._rolled_up_time_spent[task.id]
+
+        if t_actual or t_planned:
+            einfo = f'({humanize_td(t_actual)}/{t_round(t_planned)}) '
+            einfo += _time_graph(
+                planned=t_planned,
+                actual=t_actual,
+            )
+            einfo = einfo.rjust(available_space, ' ')
+            title += einfo
+
+        if not t_planned:
             title = f'[i]{title}[/i]'
 
         return title
@@ -231,9 +305,34 @@ class _PlanningTaskList(TaskListTimerStarter):
 
     async def action_refresh(self):
         await self.recompose()
-        tree = self._get_tree()
-        tree.focus()
-        tree.root.expand_all()
+        self._tree.focus()
+        self._tree.root.expand_all()
+
+
+def _time_graph(planned: timedelta, actual: timedelta) -> str:
+    """
+    >>> _time_graph(planned=td('3h'), actual=td('0h'))
+    '------'
+    >>> _time_graph(planned=td('3h'), actual=td('2h'))
+    '====--'
+    >>> _time_graph(planned=td('1h'), actual=td('2h'))
+    '==!!'
+    """
+    if actual <= planned:
+        planned_spent = actual
+        planned_not_spent = planned - actual
+        overspent = timedelta()
+    else:
+        planned_spent = planned
+        planned_not_spent = timedelta()
+        overspent = actual - planned
+    i_len = td('30m')
+    planned_spent_i = round(planned_spent / i_len)
+    planned_not_spent_i = round(planned_not_spent / i_len)
+    overspent_i = round(overspent / i_len)
+    return ('=' * planned_spent_i +
+            '-' * planned_not_spent_i +
+            '!' * overspent_i)
 
 
 class _PlanEditorScreen(ModalScreen):
@@ -253,9 +352,9 @@ class _PlanEditorScreen(ModalScreen):
 
     def compose(self) -> ComposeResult:
         yield _PlanEditor(task_db=self._task_db,
-                       time_log=self._time_log,
-                       timer=self._timer,
-                       plan=self._plan)
+                          time_log=self._time_log,
+                          timer=self._timer,
+                          plan=self._plan)
         yield Footer()
 
     def action_save_and_close(self) -> None:
@@ -277,9 +376,9 @@ def main() -> None:
             plan_db_path = pathlib.Path('~/dev-plandb').expanduser()
             plan_db = PlanDB(plan_db_path)
             yield _PlanSelection(task_db=config.task_db,
-                                timer=timer,
-                                time_log=config.time_log,
-                                plan_db=plan_db)
+                                 timer=timer,
+                                 time_log=config.time_log,
+                                 plan_db=plan_db)
             yield Footer()
 
     app = PlanningApp()

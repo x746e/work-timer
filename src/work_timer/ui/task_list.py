@@ -249,7 +249,7 @@ class TaskList(TaskListTimerStarter):
         adding the task to the DB.  This function then adds the task using the
         information on the returned `TaskEditor.Changed` message.
         """
-        parent_node = not_none(self._get_tree().cursor_node)
+        parent_node = not_none(self._tree.cursor_node)
         parent_id = not_none(parent_node.data)
 
         new_task = Task(title='', parent_id=parent_id)

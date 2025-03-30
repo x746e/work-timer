@@ -18,6 +18,8 @@ import subprocess
 
 from typing import Sequence
 
+import pandas as pd
+
 from work_timer.taskdb import TaskID
 from work_timer.utils.time import td
 
@@ -37,6 +39,7 @@ class Plan:
     total_hours: float
     _items: dict[TaskID, 'PlannedWorkItem']
 
+    # TODO: Make `total_hours` a timedelta.
     def __init__(self, period: 'PlannedPeriod', total_hours: float = 0,
                  items: Sequence['PlannedWorkItem'] = ()) -> None:
         self.period = period
@@ -77,6 +80,8 @@ class Plan:
         return all(items[0].proportion == item.proportion for item in items[1:])
 
     def _scale_proportions(self) -> None:
+        if not self._items:
+            return
         total = sum(item.proportion for item in self._items.values())
         if total == 1:
             return
@@ -96,6 +101,13 @@ class Plan:
         Proportionally decreases the time of all other tasks in the Plan.
         """
         item = self._items[task_id]
+        assert 0 <= item.proportion <= 1
+        if item.proportion == 0:
+            # TODO TODO TODO: Not sure why.
+            return
+        if item.proportion == 1:
+            # Can't increase any more, already takes all the time.
+            return
         current_time = self.total_hours * item.proportion
         increased_time = current_time + by / td('1h')
         item.proportion = increased_proportion = increased_time / self.total_hours
@@ -118,6 +130,14 @@ class Plan:
 
     def has(self, task_id: TaskID) -> bool:
         return task_id in self._items
+
+    def get_data_frame(self) -> pd.DataFrame:
+        total_time = datetime.timedelta(hours=self.total_hours)
+        def inner():
+            for item in self._items.values():
+                yield {'task_id': item.task_id,
+                       'planned': total_time * item.proportion}
+        return pd.DataFrame(inner()).set_index('task_id')
 
     def to_json(self) -> str:
         d = {}

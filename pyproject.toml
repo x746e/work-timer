@@ -5,6 +5,7 @@ authors = [
     {name = "Kirill Spitsyn", email = "k@spitsyn.me"},
 ]
 dependencies = [
+    "bigtree>=0.23.0",
     "desktop-notifier>=3.5.6",
     "filelock>=3.16.1",
     "gcsa>=2.5.1",

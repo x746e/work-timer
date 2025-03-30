@@ -38,7 +38,6 @@ class BaseTaskList(Widget):
                  filter_include_children=False, filter_include_parents=True) -> None:
         super().__init__()
         self._task_db = task_db
-        self._task_id_to_node_id = {}
 
         # Filtering options.  TODO: Try inner class?
         if task_filter is None:
@@ -50,21 +49,28 @@ class BaseTaskList(Widget):
         self._filter_include_children = filter_include_children
         self._filter_include_parents = filter_include_parents
 
+        self._task_id_to_node_id = {}
+        # TODO TODO TODO: Setting it there to not work around `None`-s.  Probably shouldn't be there.
+        self._tree = self._make_tree_with_tasks()
+
     def set_task_filter(self, task_filter: TaskFilter) -> None:
         self._task_filter = task_filter
 
     def compose(self) -> ComposeResult:
-        yield self._make_tree_with_tasks()
+        # TODO TODO TODO: Why did I try to put the next line into __init__?
+        self._tree = self._make_tree_with_tasks()
+        yield self._tree
 
     def action_cursor_up(self):
-        self._get_tree().action_cursor_up()
+        self._tree.action_cursor_up()
 
     def action_cursor_down(self):
-        self._get_tree().action_cursor_down()
+        self._tree.action_cursor_down()
 
     async def action_refresh(self):
+        self._tree = self._make_tree_with_tasks()
         await self.recompose()
-        self._get_tree().focus()
+        self._tree.focus()
 
     def _get_selected_task(self) -> Task | None:
         node = self._get_selected_task_node()
@@ -73,7 +79,7 @@ class BaseTaskList(Widget):
         return self._node_to_task(node)
 
     def _get_selected_task_node(self) -> TreeNode | None:
-        cursor_node = not_none(self._get_tree().cursor_node)
+        cursor_node = not_none(self._tree.cursor_node)
         if cursor_node.is_root:
             return None
         assert cursor_node.data is not None
@@ -82,9 +88,6 @@ class BaseTaskList(Widget):
     def _node_to_task(self, node: TreeNode) -> Task:
         task_id = not_none(node.data)
         return self._task_db.get(task_id)
-
-    def _get_tree(self) -> Tree:
-        return not_none(self.query_one(Tree))
 
     def _remove_node(self, node: TreeNode) -> None:
         """Remove the node from the tree.
@@ -131,24 +134,29 @@ class BaseTaskList(Widget):
 
         for task in self._task_db.get_children(parent_id=ROOT_TASK_ID):
             if not self._whole_subtree_is_filtered_out(task):
-                self._add_task(task, parent_node=tree.root)
+                self._add_task(task, parent_node=tree.root, tree=tree)
 
         tree.root.expand()
         return tree
 
-    def _add_task(self, task: Task, parent_node: TreeNode | None = None, focus=False) -> None:
+    def _add_task(self, task: Task, parent_node: TreeNode | None = None,
+                  tree: Tree | None = None, focus=False) -> None:
         """Adds a `task`, with all its children, as a child of the `parent_node`."""
 
         assert task.id not in self._task_id_to_node_id, (
                 f'{task} is already added to the task list')
 
+        if not tree:
+            tree = self._tree
+
         def get_node_by_task_id(task_id: TaskID | None) -> TreeNode:
             if task_id is None:
-                return self._get_tree().root
+                return tree.root
             node_id = self._task_id_to_node_id[task_id]
-            return self._get_tree().get_node_by_id(node_id)
+            return tree.get_node_by_id(node_id)
 
         task = self._task_db.get(task.id)  # Refresh .parent_id / .child_ids
+
         if not parent_node:
             parent_node = get_node_by_task_id(task.parent_id)
 
@@ -165,7 +173,7 @@ class BaseTaskList(Widget):
                     return {'after': child_ids_added_so_far.index(prev_id)}
             return {'before': 0}
 
-        node = parent_node.add(self._title_with_style(task),
+        node = parent_node.add(self._title_with_style(task, parent_node, tree),
                                data=task.id, **insert_loc())  # type: ignore
         parent_node.allow_expand = True
         self._task_id_to_node_id[task.id] = node.id
@@ -173,15 +181,15 @@ class BaseTaskList(Widget):
         children_to_show = [c for c in children if not self._whole_subtree_is_filtered_out(c)]
 
         for child_task in children_to_show:
-            self._add_task(child_task, parent_node=node)
+            self._add_task(child_task, parent_node=node, tree=tree)
 
         if not children_to_show:
             node.allow_expand = False
 
         if focus:
             # Not sure why, but it appears I need both these calls.
-            self._get_tree().move_cursor(node)
-            self._get_tree().select_node(node)
+            self._tree.move_cursor(node)
+            self._tree.select_node(node)
 
     def _whole_subtree_is_filtered_out(self, task: Task) -> bool:
         if self._task_filter(task):
@@ -192,11 +200,16 @@ class BaseTaskList(Widget):
     def _refresh_node(self, node: TreeNode, task: Task) -> None:
         if self._whole_subtree_is_filtered_out(task):
             self._remove_node(node)
-        node.set_label(self._title_with_style(task))
+                    # TODO TODO TODO: Not sure what's up here.
+                    #                 Am I concerned about self._tree?
+        parent_node = self._tree.get_node_by_id(self._task_id_to_node_id[task.parent_id])
+        node.set_label(
+            self._title_with_style(
+                task, parent_node=parent_node, tree=not_none(self._tree)))
         node.data = task.id
         node.refresh()
 
-    def _title_with_style(self, task: Task) -> Text:
+    def _title_with_style(self, task: Task, parent_node: TreeNode, tree: Tree) -> Text:
         style = Style(color=_PRIO_TO_COLOR[task.priority])
         if task.status == Task.Status.DONE:
             style = style.combine([style, Style(strike=True)])
@@ -206,13 +219,14 @@ class BaseTaskList(Widget):
         if task.description:
             title += ' :memo:'
 
-        title = self._add_extra_task_info(title, task)
+        title = self._add_extra_task_info(title, task, parent_node, tree)
 
         return Text.from_markup(title, style=style)
 
-    def _add_extra_task_info(self, title: str, task: Task) -> str:
+    def _add_extra_task_info(self, title: str, task: Task, parent_node: TreeNode,
+                             tree: Tree) -> str:
         """A hook for subclasses to add to the `title`."""
-        del task
+        del task, parent_node, tree
         return title
 
 

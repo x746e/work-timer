@@ -149,9 +149,11 @@ def get_dev_config() -> Config:
     """
     taskdb_path = Path('~/dev-tasks').expanduser()
     timelog_path = Path('~/dev-timelog.json').expanduser()
+    plandb_path = Path('~/dev-plandb').expanduser()
     argv = [
         f'--taskdb={taskdb_path}',
         f'--timelog={timelog_path}',
+        f'--plandb={plandb_path}',
         '--work-period-duration=7s',
         '--break-duration=2s',
         '--long-break-duration=5s',

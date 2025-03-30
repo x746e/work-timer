@@ -116,6 +116,15 @@ wheels = [
 ]
 
 [[package]]
+name = "bigtree"
+version = "0.23.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/98/0cc31d2c556ee93e86357405511046ca4bd94fe940b48788c13694ed11ed/bigtree-0.23.0.tar.gz", hash = "sha256:285d36a5c4e05593af81e81d0960521abc6d7d11c1e56fbcd56b0f3b2d5e0adc", size = 1274841 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a6/6a/ee8c63276c49b85754fe82f98db476c2b96052382e872733bdc601a950ad/bigtree-0.23.0-py3-none-any.whl", hash = "sha256:47e177e38df3e097c2afd8531dcb1f396cdd3782490d60b332be697d8d2b3163", size = 81519 },
+]
+
+[[package]]
 name = "cachetools"
 version = "5.5.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1738,6 +1747,7 @@ name = "work-timer"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "bigtree" },
     { name = "desktop-notifier" },
     { name = "filelock" },
     { name = "gcsa" },
@@ -1774,6 +1784,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
+    { name = "bigtree", specifier = ">=0.23.0" },
     { name = "desktop-notifier", specifier = ">=3.5.6" },
     { name = "filelock", specifier = ">=3.16.1" },
     { name = "gcsa", specifier = ">=2.5.1" },
