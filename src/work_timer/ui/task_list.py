@@ -18,7 +18,9 @@ from work_timer.taskdb import Task, TaskDB
 from work_timer.taskdb.task import duplicate
 from work_timer.timer import Timer
 from work_timer.ui.base_task_list import BaseTaskList, TaskFilter
+from work_timer.ui.debug_panel import DebugPanel
 from work_timer.ui.task_editor import TaskEditor
+from work_timer.ui.timer_ui import MicroTimerWidget
 from work_timer.utils.time import td
 from work_timer.utils.typing import not_none
 
@@ -30,9 +32,10 @@ class TaskListTimerStarter(BaseTaskList):
     BINDINGS = [
         ('s', 'start', 'Start the timer'),  # start the timer with the cursor_node.
         ('S', 'start_custom_period_length', 'Select period lenght before starting'),
+        ('ctrl+s', 'start_in_background', 'Start timer in background'),
     ]
 
-    class TimerStarted(Message):
+    class SwitchToTimer(Message):
         pass
 
     def __init__(self, task_db: TaskDB, timer: Timer,
@@ -41,17 +44,14 @@ class TaskListTimerStarter(BaseTaskList):
         self._timer = timer
 
     @work
-    async def action_start(self, period_length=None) -> None:
-        """Start the Timer with the selected task.
-
-        Pushes the TimerScreen.  After the work period ends, starts a break
-        period.
-        """
+    async def action_start(self, period_length=None, switch_to_timer=True) -> None:
+        """Start the Timer with the selected task."""
         task = self._get_selected_task()
         if not task:
             return
         self._timer.start(task.id, period_length=period_length)
-        self.post_message(self.TimerStarted())
+        if switch_to_timer:
+            self.post_message(self.SwitchToTimer())
 
     @work
     async def action_start_custom_period_length(self) -> None:
@@ -60,6 +60,10 @@ class TaskListTimerStarter(BaseTaskList):
         if period_length is not None:
             self.action_start(period_length=period_length)
 
+    @work
+    async def action_start_in_background(self) -> None:
+        self.action_start(switch_to_timer=False)
+
 
 class TaskList(TaskListTimerStarter):
     """A widget to show and manipulate a list (or tree) of tasks."""
@@ -67,7 +71,8 @@ class TaskList(TaskListTimerStarter):
     BINDINGS = TaskListTimerStarter.BINDINGS + [
         ('e', 'edit', 'Edit'),
         ('d', 'mark_done', 'Mark as done'),
-        ('c', 'create', 'New task'),  # with the cursor_node as a parent.
+        ('c', 'create', 'New task'),
+        ('C', 'create_first_child', 'New task, as first child'),
         ('-', 'dec_prio', '--priority'),
         ('+', 'inc_prio', '++priority'),
         # TODO: Make it a :duplicate command.
@@ -189,7 +194,7 @@ class TaskList(TaskListTimerStarter):
         self._task_db.update(grandparent)
 
         self._remove_node(node)
-        self._add_task(task, focus=True)
+        self._add_task(task, focus=True, expand_parent=True)
 
     def action_reparent_down(self) -> None:
         """Set task's previous sibling as its parent."""
@@ -206,7 +211,7 @@ class TaskList(TaskListTimerStarter):
         self._task_db.update(prev_task)
 
         self._remove_node(node)
-        self._add_task(task, focus=True)
+        self._add_task(task, focus=True, expand_parent=True)
 
     @work
     async def action_edit(self) -> None:
@@ -238,8 +243,15 @@ class TaskList(TaskListTimerStarter):
             case _:
                 assert False, 'unreachable'
 
+    def action_create(self) -> None:
+        self._create_task()
+
+    def action_create_first_child(self) -> None:
+        self._create_task(insert_first=True)
+
+
     @work
-    async def action_create(self) -> None:
+    async def _create_task(self, insert_first=False) -> None:
         """Action to create a new Task.
 
         The new task will have the currently selected task in the tree set as
@@ -255,7 +267,13 @@ class TaskList(TaskListTimerStarter):
         new_task = Task(title='', parent_id=parent_id)
         changed = await self.app.push_screen_wait(TaskEditor(self._task_db, new_task))
         if changed:
-            self._add_task(changed.new, focus=True)
+            task = changed.new
+            if insert_first:
+                parent = self._task_db.get(task.parent_id)
+                parent.child_ids.remove(task.id)
+                parent.child_ids.insert(0, task.id)
+                self._task_db.update(parent)
+            self._add_task(task, focus=True, expand_parent=True)
 
     def action_duplicate(self) -> None:
         task = self._get_selected_task()
@@ -317,6 +335,7 @@ class PeriodLengthSelectDialog(ModalScreen[timedelta | None]):
 
 
 class TaskListScreen(Screen):
+    # pylint: disable=missing-class-docstring
 
     def __init__(self, config: Config, timer: Timer, name: str | None = None) -> None:
         super().__init__(name=name)
@@ -324,5 +343,8 @@ class TaskListScreen(Screen):
         self._timer = timer
 
     def compose(self) -> ComposeResult:
+        yield MicroTimerWidget(self._timer, task_db=self._config.task_db)
         yield TaskList(self._config.task_db, self._timer)
+        if self.app._config.debug:  # type: ignore  # pylint: disable=protected-access
+            yield DebugPanel()
         yield Footer()

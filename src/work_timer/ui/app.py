@@ -18,7 +18,7 @@ from work_timer.config import get_config_from_args, Config
 from work_timer.timer import Timer
 from work_timer.ui.planning import PlanningScreen, _PlanEditorScreen
 from work_timer.ui.task_list import TaskList, TaskListScreen
-from work_timer.ui.timer_widget import TimerScreen
+from work_timer.ui.timer_ui import TimerScreen
 from work_timer.utils.scheduler import Scheduler
 
 
@@ -28,6 +28,8 @@ class WorkTimerApp(App):
 
     BINDINGS = [
         ('P', 'app.switch_screen("planning")'),
+        ('L', 'app.switch_screen("task_list")'),
+        ('T', 'app.switch_screen("timer")'),
     ]
 
     def __init__(self, config: Config) -> None:
@@ -49,7 +51,7 @@ class WorkTimerApp(App):
     def on_mount(self) -> None:
         self.push_screen('task_list')
 
-    @on(TaskList.TimerStarted)
+    @on(TaskList.SwitchToTimer)
     def on_task_list_timer_started(self) -> None:
         if isinstance(self.screen, _PlanEditorScreen):
             self._screen_to_return = 'planning'
@@ -58,8 +60,9 @@ class WorkTimerApp(App):
         self.switch_screen('timer')
 
     def on_timer_widget_timer_stopped(self) -> None:
-        assert self._screen_to_return is not None
-        self.switch_screen(self._screen_to_return)
+        if self._screen_to_return:
+            self.switch_screen(self._screen_to_return)
+            self._screen_to_return = None
 
 
 def main():

@@ -48,9 +48,9 @@ class TestPlanProportions(TestCase):
         plan.add(TaskID(42))
         plan.add(TaskID(24))
         plan.inc(TaskID(42))
-        plan.add(TaskID(44))
+        plan.add(TaskID(101))
 
-        assert not_none(plan.get(TaskID(44))).proportion == 0
+        assert not_none(plan.get(TaskID(101))).proportion == 0
 
     def test_removing_item_scales_proportions(self):
         plan = Plan(PLAN.period)

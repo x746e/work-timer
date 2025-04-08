@@ -7,6 +7,8 @@ import subprocess
 import tempfile
 import unittest
 
+import pytest
+
 from work_timer import taskdb
 from work_timer.taskdb import Task
 from work_timer.utils.fake_tasks import add_fake_tasks, extract, FAKE_TASKS
@@ -187,6 +189,7 @@ class TaskDBMixin:
         return db
 
 
+@pytest.mark.slow
 class SimplePersistentTaskDBTest(unittest.TestCase, TaskDBMixin):
     # Added while debugging PersistentTaskDBTest, which was adding
     # quite a few tasks and failing with a weird conflict.
@@ -221,8 +224,10 @@ class SimplePersistentTaskDBTest(unittest.TestCase, TaskDBMixin):
         db.add(Task('Task C', parent_id=id_a))
 
 
+@pytest.mark.slow
 class PersistentTaskDBTest(unittest.TestCase, TaskDBMixin):
 
+    @pytest.mark.fastish_subset
     def test_saving(self):
         d = self.init_task_db()
         db = self.task_db(repo_path=d)
@@ -234,6 +239,7 @@ class PersistentTaskDBTest(unittest.TestCase, TaskDBMixin):
             data = json.load(f)
         assert data == EXPECTED_DATA
 
+    @pytest.mark.fastish_subset
     def test_loading(self):
         d = self.init_task_db()
         f = d / 'tasks.json'
@@ -316,6 +322,7 @@ class PersistentTaskDBTest(unittest.TestCase, TaskDBMixin):
         assert get_field_types(orig) == get_field_types(loaded)
 
 
+@pytest.mark.slow
 class PersistentTaskDBParallelTest(unittest.TestCase, TaskDBMixin):
 
     def test_parallel_writing(self):
@@ -340,6 +347,7 @@ class PersistentTaskDBParallelTest(unittest.TestCase, TaskDBMixin):
         assert orig_task.title == read_from_b.title
 
 
+@pytest.mark.slow
 class PersistentTaskDBConflictTest(unittest.TestCase, TaskDBMixin):
 
     def test_updating_deleted_task(self):

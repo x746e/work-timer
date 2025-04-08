@@ -1,4 +1,8 @@
 #!/bin/sh
+#
+# TODO: Add support for configs, so running dev code with prod settings
+#       becomes a matter of adding such a config, without duplicating
+#       the whole script.
 
 set -eu
 
@@ -29,15 +33,16 @@ while [[ "$#" > 0 ]]; do case $1 in
   *) usage "Unknown parameter passed: $1"; shift; shift;;
 esac; done
 
+
 args=(
     --plandb ~/dev-plandb
     --taskdb ~/dev-tasks
     --timelog ~/dev-timelog.json
-    --work-period-duration 7s
-    --break-duration 2s
-    --long-break-duration 5s
-    --long-break-after 20s
-    --debug
+    --work-period-duration 25m
+    --break-duration 5m
+    --long-break-duration 20m
+    --long-break-after 2h
+    --enable-notifications
 )
 
 if [[ -n "$MEMRAY" ]]; then

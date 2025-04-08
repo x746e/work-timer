@@ -1,6 +1,8 @@
 """Tests for work_timer.ui.task_list."""
 import unittest
 
+import pytest
+
 from textual import on
 from textual.app import App
 from textual.widgets import Tree
@@ -39,11 +41,12 @@ class FakeApp(App):  # pylint: disable=missing-class-docstring
     def compose(self):
         yield TaskList(self._config.task_db, self.timer)
 
-    @on(TaskList.TimerStarted)
+    @on(TaskList.SwitchToTimer)
     def on_task_list_timer_started(self) -> None:
         self.timer_started = True
 
 
+@pytest.mark.slow
 class TestTaskListDisplaysTasks(unittest.IsolatedAsyncioTestCase):
 
     async def test_task_rendering(self):
@@ -246,6 +249,7 @@ class FilteringTest(unittest.IsolatedAsyncioTestCase):
 
 # TODO: Consider testing using a PersistentTaskDB as well.
 
+@pytest.mark.slow
 class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
 
     async def test_app_starts_with_tree_root_focused(self):
@@ -327,6 +331,7 @@ class TestTaskManipulations(unittest.IsolatedAsyncioTestCase):
         got_ui_tasks = extract.fake_tasks_from_tree(tree)
         assert want_ui_tasks == got_ui_tasks
 
+    @pytest.mark.fastish_subset
     async def test_task_edit(self):
         initial_tasks = [
             FakeTask('task_a', kids=[

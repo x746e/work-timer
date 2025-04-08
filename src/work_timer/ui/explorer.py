@@ -17,10 +17,12 @@ from textual.widget import Widget
 from textual.widgets import Static, ProgressBar, Tree, Footer
 from textual.widgets import tree as tree_widget
 
-from work_timer.config import get_test_config
+from work_timer.config import Config, get_test_config
 from work_timer.timer import Timer
+from work_timer.ui.debug_panel import DebugPanel
 from work_timer.ui.task_editor import TaskEditorWidget
-from work_timer.ui.timer_widget import TimerWidget
+from work_timer.ui.task_list import TaskList
+from work_timer.ui.timer_ui import TimerWidget
 from work_timer.utils import fake_tasks
 from work_timer.utils.scheduler import Scheduler
 
@@ -118,7 +120,10 @@ class Playground(Widget):
 
     def compose(self) -> ComposeResult:
         with Vertical(id='playground'):
-            yield get_timer()
+            yield get_task_list()
+            yield DebugPanel()
+            yield Footer()
+            # yield get_timer()
             # yield get_task_editor()
             # yield from get_random_widgets()
 
@@ -126,7 +131,7 @@ class Playground(Widget):
 def get_timer():
     config = get_test_config()
     task = list(config.task_db.get_all().values())[0]
-    timer = Timer(config, scheduler=Scheduler())
+    timer = _get_timer(config)
     timer.start(task.id)
     return TimerWidget(timer, config.task_db)
 
@@ -135,6 +140,18 @@ def get_task_editor():
     db = fake_tasks.get_task_db()
     task = list(db.get_all().values())[0]
     return TaskEditorWidget(db, task)
+
+
+def get_task_list():
+    config = get_test_config()
+    for _ in range(10):
+        fake_tasks.add_fake_tasks(task_db=config.task_db)
+    timer = Timer(config, scheduler=Scheduler())
+    return TaskList(task_db=config.task_db, timer=timer)
+
+
+def _get_timer(config: Config) -> Timer:
+    return Timer(config, scheduler=Scheduler())
 
 
 def get_random_widgets():

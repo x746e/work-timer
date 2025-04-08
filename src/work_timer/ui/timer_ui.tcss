@@ -1,4 +1,4 @@
-TimerWidget {
+TimerScreen > TimerWidget {
     align-vertical: middle;
 
     &.break {
@@ -13,7 +13,7 @@ TimerWidget {
         padding-bottom: 1;
     }
 
-    TimeDisplay {
+    #time_display {
         text-align: center;
     }
 

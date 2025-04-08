@@ -17,6 +17,13 @@ def grab_screenshot(app: App) -> str:
     return console.export_text()
 
 
+def display_screen(app: App) -> None:
+    """Outputs the current screen of the `app` ot stdout."""
+    console = Console()
+    screen_render = app.screen._compositor.render_update(full=True)  # pylint: disable=protected-access
+    console.print(screen_render)
+
+
 FoundAt = namedtuple('Where', 'row col')
 
 def find(s: str, screenshot: str) -> FoundAt:

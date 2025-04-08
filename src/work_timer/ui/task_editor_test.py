@@ -1,6 +1,8 @@
 """Tests for work_timer.ui.task_editor."""
 from enum import Enum
 
+import pytest
+
 from textual import work
 from textual.app import App
 
@@ -34,6 +36,7 @@ async def test_closes_on_esc_and_returns_none():
         assert app.editor_msg is None
 
 
+@pytest.mark.slow
 class TestCreationMode:
     """The case when we pass a Task without an id set into the editor."""
 
@@ -55,6 +58,7 @@ class TestCreationMode:
         pass  # TODO
 
 
+@pytest.mark.slow
 class TestUpdates:
 
     async def test_returns_none_when_the_task_was_not_changed(self):

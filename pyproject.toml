@@ -5,6 +5,7 @@ authors = [
     {name = "Kirill Spitsyn", email = "k@spitsyn.me"},
 ]
 dependencies = [
+    "argcomplete>=3.6.2",
     "bigtree>=0.23.0",
     "desktop-notifier>=3.5.6",
     "filelock>=3.16.1",
@@ -17,6 +18,7 @@ dependencies = [
     "texttable>=1.7.0",
     "textual[syntax]>=0.86.3",
     "watchdog>=6.0.0",
+    "xdg-base-dirs>=6.0.2",
 ]
 requires-python = ">=3.13"
 readme = "README.md"
@@ -26,6 +28,7 @@ dynamic = ["version"]
 [project.scripts]
 wt = "work_timer.ui.app:main"
 wtctl = "work_timer.wtctl:main"
+lci = "work_timer.utils.lci.lci:main"
 
 [build-system]
 requires = ["setuptools"]
@@ -44,7 +47,6 @@ dev = [
     "textual-dev>=1.7.0",
 ]
 lint = [
-    "lefthook>=1.10.1",
     "mypy>=1.13.0",
     "pylint>=3.3.1",
     "pyright>=1.1.389",
@@ -52,6 +54,7 @@ lint = [
 ]
 test = [
     "flaky>=3.8.1",
+    "pytest-bdd>=8.1.0",
     "pytest>=8.3.4",
     "pytest-asyncio>=0.24.0",
     "pytest-profiling>=1.8.1",
@@ -65,6 +68,10 @@ default-groups = ['dev', 'lint', 'test']
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = "--doctest-modules --durations 3 --no-success-flaky-report"
+markers = [
+    "slow: slow tests",
+    "fastish_subset: marks a few slow tests for more regular interactive execution."
+]
 
 [tool.pyright]
 include = ["src"]
@@ -229,7 +236,7 @@ const-naming-style = "UPPER_CASE"
 
 # Minimum line length for functions/classes that require docstrings, shorter ones
 # are exempt.
-docstring-min-length = 10
+docstring-min-length = 20
 
 # Naming style matching correct function names.
 function-naming-style = "snake_case"
@@ -453,6 +460,7 @@ disable = [
     "use-implicit-booleaness-not-comparison",
     "disallowed-name",
     "no-else-return",
+    "unspecified-encoding",
 ]
 
 # Enable the message, report, category or checker with the given id(s). You can

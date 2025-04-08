@@ -1,8 +1,10 @@
 """Timer interface."""
+# TODO: Rename to `timer_ui`.
 import math
 
 from textual import work
 from textual.app import App, ComposeResult
+from textual.containers import Horizontal
 from textual.message import Message
 from textual.reactive import reactive
 from textual.screen import Screen
@@ -12,22 +14,32 @@ from textual.widgets import Digits, Footer, Label, ProgressBar
 
 from work_timer import taskdb
 from work_timer.ui.base_task_list import TaskSelectionDialog
+from work_timer.ui.debug_panel import DebugPanel
 from work_timer.timer import NoActiveTimer, Timer, TimerInfo
 
 
-class TimeDisplay(Digits):
+
+class TimeDisplay:
     """Shows the remaining time."""
 
     seconds_left = reactive(0.0)
 
-    def __init__(self, seconds_left: float) -> None:
-        super().__init__()
-        self.seconds_left = seconds_left
-
     def watch_seconds_left(self, time: float) -> None:
         minutes, seconds = divmod(time, 60)
         hours, minutes = divmod(minutes, 60)
-        self.update(f'{hours:02,.0f}:{minutes:02.0f}:{seconds:02.0f}')
+        self.update(f'{hours:02,.0f}:{minutes:02.0f}:{seconds:02.0f}')  # type: ignore # pylint: disable=no-member
+
+
+class DigitsTimeDisplay(Digits, TimeDisplay):
+
+
+    def __init__(self, seconds_left: float, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.seconds_left = seconds_left
+
+
+class SingleLineTimeDisplay(Label, TimeDisplay):
+    pass
 
 
 class TimerWidget(Widget):
@@ -49,6 +61,8 @@ class TimerWidget(Widget):
     _ticker: TextualTimer | None
     _timer: Timer
 
+    _update_interval = .1
+
     def __init__(self,
                  timer: Timer,
                  task_db: taskdb.TaskDB):
@@ -56,12 +70,13 @@ class TimerWidget(Widget):
         self._task_db = task_db
         self._timer = timer
 
+        self._timer_is_stopped = True
         self._last_timer_info = None
         # Widget cache.  TODO: Actually measure if it meaningfully improves performance.
         self._w = {}
 
     def on_mount(self):
-        self._ticker = self.set_interval(.1, self._tick, pause=True)
+        self._ticker = self.set_interval(self._update_interval, self._tick, pause=True)
 
     def resume_updates(self):
         assert self._ticker is not None
@@ -73,7 +88,7 @@ class TimerWidget(Widget):
 
     def compose(self) -> ComposeResult:
         self._w['title'] = Label('NOT RUNNING', id='title')
-        self._w['time_display'] = TimeDisplay(0)
+        self._w['time_display'] = DigitsTimeDisplay(0, id='time_display')
         self._w['progress_bar'] = ProgressBar(show_percentage=False, show_eta=False)
 
         ti = self._timer.get_info()
@@ -150,8 +165,13 @@ class TimerWidget(Widget):
         ti = self._timer.get_info()
 
         if isinstance(ti, NoActiveTimer):
-            self.post_message(self.TimerStopped())
+            self._timer_is_stopped = True
+            self._on_timer_stopped()
             return
+
+        if self._timer_is_stopped:
+            self._timer_is_stopped = False
+            self._on_timer_started()
 
         self._update_progress_bar(ti, self._w['progress_bar'])
         self._update_time_display(ti, self._w['time_display'])
@@ -174,6 +194,12 @@ class TimerWidget(Widget):
             # is CPU intensive and appears to leak memory.
             self.refresh_bindings()
 
+    def _on_timer_started(self):
+        pass
+
+    def _on_timer_stopped(self):
+        self.post_message(self.TimerStopped())
+
     def _update_title(self, ti: TimerInfo, title: Label) -> Label:
         task = self._task_db.get(ti.task_id)
         title.update(f'#{task.id} {task.title}')
@@ -182,7 +208,7 @@ class TimerWidget(Widget):
     def _update_time_display(self, ti: TimerInfo, disp: TimeDisplay) -> TimeDisplay:
         seconds_left = math.ceil(
                 ti.period_length.total_seconds() - ti.elapsed_time.total_seconds())
-        disp.seconds_left = max(0, seconds_left)
+        disp.seconds_left = max(0, seconds_left)  # type: ignore
         return disp
 
     def _update_progress_bar(self, ti, pb: ProgressBar) -> ProgressBar:
@@ -198,11 +224,56 @@ class TimerWidget(Widget):
         self.classes = classes
 
 
+class MicroTimerWidget(TimerWidget):
+    """A small version of TimerWidget, intended to be docked to the top of other screens."""
+
+    DEFAULT_CSS = """
+    MicroTimerWidget {
+        height: 1;
+        dock: top;
+        * {
+            padding-right: 1;
+        }
+        display: none;
+    }
+    """
+
+    can_focus = False
+    _update_interval = 1
+
+    def compose(self) -> ComposeResult:
+        self._w['title'] = Label('NOT RUNNING', id='title')
+        self._w['time_display'] = SingleLineTimeDisplay(0)  # type: ignore
+        self._w['progress_bar'] = ProgressBar(show_percentage=False, show_eta=False)
+
+        ti = self._timer.get_info()
+        if isinstance(ti, TimerInfo):
+            self._update_classes(ti)
+            self._update_title(ti, self._w['title'])
+            self._update_time_display(ti, self._w['time_display'])
+            self._update_progress_bar(ti, self._w['progress_bar'])
+
+        with Horizontal():
+            yield self._w['title']
+            yield self._w['progress_bar']
+            yield self._w['time_display']
+
+    def _on_timer_stopped(self):
+        self.display = False
+
+    def _on_timer_started(self):
+        self.display = True
+
+    def on_mount(self):
+        super().on_mount()
+        self.resume_updates()
+
+
 class TimerScreen(Screen):
 
     """A screen with a Timer widget."""
 
-    CSS_PATH = 'timer_widget.tcss'
+    CSS_PATH = 'timer_ui.tcss'
 
     def __init__(self, task_db: taskdb.TaskDB, timer: Timer, name: str | None = None) -> None:
         super().__init__(name=name)
@@ -217,6 +288,8 @@ class TimerScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield TimerWidget(self._timer, self._task_db)
+        if self.app._config.debug:  # type: ignore  # pylint: disable=protected-access
+            yield DebugPanel()
         yield Footer()
 
 

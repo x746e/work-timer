@@ -76,3 +76,19 @@ def humanize_td(delta: timedelta | float | int) -> str:
     if microseconds:
         parts.append(f'{microseconds}μs')
     return ''.join(parts)
+
+
+def round_td(delta: timedelta, to: timedelta) -> timedelta:
+    """Round `delta` to the nearest `to`.
+
+    >>> humanize_td(round_td(td('5m3s'), to=td('1m')))
+    '5m'
+    >>> humanize_td(round_td(td('5m31s'), to=td('1m')))
+    '6m'
+    >>> humanize_td(round_td(td('12m13s'), to=td('5m')))
+    '10m'
+    """
+    floor = delta // to * to
+    if delta % to > to / 2:
+        floor += to
+    return floor

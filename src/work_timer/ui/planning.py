@@ -21,9 +21,10 @@ from work_timer.timelog import TimeLog
 from work_timer.taskdb import Task, TaskDB
 from work_timer.timer import Timer
 from work_timer.ui.base_task_list import TaskSelectionDialog
+from work_timer.ui.debug_panel import DebugPanel
 from work_timer.ui.task_list import TaskListTimerStarter
 from work_timer.utils.typing import not_none
-from work_timer.utils.time import humanize_td, td
+from work_timer.utils.time import round_td, humanize_td, td
 
 
 class _PlanSelection(Widget):
@@ -139,9 +140,9 @@ class _PlanEditor(Widget):
             id='total-hours-container',
         )
         yield _PlanningTaskList(task_db=self._task_db,
-                               time_log=self._time_log,
-                               timer=self._timer,
-                               plan=self._plan)
+                                time_log=self._time_log,
+                                timer=self._timer,
+                                plan=self._plan)
 
 
 class _PlanningTaskList(TaskListTimerStarter):
@@ -185,10 +186,10 @@ class _PlanningTaskList(TaskListTimerStarter):
                 raise NotImplementedError
 
         self._time_spent = dict(
-                logs[
-                    (logs.start >= dt_start) & (logs.start < dt_end) &
-                    (logs.task_id > 0)
-                ].groupby('task_id')[['duration']].sum().itertuples()
+            logs[
+                (logs.start >= dt_start) & (logs.start < dt_end) &
+                (logs.task_id > 0)
+            ].groupby('task_id')[['duration']].sum().itertuples()
         )
 
         root = dataframe_to_tree_by_relation(
@@ -238,12 +239,8 @@ class _PlanningTaskList(TaskListTimerStarter):
     def _add_extra_task_info(self, title: str, task: Task,
                              parent_node: TreeNode, tree: Tree) -> str:
 
-        def t_round(t: timedelta) -> str:
-            # Round to the minute.
-            floor = timedelta(minutes=t // timedelta(minutes=1))
-            if floor % timedelta(minutes=1) > timedelta(seconds=30):
-                floor += timedelta(minutes=1)
-            return humanize_td(floor)
+        def fmt_td(t: timedelta) -> str:
+            return humanize_td(round_td(t, td('1m')))
 
         def tree_depth() -> int:
             node = parent_node
@@ -264,7 +261,7 @@ class _PlanningTaskList(TaskListTimerStarter):
         t_actual = self._rolled_up_time_spent[task.id]
 
         if t_actual or t_planned:
-            einfo = f'({humanize_td(t_actual)}/{t_round(t_planned)}) '
+            einfo = f'({fmt_td(t_actual)}/{fmt_td(t_planned)}) '
             einfo += _time_graph(
                 planned=t_planned,
                 actual=t_actual,
@@ -355,6 +352,8 @@ class _PlanEditorScreen(ModalScreen):
                           time_log=self._time_log,
                           timer=self._timer,
                           plan=self._plan)
+        if self.app._config.debug:  # type: ignore  # pylint: disable=protected-access
+            yield DebugPanel()
         yield Footer()
 
     def action_save_and_close(self) -> None:

@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from textual.widgets import Tree
 
-# pylint gets thown off by the TYPE_CHECKING block above.
+# pylint gets thrown off by the TYPE_CHECKING block above.
 # pylint: disable=wrong-import-position
 
 from work_timer import taskdb

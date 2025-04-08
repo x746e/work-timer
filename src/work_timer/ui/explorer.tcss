@@ -1,3 +1,24 @@
+DebugPanel {
+    height: 3;
+
+    /* dock: bottom; */
+}
+
+TaskList {
+    height: 1fr;
+    /* display: none; */
+
+    Tree {
+        /* height: auto; */
+        /* display: none; */
+    }
+}
+
+Footer {
+    display: none;
+
+}
+
 Timer {
     align-vertical: middle;
 

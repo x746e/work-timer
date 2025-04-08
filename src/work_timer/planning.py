@@ -26,7 +26,7 @@ from work_timer.utils.time import td
 
 class Plan:
 
-    """Defines a set of Tasks intended to be done during the Plan.period.
+    """Defines a set of Tasks intended to be done during the `Plan.period`.
 
     Also specifies the planned amout of working hours the user will be able to
     spend during the `period` -- `total_hours`.
@@ -102,9 +102,9 @@ class Plan:
         """
         item = self._items[task_id]
         assert 0 <= item.proportion <= 1
-        if item.proportion == 0:
-            # TODO TODO TODO: Not sure why.
-            return
+        # if item.proportion == 0:
+        #     # TODO TODO TODO: Not sure why.
+        #     return
         if item.proportion == 1:
             # Can't increase any more, already takes all the time.
             return

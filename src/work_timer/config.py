@@ -34,6 +34,7 @@ class Config:  # pylint: disable=too-many-instance-attributes
     long_break_after: timedelta
     bug_after: timedelta | None = None
     bug_every: timedelta | None = None
+    debug: bool = False
 
 
 def get_config_from_args(argv: list[str]) -> Config:
@@ -65,6 +66,9 @@ def get_config_from_args(argv: list[str]) -> Config:
     parser.add_argument('--bug-every', type=td,
                         help='How often to bug after the first bugging notification.  If not set, '
                              'defaults to the value of --bug-after')
+
+    parser.add_argument('--debug', action='store_true',
+                        help='Enable additinal debugging, like the debug panel.')
     args = parser.parse_args(argv)
 
     if (args.bug_after or args.bug_every) and not args.enable_notifications:
@@ -91,6 +95,8 @@ def get_config_from_args(argv: list[str]) -> Config:
 
     config['bug_after'] = args.bug_after
     config['bug_every'] = args.bug_every
+
+    config['debug'] = args.debug
 
     return Config(**config)  # pylint: disable=missing-kwoa
 

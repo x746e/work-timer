@@ -3,6 +3,8 @@ from datetime import timedelta
 import math
 import unittest
 
+import pytest
+
 from textual.app import App, ComposeResult
 from textual.pilot import Pilot
 from textual.widgets import Footer, Label, ProgressBar
@@ -11,10 +13,13 @@ from textual.widgets._footer import FooterKey
 from work_timer.config import get_test_config
 from work_timer.taskdb import TaskDB
 from work_timer.timer import Timer
-from work_timer.ui.timer_widget import TimerWidget, TimeDisplay
+from work_timer.ui.timer_ui import TimerWidget, DigitsTimeDisplay
 from work_timer.utils.scheduler import Scheduler
 from work_timer.utils.testing import FakeClock
 from work_timer.utils.typing import not_none
+
+
+# TODO: Use the real app there, at least TimerScreen.
 
 
 class FakeApp(App):  # pylint: disable=missing-class-docstring
@@ -31,6 +36,7 @@ class FakeApp(App):  # pylint: disable=missing-class-docstring
         yield Footer(show_command_palette=False)
 
 
+@pytest.mark.fastish_subset
 class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
     """Go through the whole workflow in one test."""
 
@@ -80,7 +86,7 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
     def check_initial_state(self, pilot: Pilot) -> None:
         """Check the Timer widget in the expected state before start."""
         # Check the Digits show the right time.
-        display = pilot.app.query_exactly_one(TimeDisplay)
+        display = pilot.app.query_exactly_one(DigitsTimeDisplay)
         self.assertEqual(display.value, '00:00:04')
         # The task title is shown.
         assert pilot.app.query_exactly_one('#title', Label).renderable == (
@@ -96,7 +102,7 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
     def check_running_state(self, pilot: Pilot) -> None:
         """Check the running widget."""
         # Check the Digits show the right time.
-        display = pilot.app.query_exactly_one(TimeDisplay)
+        display = pilot.app.query_exactly_one(DigitsTimeDisplay)
         self.assertEqual(display.value, '00:00:03')
         # Progress is not zero.
         progress_bar = pilot.app.query_exactly_one(ProgressBar)
@@ -109,7 +115,7 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
     def check_paused_state(self, pilot: Pilot) -> None:
         """Check a paused widget."""
         # Check the Digits show and ProgressBar didn't change.
-        display = pilot.app.query_exactly_one(TimeDisplay)
+        display = pilot.app.query_exactly_one(DigitsTimeDisplay)
         self.assertEqual(display.value, '00:00:03')
         progress_bar = pilot.app.query_exactly_one(ProgressBar)
         self.assertEqual(progress_bar.total, self.period_length.total_seconds())
@@ -122,7 +128,7 @@ class WalkthroughFunctionalTest(unittest.IsolatedAsyncioTestCase):
         timer_widget = pilot.app.query_exactly_one(TimerWidget)
         assert 'break' in timer_widget.classes
         # We should be at the start of a 3 second break.
-        display = pilot.app.query_exactly_one(TimeDisplay)
+        display = pilot.app.query_exactly_one(DigitsTimeDisplay)
         self.assertEqual(display.value, '00:00:03')
         # Check `pause` and `stop` bindings are active.
         assert get_binding(pilot) == ['space Pause', 'S Stop']

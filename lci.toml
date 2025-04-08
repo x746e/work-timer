@@ -1,0 +1,32 @@
+[common]
+env.unset = ['VIRTUAL_ENV']
+
+[task.ruff]
+command = 'uv run ruff check'
+tags = ['default', 'fast']
+
+[task.check_updates]
+command = 'uv lock -U --dry-run'
+show_output = true
+output_filter = '^Update'
+tags = ['default', 'fast']
+
+[task.pyright]
+command = 'uv run pyright'
+tags = ['default']
+
+[task.pytest-fast]
+command = 'uv run pytest -m "not slow" -n 4'
+tags = ['fast']
+
+[task.pytest]
+command = 'uv run pytest -x -n 8 --durations 3'
+env.unset = ['GIT_.*']
+tags = ['default']
+
+[task.pylint]
+command = 'uv run pylint src'
+tags = ['default']
+
+[task.fail]
+command = 'echo "Fail!"; exit 1'

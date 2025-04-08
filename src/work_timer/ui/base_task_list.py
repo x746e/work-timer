@@ -127,6 +127,8 @@ class BaseTaskList(Widget):
             "├─",
         )
         tree.guide_depth = 3
+        # tree.show_root = False
+        tree.auto_expand = False
 
         self._task_id_to_node_id = {
             ROOT_TASK_ID: tree.root.id,
@@ -139,8 +141,8 @@ class BaseTaskList(Widget):
         tree.root.expand()
         return tree
 
-    def _add_task(self, task: Task, parent_node: TreeNode | None = None,
-                  tree: Tree | None = None, focus=False) -> None:
+    def _add_task(self, task: Task, parent_node: TreeNode | None = None,  # pylint: disable=too-many-arguments,too-many-positional-arguments
+                  tree: Tree | None = None, focus=False, expand_parent=False) -> None:
         """Adds a `task`, with all its children, as a child of the `parent_node`."""
 
         assert task.id not in self._task_id_to_node_id, (
@@ -176,6 +178,8 @@ class BaseTaskList(Widget):
         node = parent_node.add(self._title_with_style(task, parent_node, tree),
                                data=task.id, **insert_loc())  # type: ignore
         parent_node.allow_expand = True
+        if expand_parent:
+            parent_node.expand()
         self._task_id_to_node_id[task.id] = node.id
         children = self._task_db.get_children(task.id)
         children_to_show = [c for c in children if not self._whole_subtree_is_filtered_out(c)]
