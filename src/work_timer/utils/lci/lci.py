@@ -124,7 +124,6 @@ def process_in_place_request(options: Options, req: request.Request) -> None:
         )
         _run_tasks(state)
     except LciFailed:
-        _cleanup(options, state)
         sys.exit(1)
 
 
@@ -291,6 +290,8 @@ def _cleanup(options: Options, state: _ProcessingState | None) -> None:
         return
     if not state:
         return
+    assert state.workspace != state.request.source.repo_path
+    assert not (state.workspace / '.git').exists()
     shutil.rmtree(state.workspace)
 
 
