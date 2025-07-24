@@ -28,6 +28,18 @@ def main() -> None:
     """The entrypoint to the CLI interface."""
     parser = argparse.ArgumentParser()
 
+    subparsers = parser.add_subparsers(required=True)
+
+    run_parser = subparsers.add_parser('run')
+    setup_run(run_parser)
+
+    argcomplete.autocomplete(parser)
+    args = parser.parse_args()
+    args.func(args)
+
+
+def setup_run(parser: argparse.ArgumentParser) -> None:
+    """Set up the argument parser for the `lci run` subcommand."""
     # What code to test.
     parser.add_argument('--repo-path', type=argutils.path, required=True)
     source_type = parser.add_mutually_exclusive_group(required=True)
@@ -57,9 +69,10 @@ def main() -> None:
     parser.add_argument('--skip-cleanup-workspace-on-failure', action='store_true',
                         help="Don't cleanup the workspace on failure.")
 
-    argcomplete.autocomplete(parser)
-    args = parser.parse_args()
+    parser.set_defaults(func=run_command)
 
+
+def run_command(args: argparse.Namespace) -> None:
     if args.pdb:
         breakpoint()  # pylint: disable=forgotten-debug-statement
 
