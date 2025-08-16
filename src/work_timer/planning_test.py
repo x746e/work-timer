@@ -31,7 +31,7 @@ class TestPlanProportions(TestCase):
         assert not_none(plan.get(TaskID(42))).proportion == .5
         assert not_none(plan.get(TaskID(24))).proportion == .5
 
-    def test_tree_scaled_items(self):
+    def test_three_scaled_items(self):
         plan = Plan(PLAN.period)
 
         plan.add(TaskID(42))
