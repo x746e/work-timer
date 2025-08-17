@@ -28,7 +28,6 @@ dynamic = ["version"]
 [project.scripts]
 wt = "work_timer.ui.app:main"
 wtctl = "work_timer.wtctl:main"
-lci = "work_timer.utils.lci.lci:main"
 
 [build-system]
 requires = ["setuptools"]
