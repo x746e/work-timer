@@ -214,4 +214,4 @@ async def then_the_node_should_get_expanded(parent_node: TreeNode) -> None:
     assert parent_node.is_expanded
 
 
-scenarios('.')
+scenarios('task_list.feature')
