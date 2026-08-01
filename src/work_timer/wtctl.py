@@ -102,25 +102,146 @@ def format_timedelta_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def edit_task(args) -> None:
     """CLI command to edit a Task."""
-    db = taskdb.PersistentTaskDB(args.taskdb)
+    db = taskdb.PersistentTaskDB(Path(args.taskdb))
     task = db.get(args.task_id)
 
-    assert args.status or args.priority, (
+    assert any([args.status, args.priority, args.parent, args.title, args.desc]), (
         'No `wtctl edit` action is specified.')
 
     if args.status:
         task.status = args.status
     if args.priority:
         task.priority = args.priority
+    if args.parent:
+        task.parent_id = args.parent
+    if args.title:
+        task.title = args.title
+    if args.desc:
+        task.description = args.desc
+
     db.update(task, message=args.message)
+    print(f"Success: Updated Task [{task.id}].")
+
+
+def add_task(args) -> None:
+    """CLI command to add a new Task."""
+    db = taskdb.PersistentTaskDB(Path(args.taskdb))
+    task = taskdb.Task(
+        title=args.title,
+        description=args.desc or '',
+        parent_id=args.parent or taskdb.ROOT_TASK_ID,
+        priority=args.priority or taskdb.Task.Priority.P2,
+    )
+    task_id = db.add(task)
+    print(f"Success: Created Task [{task_id}] '{task.title}' under Parent [{task.parent_id}].")
+
+
+def show_task(args) -> None:
+    """CLI command to show full details of a specific Task."""
+    db = taskdb.PersistentTaskDB(Path(args.taskdb))
+    task = db.get(args.task_id)
+
+    print(f"# [{task.id}] {task.title}")
+    print(f"**Status:** {task.status.value} | **Priority:** {task.priority.value} | **Type:** {task.type.value}")
+    print(f"**Parent:** [{task.parent_id}]")
+    print(f"**Children IDs:** {task.child_ids}")
+    print("\n**Description:**")
+    print(task.description)
+
+
+def list_tasks(args) -> None:
+    """CLI command to print a Markdown tree of tasks."""
+    db = taskdb.PersistentTaskDB(Path(args.taskdb))
+
+    def print_tree(task_id: int, current_depth: int):
+        if current_depth > args.depth:
+            return
+
+        try:
+            task = db.get(task_id)
+        except KeyError:
+            return
+
+        if args.status and task.status.value != args.status:
+            pass
+        else:
+            indent = "  " * current_depth
+
+            title_str = f"[{task.id}] {task.title}"
+            if task.status == taskdb.Task.Status.DONE:
+                title_str = f"~~{title_str}~~"
+
+            print(f"{indent}- {title_str} ({task.status.value}, {task.priority.value})")
+
+        children = task.child_ids
+        if children:
+            if current_depth >= args.depth:
+                indent = "  " * (current_depth + 1)
+                print(f"{indent}- ... (has {len(children)} hidden children)")
+            else:
+                for child_id in children:
+                    print_tree(child_id, current_depth + 1)
+
+    print_tree(args.parent, 0)
+
+
+@no_type_check
+def show_timelog(args) -> None:
+    """CLI command to print a Markdown table of logged time."""
+    db_tasks = taskdb.PersistentTaskDB(Path(args.taskdb))
+    time_log = timelog.PersistentTimeLog(Path(args.timelog))
+
+    tasks = db_tasks.get_data_frame()
+    logs = time_log.get_data_frame()
+
+    if args.today:
+        logs = logs[logs.start.dt.date == date.today()]
+    elif args.weekly:
+        today = date.today()
+        days_since_monday = today.weekday()
+        this_weeks_monday = today - timedelta(days=days_since_monday)
+        logs = logs[this_weeks_monday <= logs.start.dt.date]
+    else:
+        if args.since:
+            since_date = datetime.strptime(args.since, '%Y-%m-%d').date()
+            logs = logs[since_date <= logs.start.dt.date]
+        if args.until:
+            until_date = datetime.strptime(args.until, '%Y-%m-%d').date()
+            logs = logs[logs.start.dt.date <= until_date]
+
+    if logs.empty:
+        print("No time logged in this period.")
+        return
+
+    # Filter out ROOT and breaks
+    logs = logs[logs.task_id > 0]
+
+    summary = logs.groupby('task_id')[['duration']].sum()
+
+    print("| Task ID | Title | Total Duration |")
+    print("| :--- | :--- | :--- |")
+
+    total_duration = timedelta()
+    for task_id, row in summary.iterrows():
+        duration = round_td(row['duration'], td('5m'))
+        if duration.total_seconds() == 0:
+            continue
+
+        total_duration += duration
+
+        title = tasks[tasks.index == task_id].iloc[0].title if task_id in tasks.index else "Unknown"
+
+        print(f"| {task_id} | {title} | {humanize_td(duration)} |")
+
+    print(f"\n**Total Logged Time:** {humanize_td(total_duration)}")
 
 
 @no_type_check  # pyright has issues with Pandas.
 def stats(args) -> None:
     """Print statistics about work done today."""
 
-    task_db = taskdb.PersistentTaskDB(args.taskdb)
-    time_log = timelog.PersistentTimeLog(args.timelog)
+    task_db = taskdb.PersistentTaskDB(Path(args.taskdb))
+    time_log = timelog.PersistentTimeLog(Path(args.timelog))
 
     tasks = task_db.get_data_frame()
     logs = time_log.get_data_frame()
@@ -236,8 +357,40 @@ def main():
                              choices=list(taskdb.Task.Status))
     edit_parser.add_argument('-p', '--priority', type=taskdb.Task.Priority,
                              choices=list(taskdb.Task.Priority))
+    edit_parser.add_argument('--parent', type=int)
+    edit_parser.add_argument('--title', type=str)
+    edit_parser.add_argument('--desc', type=str)
     edit_parser.add_argument('-m', '--message')
     edit_parser.set_defaults(func=edit_task)
+
+    # wtctl add-task
+    add_parser = subparsers.add_parser('add-task', aliases=['add'])
+    add_parser.add_argument('--title', required=True, type=str)
+    add_parser.add_argument('--parent', type=int)
+    add_parser.add_argument('--desc', type=str)
+    add_parser.add_argument('--priority', type=taskdb.Task.Priority, choices=list(taskdb.Task.Priority))
+    add_parser.set_defaults(func=add_task)
+
+    # wtctl show
+    show_parser = subparsers.add_parser('show')
+    show_parser.add_argument('-t', '--task-id', required=True, type=int)
+    show_parser.set_defaults(func=show_task)
+
+    # wtctl ls
+    ls_parser = subparsers.add_parser('ls', aliases=['list'])
+    ls_parser.add_argument('--parent', type=int, default=taskdb.ROOT_TASK_ID)
+    ls_parser.add_argument('--depth', type=int, default=3)
+    ls_parser.add_argument('--status', type=str)
+    ls_parser.set_defaults(func=list_tasks)
+
+    # wtctl timelog
+    timelog_parser = subparsers.add_parser('timelog', aliases=['log'])
+    timelog_parser.add_argument('--today', action='store_true')
+    timelog_parser.add_argument('--weekly', action='store_true')
+    timelog_parser.add_argument('--since', type=str, help='YYYY-MM-DD')
+    timelog_parser.add_argument('--until', type=str, help='YYYY-MM-DD')
+    timelog_parser.set_defaults(func=show_timelog)
+
     # TODO: Do parser.error() when no task edit action is specified.  E.g.:
     #   edit_parser.set_defaults(validate=validate_edit_args)
     #   args.validate(args)
