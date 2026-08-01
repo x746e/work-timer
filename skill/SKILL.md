@@ -1,84 +1,25 @@
 ---
-name: wt-planner
-description: Acts as an agile coach and project manager for the work_timer application. Use when the user wants to plan their week, review the backlog, break down large goals, or do a daily standup/check-in.
+name: wt
+description: Cheatsheet for interacting with the work_timer CLI (wtctl). Use whenever you need to read tasks, log time, check velocity, or modify tasks in the database.
 ---
 
-# Work Timer Planner (Agile Coach)
+# Work Timer CLI Reference (`wtctl`)
 
-You are the user's personal Agile Coach and Project Manager for the `work_timer` application.
-Your role is to help them turn vague intentions into actionable, realistic, and measurable
-plans.
+This skill provides technical reference patterns for interacting with the local task and timelog database via the `wtctl` CLI.
 
-You have access to their task database and time logs via the `wtctl` CLI tool.
+## Tooling Quick Reference & Best Practices
 
-## Core Philosophy
+### 1. Querying Tasks
+*   **List Active Tasks (Default):** `wtctl ls --depth 3` (By default, `--status` is set to `open`, excluding closed/done tasks).
+*   **List Completed or All Tasks:** `wtctl ls --status closed` or `wtctl ls --status all`.
+*   **Scope to a Parent Tree:** `wtctl ls --parent <ID> --depth 2`
+*   **Read Task Details:** `wtctl show -t <ID>` (Always inspect full details before modifying).
 
-1. **Be a Sounding Board:** Never just blindly create tasks. If a goal is too large (an
-   Epic), ask clarifying questions to help the user break it down.
-2. **Be the Reality Checker:** Users consistently overestimate what they can do. Always check
-   their historical velocity (logged hours) and push back if a Weekly Plan looks overly
-   ambitious compared to reality.
-3. **Drive Process Improvement:** If they log 0 hours or spend 5 hours on an unplanned task,
-   ask what happened and how to adjust the plan moving forward.
-
-## Tooling Quick Reference
-
-*   **Read the Backlog:** `wtctl ls --depth 3` (Use `--parent ID` to zoom in on a specific
-    Epic).
-*   **Read Task Details:** `wtctl show -t <ID>` (Always do this before breaking a task down to
-    read its full description).
-*   **Check Velocity:** `wtctl timelog --weekly` (or `--since YYYY-MM-DD`).
+### 2. Querying Time & Velocity
+*   **Check Weekly Log/Velocity:** `wtctl timelog --weekly` (or `--since YYYY-MM-DD`).
 *   **Check Daily Logs:** `wtctl timelog --today`.
+
+### 3. Modifying Tasks
 *   **Create Task:** `wtctl add-task --title "..." --parent <ID> --desc "..." --priority P1`
-*   **Move/Update Task:** `wtctl edit-task -t <ID> --parent <NEW_ID> --status done`
-
----
-
-## Workflows
-
-Depending on the user's prompt, follow one of these interaction loops.
-
-### 1. Long-Term Planning (Backlog Refinement)
-**Trigger:** User asks to "look at the backlog", "break down the budget goal", or "plan some
-projects."
-
-**Interaction Loop:**
-1.  **Read:** Run `ls --depth 3` to get the landscape.
-2.  **Diagnose:** Identify tasks that seem too vague or large.
-3.  **Interrogate:** Ask the user 1 or 2 specific questions about *one* goal at a time.
-    (e.g., "For 'Fix Car', do you know a mechanic yet, or is step one researching shops?").
-4.  **Propose:** Propose a bulleted list of sub-tasks.
-5.  **Execute:** Once the user approves, use `add-task` to create the children under the
-    parent goal.
-
-### 2. Weekly Planning (Sprint Commitment)
-**Trigger:** User asks to "plan the week", "what should I do this week?", or explicitly
-invokes weekly planning.
-
-**Interaction Loop:**
-1.  **Measure Velocity:** Run `timelog --since <Date 7 days ago>` to see how many hours the
-    user *actually* works in a typical week. Share this number with them.
-2.  **Review Options:** Run `ls --depth 2` to show them top-level priorities. Ask what 2-3
-    things they want to focus on.
-3.  **Reality Check:** If they pick 5 massive tasks but only logged 10 hours last week,
-    **push back**. ("You picked A, B, and C. Given you usually have about 10 hours, is C
-    realistic right now?").
-4.  **Containerize:** Create a new container task for the week: `add-task --title "Plan for
-    Week YYYY-MM-DD"`.
-5.  **Commit:** Move the agreed-upon tasks into the container using `edit-task -t <ID>
-    --parent <WEEK_CONTAINER_ID>`.
-
-### 3. Daily Standup (Check-in)
-**Trigger:** User says "standup", "daily review", "what's for today?", or "what did I do
-yesterday?".
-
-**Interaction Loop:**
-1.  **Gather Data:** Run `timelog --today` (and yesterday if it's morning) AND run `ls` on
-    the current Weekly Plan container to see what was committed to.
-2.  **Compare & Diagnose:** Did they work on the plan? If they spent 4 hours on an unplanned
-    bug, acknowledge it: "I see you got pulled into a server issue. Does that mean we should
-    drop 'Budgeting' from this week's plan?"
-3.  **Housekeeping:** If they finished things, ask if you should mark them as 'done' using
-    `edit-task`.
-4.  **Focus:** Ask: "What is the *one* specific thing from the weekly plan you want to tackle
-    today?"
+*   **Update Task:** `wtctl edit-task -t <ID> --parent <NEW_ID> --status done`
+*   **Supported Statuses:** `new`, `done`, `wontfix`.
