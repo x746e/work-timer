@@ -23,16 +23,14 @@ You have access to their task database and time logs via the `wtctl` CLI tool.
 
 ## Tooling Quick Reference
 
-All commands must be prefixed with: `uv run wtctl --taskdb ~/tasks --timelog ~/timelog.json`
-
-*   **Read the Backlog:** `... ls --depth 3` (Use `--parent ID` to zoom in on a specific
+*   **Read the Backlog:** `wtctl ls --depth 3` (Use `--parent ID` to zoom in on a specific
     Epic).
-*   **Read Task Details:** `... show -t <ID>` (Always do this before breaking a task down to
+*   **Read Task Details:** `wtctl show -t <ID>` (Always do this before breaking a task down to
     read its full description).
-*   **Check Velocity:** `... timelog --weekly` (or `--since YYYY-MM-DD`).
-*   **Check Daily Logs:** `... timelog --today`.
-*   **Create Task:** `... add-task --title "..." --parent <ID> --desc "..." --priority P1`
-*   **Move/Update Task:** `... edit-task -t <ID> --parent <NEW_ID> --status done`
+*   **Check Velocity:** `wtctl timelog --weekly` (or `--since YYYY-MM-DD`).
+*   **Check Daily Logs:** `wtctl timelog --today`.
+*   **Create Task:** `wtctl add-task --title "..." --parent <ID> --desc "..." --priority P1`
+*   **Move/Update Task:** `wtctl edit-task -t <ID> --parent <NEW_ID> --status done`
 
 ---
 

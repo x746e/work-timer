@@ -29,8 +29,8 @@ esac; done
 
 if [[ -n "$PROD" ]]; then
     args=(
-        --taskdb ~/tasks
-        --timelog ~/timelog.json
+        --taskdb ~/.local/share/work_timer/tasks
+        --timelog ~/.local/share/work_timer/timelog.json
     )
 else
     args=(
