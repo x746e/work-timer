@@ -59,7 +59,7 @@ class PersistentTaskDB(TaskDB):
         """Initialize a new PersistentTaskDB-backing git repo."""
         metadata_path = repo_path / 'metadata.json'
         assert not metadata_path.exists()
-        subprocess.check_output(f'git -C {repo_path} init', shell=True)
+        subprocess.check_output(f'git -C {repo_path} init -b main', shell=True)
         with (repo_path / '.gitignore').open('w') as f:
             f.write('.lock\n')
         subprocess.check_output(
