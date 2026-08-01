@@ -5,6 +5,8 @@ set -eu
 HERE="$(dirname "$(readlink -f $0)")"
 PROJECT_ROOT="$(dirname "$HERE")"
 cd "$PROJECT_ROOT"
+XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+WT_DATA_DIR="$XDG_DATA_HOME/work_timer"
 
 CLEAR='\033[0m'
 RED='\033[0;31m'
@@ -28,9 +30,9 @@ esac; done
 
 
 args=(
-    --plandb ~/plandb
-    --taskdb ~/tasks
-    --timelog ~/timelog.json
+    --plandb "$WT_DATA_DIR/plandb"
+    --taskdb "$WT_DATA_DIR/tasks"
+    --timelog "$WT_DATA_DIR/timelog.json"
     --enable-notifications
 )
 if [[ -n "$BUGGING_ENABLED" ]]; then
