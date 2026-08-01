@@ -144,7 +144,7 @@ class WtctlTest(unittest.TestCase):
             taskdb=self.taskdb_dir.name,
             parent=-10,
             depth=10,
-            status=None
+            status=wtctl.StatusFilter.ALL,
         )
 
         stdout = io.StringIO()
@@ -155,12 +155,28 @@ class WtctlTest(unittest.TestCase):
         self.assertIn("- ~~[2]", output) # Should be crossed out because it's done
         self.assertIn("- [3]", output)   # Child of 2
 
+    def test_list_tasks_default_open(self):
+        args = argparse.Namespace(
+            taskdb=self.taskdb_dir.name,
+            parent=-10,
+            depth=10,
+            status=wtctl.StatusFilter.OPEN,
+        )
+
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            wtctl.list_tasks(args)
+
+        output = stdout.getvalue()
+        self.assertNotIn("- ~~[2]", output) # Closed task omitted by OPEN default
+        self.assertNotIn("- [3]", output)   # Child of closed task omitted
+
     def test_list_tasks_depth_limit(self):
         args = argparse.Namespace(
             taskdb=self.taskdb_dir.name,
             parent=-10,
             depth=0, # Only show root
-            status=None
+            status=wtctl.StatusFilter.ALL,
         )
 
         stdout = io.StringIO()
@@ -171,6 +187,22 @@ class WtctlTest(unittest.TestCase):
         self.assertIn("- [-10] Root task", output)
         self.assertIn("- ... (has", output) # Should indicate hidden children
         self.assertNotIn("[2]", output)     # Level 1 should be hidden
+
+    def test_list_tasks_not_found(self):
+        args = argparse.Namespace(
+            taskdb=self.taskdb_dir.name,
+            parent=99999,
+            depth=10,
+            status=wtctl.StatusFilter.ALL,
+        )
+        stderr = io.StringIO()
+        with (
+            contextlib.redirect_stderr(stderr),
+            self.assertRaises(SystemExit) as cm,
+        ):
+            wtctl.list_tasks(args)
+        self.assertEqual(cm.exception.code, 1)
+        self.assertIn("Error: Task ID", stderr.getvalue())
 
     def test_timelog_today(self):
         args = argparse.Namespace(

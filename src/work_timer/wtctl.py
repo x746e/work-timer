@@ -1,6 +1,8 @@
 """A CLI for the work timer."""
 # ruff: noqa: F401, F841
 import argparse
+import enum
+import sys
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 import re
@@ -149,40 +151,85 @@ def show_task(args) -> None:
     print(task.description)
 
 
+class StatusFilter(enum.StrEnum):
+    """Special status filtering options for listing tasks."""
+    OPEN = enum.auto()
+    CLOSED = enum.auto()
+    ALL = enum.auto()
+
+
+def _parse_status_filter(value: str) -> StatusFilter | taskdb.Task.Status:
+    """Parse a status filter CLI argument string into a StatusFilter or Task.Status enum."""
+    try:
+        return StatusFilter(value.lower())
+    except ValueError:
+        try:
+            return taskdb.Task.Status(value.lower())
+        except ValueError as err:
+            valid = [e.value for e in StatusFilter] + [e.value for e in taskdb.Task.Status]
+            raise argparse.ArgumentTypeError(
+                f"Invalid status '{value}'. Valid choices: {', '.join(valid)}"
+            ) from err
+
+
 def list_tasks(args) -> None:
     """CLI command to print a Markdown tree of tasks."""
     db = taskdb.PersistentTaskDB(Path(args.taskdb))
+    try:
+        _print_task_tree(db, taskdb.TaskID(args.parent), 0, args.depth, args.status)
+    except KeyError as err:
+        sys.stderr.write(f"Error: Task ID {err} not found in database.\n")
+        sys.exit(1)
 
-    def print_tree(task_id: int, current_depth: int):
-        if current_depth > args.depth:
-            return
 
-        try:
-            task = db.get(task_id)
-        except KeyError:
-            return
+def _print_task_tree(
+    db: taskdb.PersistentTaskDB,
+    task_id: taskdb.TaskID,
+    current_depth: int,
+    max_depth: int,
+    status_filter: StatusFilter | taskdb.Task.Status,
+) -> None:
+    """Recursively traverse and print tasks as a formatted Markdown list.
 
-        if args.status and task.status.value != args.status:
-            pass
+    Args:
+        db: The persistent task database instance to query tasks from.
+        task_id: The unique identifier of the current task node to print.
+        current_depth: The current indentation depth in the recursive hierarchy.
+        max_depth: The maximum depth to traverse before hiding remaining child trees.
+        status_filter: The status or filter category (`OPEN`, `CLOSED`, `ALL`, or a specific task status) used to include or prune task trees.
+    """
+    if current_depth > max_depth:
+        raise ValueError(f"Current depth ({current_depth}) exceeds maximum depth ({max_depth}).")
+
+    task = db.get(task_id)
+
+    if status_filter == StatusFilter.OPEN and task.status.is_closed:
+        return
+
+    should_print = True
+    if status_filter == StatusFilter.OPEN:
+        should_print = not task.status.is_closed
+    elif status_filter == StatusFilter.CLOSED:
+        should_print = task.status.is_closed
+    elif status_filter != StatusFilter.ALL:
+        should_print = task.status == status_filter
+
+    if should_print:
+        indent = "  " * current_depth
+        title_str = f"[{task.id}] {task.title}"
+        if task.status == taskdb.Task.Status.DONE:
+            title_str = f"~~{title_str}~~"
+
+        print(f"{indent}- {title_str} ({task.status.value}, {task.priority.value})")
+
+    children = task.child_ids
+    if children:
+        if current_depth >= max_depth:
+            indent = "  " * (current_depth + 1)
+            print(f"{indent}- ... (has {len(children)} hidden children)")
         else:
-            indent = "  " * current_depth
-
-            title_str = f"[{task.id}] {task.title}"
-            if task.status == taskdb.Task.Status.DONE:
-                title_str = f"~~{title_str}~~"
-
-            print(f"{indent}- {title_str} ({task.status.value}, {task.priority.value})")
-
-        children = task.child_ids
-        if children:
-            if current_depth >= args.depth:
-                indent = "  " * (current_depth + 1)
-                print(f"{indent}- ... (has {len(children)} hidden children)")
-            else:
-                for child_id in children:
-                    print_tree(child_id, current_depth + 1)
-
-    print_tree(args.parent, 0)
+            for child_id in children:
+                _print_task_tree(db, child_id, current_depth + 1, max_depth, status_filter)
 
 
 @no_type_check
@@ -380,7 +427,13 @@ def main():
     ls_parser = subparsers.add_parser('ls', aliases=['list'])
     ls_parser.add_argument('--parent', type=int, default=taskdb.ROOT_TASK_ID)
     ls_parser.add_argument('--depth', type=int, default=3)
-    ls_parser.add_argument('--status', type=str)
+    ls_parser.add_argument(
+        '--status',
+        type=_parse_status_filter,
+        choices=list(StatusFilter) + list(taskdb.Task.Status),
+        default=StatusFilter.OPEN,
+        help='Filter tasks by status or category (default: %(default)s).',
+    )
     ls_parser.set_defaults(func=list_tasks)
 
     # wtctl timelog
