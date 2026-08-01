@@ -107,12 +107,12 @@ EXPECTED_DATA = {
             {
                 'extDtype': 'string',
                 'name': 'title',
-                'type': 'any',
+                'type': 'string',
             },
             {
                 'extDtype': 'string',
                 'name': 'description',
-                'type': 'any',
+                'type': 'string',
             },
             {
                 'constraints': {
