@@ -67,16 +67,16 @@ class PersistentTimeLog(TimeLog):
         if not self._path.exists():
             return []
         df = pd.read_json(self._path, orient='table')
-        df = df.astype({'duration': 'timedelta64[ns]'})
+        df['duration'] = pd.to_timedelta(df['duration'], unit='s')
+        if not df.empty and (df['duration'].dt.total_seconds() == 0).all():
+            raise ValueError(
+                f"Timelog at '{self._path}' appears corrupted: all durations evaluate to 0."
+            )
         return self._from_df(df)
 
     def _persist(self) -> None:
         df = self.get_data_frame()
-        # TODO: Migrate existing timelog files from nanoseconds to integer seconds.
-        # In pandas 3+, timedeltas default to microsecond resolution in memory, so direct
-        # .astype('int') silently alters values. We multiply total seconds by
-        # 1_000_000_000 to maintain compatibility with legacy JSON logs without migration.
-        df['duration'] = (df['duration'].dt.total_seconds() * 1_000_000_000).astype('int64')
+        df['duration'] = df['duration'].dt.total_seconds().round().astype('int64')
         df.to_json(self._path, orient='table', indent=2)
 
     def _from_df(self, df: pd.DataFrame) -> list[Period]:

@@ -30,13 +30,13 @@ class TimeLogTest(unittest.TestCase):
 EXPECTED_DATA = {
     'data': [
         {
-            'duration': 300000000000,
+            'duration': 300,
             'index': 0,
             'start': '1969-12-31T16:20:34.000',
             'task_id': 42,
         },
         {
-            'duration': 18000000000000,
+            'duration': 18000,
             'index': 1,
             'start': '1970-01-01T02:20:34.000',
             'task_id': 24,
