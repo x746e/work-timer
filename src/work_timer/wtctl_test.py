@@ -139,6 +139,118 @@ class WtctlTest(unittest.TestCase):
         self.assertIn("**Status:** done", output)
         self.assertIn("**Parent:** [1]", output)
 
+    def test_reorder_task_before_and_after(self):
+        # Task 2 initially has children [3, 4, 5]
+        args = argparse.Namespace(
+            taskdb=self.taskdb_dir.name,
+            task_id=5,
+            message=None,
+            before=3,
+            after=None,
+            top=False,
+            bottom=False,
+            up=False,
+            down=False,
+        )
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            wtctl.reorder_task(args)
+
+        db = PersistentTaskDB(Path(self.taskdb_dir.name))
+        self.assertEqual(db.get(2).child_ids, [5, 3, 4])
+
+        # Now move 5 after 4 -> [3, 4, 5]
+        args.before = None
+        args.after = 4
+        with contextlib.redirect_stdout(io.StringIO()):
+            wtctl.reorder_task(args)
+        db = PersistentTaskDB(Path(self.taskdb_dir.name))
+        self.assertEqual(db.get(2).child_ids, [3, 4, 5])
+
+    def test_reorder_task_top_and_bottom(self):
+        args = argparse.Namespace(
+            taskdb=self.taskdb_dir.name,
+            task_id=4,
+            message=None,
+            before=None,
+            after=None,
+            top=True,
+            bottom=False,
+            up=False,
+            down=False,
+        )
+        with contextlib.redirect_stdout(io.StringIO()):
+            wtctl.reorder_task(args)
+        db = PersistentTaskDB(Path(self.taskdb_dir.name))
+        self.assertEqual(db.get(2).child_ids, [4, 3, 5])
+
+        args.top = False
+        args.bottom = True
+        with contextlib.redirect_stdout(io.StringIO()):
+            wtctl.reorder_task(args)
+        db = PersistentTaskDB(Path(self.taskdb_dir.name))
+        self.assertEqual(db.get(2).child_ids, [3, 5, 4])
+
+    def test_reorder_task_up_and_down(self):
+        args = argparse.Namespace(
+            taskdb=self.taskdb_dir.name,
+            task_id=4,
+            message=None,
+            before=None,
+            after=None,
+            top=False,
+            bottom=False,
+            up=False,
+            down=True,
+        )
+        with contextlib.redirect_stdout(io.StringIO()):
+            wtctl.reorder_task(args)
+        db = PersistentTaskDB(Path(self.taskdb_dir.name))
+        self.assertEqual(db.get(2).child_ids, [3, 5, 4])
+
+    def test_reorder_task_invalid_boundary(self):
+        args = argparse.Namespace(
+            taskdb=self.taskdb_dir.name,
+            task_id=3,
+            message=None,
+            before=None,
+            after=None,
+            top=False,
+            bottom=False,
+            up=True,
+            down=False,
+        )
+        stderr = io.StringIO()
+        with (
+            contextlib.redirect_stderr(stderr),
+            self.assertRaises(SystemExit) as cm,
+        ):
+            wtctl.reorder_task(args)
+        self.assertEqual(cm.exception.code, 1)
+        self.assertIn("Cannot shift task", stderr.getvalue())
+
+    def test_reorder_task_non_sibling(self):
+        # Task 6 is a child of 1, not 2
+        args = argparse.Namespace(
+            taskdb=self.taskdb_dir.name,
+            task_id=3,
+            message=None,
+            before=6,
+            after=None,
+            top=False,
+            bottom=False,
+            up=False,
+            down=False,
+        )
+        stderr = io.StringIO()
+        with (
+            contextlib.redirect_stderr(stderr),
+            self.assertRaises(SystemExit) as cm,
+        ):
+            wtctl.reorder_task(args)
+        self.assertEqual(cm.exception.code, 1)
+        self.assertIn("not a sibling", stderr.getvalue())
+
     def test_list_tasks(self):
         args = argparse.Namespace(
             taskdb=self.taskdb_dir.name,

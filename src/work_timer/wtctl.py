@@ -151,6 +151,105 @@ def show_task(args) -> None:
     print(task.description)
 
 
+def reorder_task(args) -> None:
+    """CLI command to change the relative order of a task under its parent."""
+    db = taskdb.PersistentTaskDB(Path(args.taskdb))
+    task_id = taskdb.TaskID(args.task_id)
+
+    try:
+        task = db.get(task_id)
+        if not task.parent_id or task.parent_id == taskdb.UNSET_TASK_ID:
+            raise ValueError(
+                f"Task [{task_id}] has no valid parent to reorder within."
+            )
+
+        parent = db.get(task.parent_id)
+        if task_id not in parent.child_ids:
+            raise ValueError(
+                f"Task [{task_id}] not found in parent [{parent.id}]'s"
+                " children."
+            )
+
+        if args.before is not None:
+            _move_sibling(
+                parent.child_ids,
+                task_id,
+                taskdb.TaskID(args.before),
+                place_before=True,
+            )
+        elif args.after is not None:
+            _move_sibling(
+                parent.child_ids,
+                task_id,
+                taskdb.TaskID(args.after),
+                place_before=False,
+            )
+        elif args.top:
+            _move_to_index(parent.child_ids, task_id, index=0)
+        elif args.bottom:
+            _move_to_index(parent.child_ids, task_id, index=len(parent.child_ids))
+        elif args.up:
+            _shift_position(parent.child_ids, task_id, delta=-1)
+        elif args.down:
+            _shift_position(parent.child_ids, task_id, delta=1)
+        else:
+            raise ValueError("No reordering action specified.")
+
+        db.update(
+            parent,
+            message=args.message
+            or f"Reorder task [{task_id}] under parent [{parent.id}]",
+        )
+        print(f"Success: Reordered Task [{task_id}] under Parent [{parent.id}].")
+    except (KeyError, ValueError) as err:
+        sys.stderr.write(f"Error: {err}\n")
+        sys.exit(1)
+
+
+def _move_sibling(
+    child_ids: list[taskdb.TaskID],
+    task_id: taskdb.TaskID,
+    target_id: taskdb.TaskID,
+    place_before: bool,
+) -> None:
+    """Move task_id immediately before or after target_id within child_ids."""
+    if target_id == task_id:
+        raise ValueError(f"Cannot reorder task [{task_id}] relative to itself.")
+    if target_id not in child_ids:
+        raise ValueError(
+            f"Target task [{target_id}] is not a sibling of task [{task_id}]."
+        )
+
+    child_ids.remove(task_id)
+    target_index = child_ids.index(target_id)
+    insert_index = target_index if place_before else target_index + 1
+    child_ids.insert(insert_index, task_id)
+
+
+def _move_to_index(
+    child_ids: list[taskdb.TaskID], task_id: taskdb.TaskID, index: int
+) -> None:
+    """Move task_id to an explicit position index within child_ids."""
+    child_ids.remove(task_id)
+    child_ids.insert(index, task_id)
+
+
+def _shift_position(
+    child_ids: list[taskdb.TaskID], task_id: taskdb.TaskID, delta: int
+) -> None:
+    """Shift task_id by delta positions (negative for up, positive for down)."""
+    current_index = child_ids.index(task_id)
+    new_index = current_index + delta
+    if new_index < 0 or new_index >= len(child_ids):
+        raise ValueError(
+            f"Cannot shift task [{task_id}] past the boundaries of its parent's"
+            " child list."
+        )
+
+    child_ids.remove(task_id)
+    child_ids.insert(new_index, task_id)
+
+
 class StatusFilter(enum.StrEnum):
     """Special status filtering options for listing tasks."""
     OPEN = enum.auto()
@@ -422,6 +521,48 @@ def main():
     show_parser = subparsers.add_parser('show')
     show_parser.add_argument('-t', '--task-id', required=True, type=int)
     show_parser.set_defaults(func=show_task)
+
+    # wtctl reorder-task
+    reorder_parser = subparsers.add_parser(
+        'reorder-task', aliases=['reorder', 'mv']
+    )
+    reorder_parser.add_argument(
+        '-t', '--task-id', required=True, type=int, help='Task ID to reorder.'
+    )
+    reorder_parser.add_argument(
+        '-m',
+        '--message',
+        type=str,
+        help='Log message for the persistence commit.',
+    )
+    group = reorder_parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
+        '--before',
+        type=int,
+        help='Move task immediately before this sibling Task ID.',
+    )
+    group.add_argument(
+        '--after',
+        type=int,
+        help='Move task immediately after this sibling Task ID.',
+    )
+    group.add_argument(
+        '--top',
+        action='store_true',
+        help='Move task to the top under its parent.',
+    )
+    group.add_argument(
+        '--bottom',
+        action='store_true',
+        help='Move task to the bottom under its parent.',
+    )
+    group.add_argument(
+        '--up', action='store_true', help='Move task up one position.'
+    )
+    group.add_argument(
+        '--down', action='store_true', help='Move task down one position.'
+    )
+    reorder_parser.set_defaults(func=reorder_task)
 
     # wtctl ls
     ls_parser = subparsers.add_parser('ls', aliases=['list'])

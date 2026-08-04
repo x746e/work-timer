@@ -22,4 +22,5 @@ This skill provides technical reference patterns for interacting with the local 
 ### 3. Modifying Tasks
 *   **Create Task:** `wtctl add-task --title "..." --parent <ID> --desc "..." --priority P1`
 *   **Update Task:** `wtctl edit-task -t <ID> --parent <NEW_ID> --status done`
+*   **Reorder Sibling Tasks:** `wtctl reorder -t <ID> --before <SIBLING_ID>` (or `--after <ID>`, `--top`, `--bottom`, `--up`, `--down`)
 *   **Supported Statuses:** `new`, `done`, `wontfix`.
